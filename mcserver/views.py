@@ -168,7 +168,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def valid(self, request):
         # Note the use of `get_queryset()` instead of `self.queryset`
-        sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)[:40]
+        sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)
         serializer = SessionSerializer(sessions, many=True)
         return Response(serializer.data)
 
@@ -303,12 +303,20 @@ class SessionViewSet(viewsets.ModelViewSet):
             newSessionURL = "{}/sessions/{}/status/".format(settings.HOST_URL, session.meta['startNewSession']['id'])
         else:
             newSessionURL = None
+            
+        if session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
+            frameRate = int(session.meta['settings']['framerate'])
+        else:
+            frameRate = 60
+        if trial and (trial.name in {'calibration','neutral'}):
+            frameRate = 30
+
 
         res = {
             "status": status,
             "trial": trial_url,
             "video": video_url,
-            "framerate": 60,
+            "framerate": frameRate,
             "newSessionURL":newSessionURL,
         }
 
@@ -387,6 +395,39 @@ class SessionViewSet(viewsets.ModelViewSet):
                              'isAdmin':isUserAdmin}
         
         return Response(sessionPermission)
+    
+    @action(detail=True)
+    def get_session_settings(self, request, pk):
+        session = Session.objects.get(pk=pk)
+        
+        # Check if using same setup
+        if session.meta and 'sessionWithCalibration' in session.meta and 'id' in session.meta['sessionWithCalibration']:
+            session = Session.objects.get(pk=session.meta['sessionWithCalibration']['id'])
+        
+        self.check_object_permissions(self.request, session)
+        serializer = SessionSerializer(session)
+
+        trials = session.trial_set.order_by("-created_at")
+        trial = None
+
+        # If there is at least one trial, check it's status
+        if trials.count():
+            trial = trials[0]
+        
+        if trial and trial.video_set.count() > 0:
+            maxFramerates = []
+            for video in trial.video_set.all():
+                if 'max_framerate' in video.parameters:
+                    maxFramerates.append(video.parameters['max_framerate'])
+                else:
+                    maxFramerates = [60]
+                           
+        framerateOptions = [60,120,240]
+        frameratesAvailable = [f for f in framerateOptions if f<=min(maxFramerates)]
+        
+        settings_dict = {'framerates':frameratesAvailable}                          
+            
+        return Response(settings_dict)
 
     @action(detail=True)
     def set_metadata(self, request, pk):
@@ -404,6 +445,11 @@ class SessionViewSet(viewsets.ModelViewSet):
                 "gender": request.GET.get("subject_gender",""),
                 "datasharing": request.GET.get("subject_data_sharing",""),
                 "posemodel": request.GET.get("subject_pose_model",""),
+            }
+            
+        if "settings_framerate" in request.GET:
+            session.meta["settings"] = {
+                "framerate": request.GET.get("settings_framerate",""),
             }
             
         if "cb_square" in request.GET:
@@ -576,7 +622,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         # find trials with some videos not uploaded
         not_uploaded = Video.objects.filter(video='',
-                                            updated_at__gte=datetime.now().date() + timedelta(days=-1)).values_list("trial__id", flat=True)
+                                            updated_at__gte=datetime.now().date() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
 
         print(not_uploaded)
 
