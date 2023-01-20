@@ -165,10 +165,24 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-    @action(detail=False)
+    @action(
+        detail=False,
+        methods=["get","post"],
+    )
     def valid(self, request):
-        # Note the use of `get_queryset()` instead of `self.queryset`
-        sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)[:40]
+        # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
+        if 'quantity' not in request.data:
+            quantity = -1
+        else:
+            quantity = request.data['quantity']
+        print(request.data['quantity'])
+        if(quantity == -1):
+            # Note the use of `get_queryset()` instead of `self.queryset`
+            sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)
+        else:
+            # Note the use of `get_queryset()` instead of `self.queryset`
+            sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)[:request.data['quantity']]
+
         serializer = SessionSerializer(sessions, many=True)
         return Response(serializer.data)
 
@@ -455,26 +469,6 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         serializer = TrialSerializer(trial, many=False)
         return Response(serializer.data)
-    
-    ## Cancel trial POST '<id>/stop/'
-    # Changes the trial status from "stopped" to "error"
-    # Logic on the client side:
-    # - session status changed when cancel is pressed
-    @action(detail=True)
-    def cancel_trial(self, request, pk):
-        session = Session.objects.get(pk=pk)
-        trials = session.trial_set.order_by("-created_at")
-
-        # If there is at least one trial, check it's status
-        if len(trials) >0:
-            trial = trials[0]
-            trial.status = "error"
-            trial.save()
-            data = {"status": "error"}
-        else:
-            data = {"status": "noTrials"}
-
-        return Response(data)
 
     @action(detail=True)
     def calibration_img(self, request, pk):
