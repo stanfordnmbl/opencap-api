@@ -19,7 +19,7 @@ Clone this repo, then:
 conda create -n opencap python=3.7
 pip install -r requirements.txt
 ```
-Create the `.env` file with all env variables and credentials. 
+Create the `.env` file with all env variables and credentials.
 
 ## Running the server locally
 
@@ -47,4 +47,4 @@ Then for deploying to production we pull all the updated code and run the step 3
 
 /sessions/<session_id>/stop/ -> server uses this link to stop recording
 
-/video/<video_id>/ <- devices use this link to upload the recorded video and parameters
+/video/<video_id>/ <- devices use this link to upload the recorded video and parameters  
