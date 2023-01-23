@@ -1,4 +1,4 @@
-# OpenCap API
+# OpenCap API 
 ## Workflow for app.opencap.ai:
 1. User enters the website (app.opencap.ai)
 2. The website calls the backend and creates a session
@@ -45,6 +45,6 @@ Then for deploying to production we pull all the updated code and run the step 3
 
 /sessions/<session_id>/record/ -> server uses this link to start recording
 
-/sessions/<session_id>/stop/ -> server uses this link to stop recording 
+/sessions/<session_id>/stop/ -> server uses this link to stop recording
 
-/video/<video_id>/ <- devices use this link to upload the recorded video and parameters
+/video/<video_id>/ <- devices use this link to upload the recorded video and parameters  

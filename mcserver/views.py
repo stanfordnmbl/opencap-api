@@ -165,10 +165,23 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-    @action(detail=False)
+    @action(
+        detail=False,
+        methods=["get","post"],
+    )
     def valid(self, request):
-        # Note the use of `get_queryset()` instead of `self.queryset`
-        sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)
+        # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
+        if 'quantity' not in request.data:
+            quantity = -1
+        else:
+            quantity = request.data['quantity']
+        if(quantity == -1):
+            # Note the use of `get_queryset()` instead of `self.queryset`
+            sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)
+        else:
+            # Note the use of `get_queryset()` instead of `self.queryset`
+            sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)[:request.data['quantity']]
+
         serializer = SessionSerializer(sessions, many=True)
         return Response(serializer.data)
 
