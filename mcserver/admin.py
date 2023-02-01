@@ -8,9 +8,16 @@ from django.contrib.auth.admin import UserAdmin, GroupAdmin
 admin.site.register(User, UserAdmin)
 #admin.site.register(Group, GroupAdmin)
 
+
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'created_at', 'updated_at', 'server')
+    list_display = (
+        'id', 'user',
+        'public',
+        'created_at', 'updated_at', 'server')
+    raw_id_fields = ('user',)
+    search_fields = ['id']
+
 
 @admin.register(Trial)
 class TrialAdmin(admin.ModelAdmin):
