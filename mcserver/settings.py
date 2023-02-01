@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'iw8ctf3)6e-6e#$&eoou-sqawdm4p(1+*#8tsdqy+6+tx=nlt$'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", False)
+DEBUG = config("DEBUG", default=False, cast=bool)
 
 HOST = config("HOST", "127.0.0.1")
 PROTOCOL = config("PROTOCOL", "http")
@@ -171,6 +171,8 @@ AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 AWS_S3_REGION_NAME = "us-west-2"
 
+if DEBUG:
+    AWS_S3_ENDPOINT_URL = "http://127.0.0.1:9000"
 #AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 
 # s3 static settings
@@ -190,6 +192,13 @@ EMAIL_HOST_USER = 'apikey'
 EMAIL_HOST_PASSWORD = SENDGRID_API_KEY
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+
+if DEBUG:
+    EMAIL_HOST = 'mailhog'
+    EMAIL_HOST_USER = ''
+    EMAIL_HOST_PASSWORD = ''
+    EMAIL_PORT = 1025
+    EMAIL_USE_TLS = False
 
 DEFAULT_FROM_EMAIL = "noreply@opencap.ai"
 
