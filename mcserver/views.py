@@ -167,7 +167,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=["get","post"],
+        methods=["get", "post"],
     )
     def valid(self, request):
         # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
@@ -175,7 +175,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             quantity = -1
         else:
             quantity = request.data['quantity']
-        if(quantity == -1):
+
+        if quantity == -1:
             # Note the use of `get_queryset()` instead of `self.queryset`
             sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)
         else:

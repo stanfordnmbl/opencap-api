@@ -14,7 +14,9 @@ class SessionAdmin(admin.ModelAdmin):
     list_display = (
         'id', 'user',
         'public',
-        'created_at', 'updated_at', 'server')
+        'created_at', 'updated_at', 'server',
+        'trashed', 'trashed_at',
+    )
     raw_id_fields = ('user',)
     search_fields = ['id']
 

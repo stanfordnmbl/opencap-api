@@ -32,6 +32,9 @@ class Session(models.Model):
     public = models.BooleanField(blank=False, null=False, default=False)
     server = models.GenericIPAddressField(null=True, blank=True)
 
+    trashed = models.BooleanField(default=False)
+    trashed_at = models.DateTimeField(blank=True, null=True)
+
     class Meta:
         ordering = ['-created_at']
 

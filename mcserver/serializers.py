@@ -104,5 +104,10 @@ class SessionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Session
-        fields = ['id', 'user', 'public', 'name', 'qrcode', 'meta', 'trials', 'server', 'created_at', 'updated_at']
+        fields = [
+            'id', 'user', 'public', 'name',
+            'qrcode', 'meta', 'trials', 'server',
+            'created_at', 'updated_at',
+            'trashed', 'trashed_at',
+        ]
 
