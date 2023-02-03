@@ -186,6 +186,29 @@ class SessionViewSet(viewsets.ModelViewSet):
         serializer = SessionSerializer(sessions, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'])
+    def trash(self, request, pk):
+        from django.utils.timezone import now
+
+        session = Session.objects.get(pk=pk)
+        session.trashed = True
+        session.trashed_at = now()
+        session.save()
+
+        serializer = SessionSerializer(session)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk):
+        session = Session.objects.get(pk=pk)
+        session.trashed = False
+        session.trashed_at = None
+        session.save()
+
+        serializer = SessionSerializer(session)
+        return Response(serializer.data)
+
+
     ## New session GET '/new/'
     # Creates a new session, returns session id and the QR code
     @action(detail=False)
@@ -669,7 +692,32 @@ class TrialViewSet(viewsets.ModelViewSet):
         serializer = TrialSerializer(trial, many=False)
         
         return Response(serializer.data)
-    
+
+    @action(detail=True, methods=['post'])
+    def trash(self, request, pk):
+        from django.utils.timezone import now
+
+        trial = Trial.objects.get(pk=pk)
+        trial.trashed = True
+        trial.trashed_at = now()
+        trial.save()
+
+        serializer = TrialSerializer(trial)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk):
+        trial = Session.objects.get(pk=pk)
+        trial.trashed = False
+        trial.trashed_at = None
+        trial.save()
+
+        serializer = TrialSerializer(trial)
+        return Response(serializer.data)
+
+
+
+
 ## Upload a video:
 # Input: video and phone_id
 # Logic: Find the Video model within this session with

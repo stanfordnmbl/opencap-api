@@ -70,7 +70,11 @@ class TrialSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Trial
-        fields = ['id', 'session', 'name', 'status', 'videos', 'results', 'meta', 'created_at', 'updated_at']
+        fields = [
+            'id', 'session', 'name', 'status', 'videos',
+            'results', 'meta', 'created_at', 'updated_at',
+            'trashed', 'trashed_at',
+        ]
 
 # Serializers define the API representation.
 class SessionSerializer(serializers.ModelSerializer):

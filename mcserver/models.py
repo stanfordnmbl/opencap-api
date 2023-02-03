@@ -57,6 +57,9 @@ class Trial(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    trashed = models.BooleanField(default=False)
+    trashed_at = models.DateTimeField(blank=True, null=True)
+
     def is_public(self):
         return self.session.is_public()
 

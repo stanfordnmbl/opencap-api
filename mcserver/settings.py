@@ -206,3 +206,58 @@ OTP_EMAIL_TOKEN_VALIDITY = int(timedelta(days=90).total_seconds())
 OTP_EMAIL_BODY_TEMPLATE_PATH = 'email/verification_email.html'
 OTP_EMAIL_SUBJECT = ""
 OTP_EMAIL_BODY_TEMPLATE = ""
+
+
+# Sentry support
+
+SENTRY_DSN = config('SENTRY_DSN', default='')
+
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+
+
+    def strip_sensitive_data(event, hint):
+        """ This function removes the DisallowedHost errors from
+        the Sentry logs for avoiding excedding the quota.
+        """
+        if 'log_record' in hint:
+            if hint['log_record'].name == 'django.security.DisallowedHost':
+                return None
+        return event
+
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            RedisIntegration()],
+        before_send=strip_sensitive_data,
+        send_default_pii=True
+    )
+
+REDIS_URL = config('REDIS_URL')
+
+TRASHED_OBJECTS_CLEANUP_DAYS = config(
+    'TRASHED_OBJECTS_CLEANUP_DAYS', default=30, cast=int)  # 30 days by default
+
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_BEAT_SCHEDULER = 'redbeat.RedBeatScheduler'
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'cleanup_trashed_sessions': {
+        'task': 'mcserver.tasks.cleanup_trashed_sessions',
+        'schedule': crontab(hour='*/2', minute=0),
+    },
+    'cleanup_trashed_trials': {
+        'task': 'mcserver.tasks.cleanup_trashed_trials',
+        'schedule': crontab(hour='*/4', minute=0),
+    }
+}
+
