@@ -187,6 +187,12 @@ class SessionViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
+    def permanent_remove(self, request, pk):
+        session = Session.objects.get(pk=pk)
+        session.delete()
+        return Response({})
+
+    @action(detail=True, methods=['post'])
     def trash(self, request, pk):
         from django.utils.timezone import now
 
@@ -692,6 +698,12 @@ class TrialViewSet(viewsets.ModelViewSet):
         serializer = TrialSerializer(trial, many=False)
         
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def permanent_remove(self, request, pk):
+        trial = Trial.objects.get(pk=pk)
+        trial.delete()
+        return Response({})
 
     @action(detail=True, methods=['post'])
     def trash(self, request, pk):
