@@ -27,7 +27,7 @@
 on:
   push:
     branches:
-      - main_dev
+      - dev
 
 name: DEV ECS build & deployment
 
