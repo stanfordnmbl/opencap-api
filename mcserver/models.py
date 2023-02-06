@@ -16,6 +16,8 @@ def random_filename(instance, filename):
 
 class User(AbstractUser):
     institution = models.CharField(max_length=128, blank=True, null=True)
+    profession = models.CharField(max_length=128, blank=True, null=True)
+    country = models.CharField(max_length=128, blank=True, null=True)
     reason = models.CharField(max_length=256, blank=True, null=True)
     otp_verified = models.BooleanField(default=False)
     newsletter = models.BooleanField(default=True)
