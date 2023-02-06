@@ -707,7 +707,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        trial = Session.objects.get(pk=pk)
+        trial = Trial.objects.get(pk=pk)
         trial.trashed = False
         trial.trashed_at = None
         trial.save()
