@@ -188,7 +188,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
-        session = Session.objects.get(pk=pk)
+        session = Session.objects.get(pk=pk, user=request.user)
         session.delete()
         return Response({})
 
@@ -196,7 +196,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         from django.utils.timezone import now
 
-        session = Session.objects.get(pk=pk)
+        session = Session.objects.get(pk=pk, user=request.user)
         session.trashed = True
         session.trashed_at = now()
         session.save()
@@ -206,7 +206,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        session = Session.objects.get(pk=pk)
+        session = Session.objects.get(pk=pk, user=request.user)
         session.trashed = False
         session.trashed_at = None
         session.save()
@@ -701,7 +701,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
-        trial = Trial.objects.get(pk=pk)
+        trial = Trial.objects.get(pk=pk, session__user=request.user)
         trial.delete()
         return Response({})
 
@@ -709,7 +709,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         from django.utils.timezone import now
 
-        trial = Trial.objects.get(pk=pk)
+        trial = Trial.objects.get(pk=pk, session__user=request.user)
         trial.trashed = True
         trial.trashed_at = now()
         trial.save()
@@ -719,7 +719,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        trial = Trial.objects.get(pk=pk)
+        trial = Trial.objects.get(pk=pk, session__user=request.user)
         trial.trashed = False
         trial.trashed_at = None
         trial.save()
