@@ -21,14 +21,16 @@ class UserSerializer(serializers.ModelSerializer):
                                         last_name = validated_data['last_name'],
                                         institution = validated_data['institution'],
                                         reason = validated_data['reason'],
-                                        newsletter = validated_data['newsletter']
+                                        newsletter = validated_data['newsletter'],
+                                        profession = validated_data['profession'],
+                                        country = validated_data['country']
         )
         
         return user
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'password', 'institution', 'reason', 'newsletter')
+        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'password', 'institution', 'reason', 'newsletter', 'profession', 'country')
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(

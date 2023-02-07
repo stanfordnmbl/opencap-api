@@ -1,4 +1,4 @@
-# OpenCap API 
+# OpenCap API
 ## Workflow for app.opencap.ai:
 1. User enters the website (app.opencap.ai)
 2. The website calls the backend and creates a session
@@ -39,7 +39,7 @@ Then for deploying to production we pull all the updated code and run the step 3
 
 ## Current routes (not up to date, there are more)
 
-/sessions/new/ -> returns session_id and the QR code.
+/sessions/new/ -> returns session_id and the QR code
 
 /sessions/<session_id>/status/?device_id=<device_id> <- devices use this link to register and get video_id
 
