@@ -1,5 +1,5 @@
 # OpenCap API
-## Workflow for app.opencap.ai:
+## Workflow for app.opencap.ai
 1. User enters the website (app.opencap.ai)
 2. The website calls the backend and creates a session
 3. The session generates a QR code displayed in the webapp
