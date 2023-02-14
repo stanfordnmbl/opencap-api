@@ -239,13 +239,14 @@ if SENTRY_DSN:
         send_default_pii=True
     )
 
-REDIS_URL = config('REDIS_URL')
+SQS_URL = config('SQS_URL')
 
 TRASHED_OBJECTS_CLEANUP_DAYS = config(
     'TRASHED_OBJECTS_CLEANUP_DAYS', default=30, cast=int)  # 30 days by default
 
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_BROKER_URL = SQS_URL
+CELERY_RESULT_BACKEND = SQS_URL
+CELERY_BROKER_TRANSPORT_OPTIONS = {"region": AWS_S3_REGION_NAME}
 CELERY_BEAT_SCHEDULER = 'redbeat.RedBeatScheduler'
 
 from celery.schedules import crontab
