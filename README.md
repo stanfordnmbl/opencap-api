@@ -30,7 +30,7 @@ python manage.py runserver
 ## Adding new fields to the data model
 
 1. Add fields to `mcserver/models.py` 
-2. Run `python manage.py makemigrations`
+2. Run `python manage.py makemigrations` 
 3. Run `python manage.py migrate` (be carefule, this modifies the database)
 4. Add fields we want to expose in the api to the `mcserver/serializers.py` file
 
