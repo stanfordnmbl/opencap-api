@@ -37,7 +37,7 @@ python manage.py runserver
 Then for deploying to production we pull all the updated code and run the step 3. (with the production `.env` file)
 
 
-## Current routes (not up to date, there are more)
+## Current routes (not up to date, there are more):
 
 /sessions/new/ -> returns session_id and the QR code
 
