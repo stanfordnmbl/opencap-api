@@ -177,7 +177,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             quantity = request.data['quantity']
 
         # Note the use of `get_queryset()` instead of `self.queryset`
-        sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=1, user=request.user)
+        sessions = self.get_queryset().annotate(trial_count=Count('trial')).filter(trial_count__gte=1, user=request.user)
 
         # A session is valid only if at least one trial is the "neutral" trial and its status is "done".
         for session in sessions:
