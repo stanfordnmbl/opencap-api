@@ -8,3 +8,4 @@ mcserver/tmp/
 *.ini
 *.env
 \#*
+.idea
