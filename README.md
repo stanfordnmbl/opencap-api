@@ -46,5 +46,5 @@ Then for deploying to production we pull all the updated code and run the step 3
 /sessions/<session_id>/record/ -> server uses this link to start recording
 
 /sessions/<session_id>/stop/ -> server uses this link to stop recording
-
+ 
 /video/<video_id>/ <- devices use this link to upload the recorded video and parameters  
