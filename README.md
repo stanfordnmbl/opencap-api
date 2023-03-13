@@ -21,7 +21,7 @@ pip install -r requirements.txt
 ```
 Create the `.env` file with all env variables and credentials.
 
-## Running the server locally
+## Running the server locally 
 
 ```
 python manage.py runserver
