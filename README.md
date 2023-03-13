@@ -1,4 +1,4 @@
-# OpenCap API
+# OpenCap API 
 ## Workflow for app.opencap.ai
 1. User enters the website (app.opencap.ai)
 2. The website calls the backend and creates a session
@@ -27,11 +27,11 @@ Create the `.env` file with all env variables and credentials.
 python manage.py runserver
 ```
 
-## Adding new fields to the data model
+## Adding new fields to the data model 
 
-1. Add fields to `mcserver/models.py`
-2. Run `python manage.py makemigrations`
-3. Run `python manage.py migrate` (be carefule, this modifies the database)
+1. Add fields to `mcserver/models.py` 
+2. Run `python manage.py makemigrations` 
+3. Run `python manage.py migrate` (be carefule, this modifies the database) 
 4. Add fields we want to expose in the api to the `mcserver/serializers.py` file
 
 Then for deploying to production we pull all the updated code and run the step 3. (with the production `.env` file)
