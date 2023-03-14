@@ -403,19 +403,20 @@ def downloadAndZipSession(session_id,deleteFolderWhenZipped=True,isDocker=True,
     session_path = os.path.join(baseDir,session_name)
     
     # Look for old folders in this directory and delete them
-    folders = os.listdir(baseDir) 
-    timeSinceModified = [(-os.path.getmtime(os.path.join(baseDir,f)) +int(time.time()))/60 for f in folders]
-    
-    for i,f in enumerate(folders):
-        if timeSinceModified[i] > 15: # delete if older than 15 mins
-            try:
-                os.remove(os.path.join(baseDir,f)) # files
-            except:
+    if os.path.isdir(baseDir)
+        folders = os.listdir(baseDir) 
+        timeSinceModified = [(-os.path.getmtime(os.path.join(baseDir,f)) +int(time.time()))/60 for f in folders]
+        
+        for i,f in enumerate(folders):
+            if timeSinceModified[i] > 15: # delete if older than 15 mins
                 try:
-                    shutil.rmtree(os.path.join(baseDir,f)) # folders
+                    os.remove(os.path.join(baseDir,f)) # files
                 except:
-                    pass
-    
+                    try:
+                        shutil.rmtree(os.path.join(baseDir,f)) # folders
+                    except:
+                        pass
+        
     calib_id = getCalibrationTrialID(session_id, host=host)
     neutral_id = getNeutralTrialID(session_id, host=host)
     dynamic_ids = [t['id'] for t in session['trials'] if (t['name'] != 'calibration' and t['name'] !='neutral')]
