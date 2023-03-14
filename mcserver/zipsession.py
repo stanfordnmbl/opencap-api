@@ -7,6 +7,7 @@ import pickle
 import glob
 import zipfile
 import platform
+import time
 from decouple import config
 
 API_TOKEN = config("API_TOKEN")
@@ -398,7 +399,16 @@ def downloadAndZipSession(session_id,deleteFolderWhenZipped=True,isDocker=True,
     session = requests.get(host + "/sessions/{}/".format(session_id),
                          headers = {"Authorization": "Token {}".format(API_TOKEN)}).json()
     session_name = 'OpenCapData_' + session_id
-    session_path = os.path.join(data_dir,'Data',session_name)
+    baseDir = os.path.join(data_dir,'Data')
+    session_path = os.path.join(baseDir,session_name)
+    
+    # Look for old folders in this directory and delete them
+    folders = os.listdir(baseDir) 
+    timeSinceModified = [(-os.path.getmtime(os.path.join(baseDir,f)) +int(time.time()))/60 for f in folders]
+    
+    for i,f in enumerate(folders):
+        if timeSinceModified[i] > 15: # delete if older than 15 mins
+            shutil.rmtree(os.path.join(baseDir,f))
     
     
     calib_id = getCalibrationTrialID(session_id, host=host)
