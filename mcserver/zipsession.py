@@ -403,7 +403,7 @@ def downloadAndZipSession(session_id,deleteFolderWhenZipped=True,isDocker=True,
     session_path = os.path.join(baseDir,session_name)
     
     # Look for old folders in this directory and delete them
-    if os.path.isdir(baseDir)
+    if os.path.isdir(baseDir):
         folders = os.listdir(baseDir) 
         timeSinceModified = [(-os.path.getmtime(os.path.join(baseDir,f)) +int(time.time()))/60 for f in folders]
         
