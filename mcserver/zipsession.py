@@ -408,8 +408,13 @@ def downloadAndZipSession(session_id,deleteFolderWhenZipped=True,isDocker=True,
     
     for i,f in enumerate(folders):
         if timeSinceModified[i] > 15: # delete if older than 15 mins
-            shutil.rmtree(os.path.join(baseDir,f))
-    
+            try:
+                os.remove(os.path.join(baseDir,f)) # files
+            except:
+                try:
+                    shutil.rmtree(os.path.join(baseDir,f)) # folders
+                except:
+                    pass
     
     calib_id = getCalibrationTrialID(session_id, host=host)
     neutral_id = getNeutralTrialID(session_id, host=host)
