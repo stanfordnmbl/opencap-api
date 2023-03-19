@@ -10,6 +10,7 @@ from rest_framework.authtoken.models import Token
 
 from django.conf import settings
 
+
 def random_filename(instance, filename):
     return "{}-{}".format(uuid.uuid4(), filename)
                                             
@@ -22,6 +23,7 @@ class User(AbstractUser):
     otp_verified = models.BooleanField(default=False)
     newsletter = models.BooleanField(default=True)
 
+
 class Session(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, blank=False, null=False, on_delete=models.CASCADE)
@@ -32,11 +34,21 @@ class Session(models.Model):
     public = models.BooleanField(blank=False, null=False, default=False)
     server = models.GenericIPAddressField(null=True, blank=True)
 
+    trashed = models.BooleanField(default=False)
+    trashed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return str(self.id)
+
     def is_public(self):
         return self.public
 
     def get_user(self):
         return self.user
+
 
 class Trial(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -46,6 +58,9 @@ class Trial(models.Model):
     meta = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    trashed = models.BooleanField(default=False)
+    trashed_at = models.DateTimeField(blank=True, null=True)
 
     def is_public(self):
         return self.session.is_public()
