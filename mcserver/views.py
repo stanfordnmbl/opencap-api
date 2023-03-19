@@ -688,16 +688,16 @@ class TrialViewSet(viewsets.ModelViewSet):
                                       name__in=["calibration","neutral"],
                                       result=None)
         # TODO testing delete
-        testResponse = 'all'
+        testResponse = 'justCalibration'
         
         if trials.count() == 0 and workerType != 'calibration':
             # TODO testing delete
-            testResponse = 'calibration'
+            testResponse = 'all'
             trials = uploaded_trials.filter(status="stopped",
                                       result=None)
         
         # TODO testing delete
-        return Response(testResponse)
+        return Response(workerType)
 
         if trials.count() == 0:
             raise Http404
