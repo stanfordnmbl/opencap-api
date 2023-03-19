@@ -697,7 +697,7 @@ class TrialViewSet(viewsets.ModelViewSet):
                                       result=None)
         
         # TODO testing delete
-        return testResponse
+        return Response(testResponse)
 
         if trials.count() == 0:
             raise Http404
