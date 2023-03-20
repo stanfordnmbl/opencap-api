@@ -669,6 +669,8 @@ class TrialViewSet(viewsets.ModelViewSet):
     def dequeue(self, request):
         ip = get_client_ip(request)
 
+        workerType = self.request.query_params.get('workerType')
+
         # find trials with some videos not uploaded
         not_uploaded = Video.objects.filter(video='',
                                             updated_at__gte=datetime.now().date() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
@@ -683,10 +685,10 @@ class TrialViewSet(viewsets.ModelViewSet):
                                       name__in=["calibration","neutral"],
                                       result=None)
         
-        if trials.count() == 0:
+        if trials.count() == 0 and workerType != 'calibration':
             trials = uploaded_trials.filter(status="stopped",
                                       result=None)
-
+        
         if trials.count() == 0:
             raise Http404
 
