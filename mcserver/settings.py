@@ -239,7 +239,7 @@ if SENTRY_DSN:
         send_default_pii=True
     )
 
-REDIS_URL = config('REDIS_URL', '')
+REDIS_URL = config('REDIS_URL')
 
 # TRASHED_OBJECTS_CLEANUP_DAYS = config(
 #     'TRASHED_OBJECTS_CLEANUP_DAYS', default=30, cast=int)  # 30 days by default
