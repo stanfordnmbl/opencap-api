@@ -129,7 +129,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_authenticated and user.id == 1:
             return Session.objects.all().order_by("-created_at")
-        return Session.objects.all().order_by("-created_at").filter(Q(user__id=user.id) | Q(public=True))
+        return Session.objects.filter(Q(user__id=user.id) | Q(public=True)).order_by("-created_at")
        
     @action(detail=False)
     def api_health_check(self, request):
@@ -167,7 +167,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=["get","post"],
+        methods=["get", "post"],
     )
     def valid(self, request):
         # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
@@ -175,12 +175,19 @@ class SessionViewSet(viewsets.ModelViewSet):
             quantity = -1
         else:
             quantity = request.data['quantity']
-        if(quantity == -1):
-            # Note the use of `get_queryset()` instead of `self.queryset`
-            sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)
-        else:
-            # Note the use of `get_queryset()` instead of `self.queryset`
-            sessions = self.get_queryset().order_by("-created_at").annotate(trial_count=Count('trial')).filter(trial_count__gte=3, user=request.user)[:request.data['quantity']]
+
+        # Note the use of `get_queryset()` instead of `self.queryset`
+        sessions = self.get_queryset().annotate(trial_count=Count('trial')).filter(trial_count__gte=1, user=request.user)
+
+        # A session is valid only if at least one trial is the "neutral" trial and its status is "done".
+        for session in sessions:
+            trials = Trial.objects.filter(session__exact=session, name__exact="neutral").filter(status__exact="done")
+            if trials.count() < 1:
+                sessions = sessions.exclude(id__exact=session.id)
+
+        # If quantity is not -1, retrieve only last n sessions.
+        if quantity != -1:
+            sessions = sessions[: request.data['quantity']]
 
         serializer = SessionSerializer(sessions, many=True)
         return Response(serializer.data)
