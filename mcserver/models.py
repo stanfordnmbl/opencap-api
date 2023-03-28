@@ -20,6 +20,7 @@ class User(AbstractUser):
     profession = models.CharField(max_length=128, blank=True, null=True)
     country = models.CharField(max_length=128, blank=True, null=True)
     reason = models.CharField(max_length=256, blank=True, null=True)
+    website = models.CharField(max_length=256, blank=True, null=True)
     otp_verified = models.BooleanField(default=False)
     newsletter = models.BooleanField(default=True)
 
