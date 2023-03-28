@@ -1,6 +1,14 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
-from mcserver.models import (User, Session, Trial, Video, Result, ResetPassword)
+from mcserver.models import (
+    User,
+    Session,
+    Trial,
+    Video,
+    Result,
+    ResetPassword,
+    Subject,
+)
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.admin.models import LogEntry
@@ -44,6 +52,18 @@ class ResultAdmin(admin.ModelAdmin):
 class VideoAdmin(admin.ModelAdmin):
     search_fields = ['trial']
     list_display = ('trial', 'video', 'created_at', 'updated_at')
+
+
+@admin.register(Subject)
+class SubjectAdmin(admin.ModelAdmin):
+    search_fields = ['name']
+    list_display = (
+        'name', 'user',
+        'weight', 'height',
+        'age', 'gender', 'sex_at_birth',
+        'trashed',
+        'created_at', 'updated_at',
+    )
 
 
 @admin.register(ResetPassword)

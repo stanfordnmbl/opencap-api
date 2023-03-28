@@ -2,8 +2,14 @@ from django.http import HttpResponse
 from django.http import Http404
 
 from django.shortcuts import get_object_or_404, render
-from mcserver.models import Session, User, Trial, Video, Result, ResetPassword
-from mcserver.serializers import SessionSerializer, TrialSerializer, VideoSerializer, ResultSerializer, UserSerializer, ResetPasswordSerializer, NewPasswordSerializer
+from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, Subject
+from mcserver.serializers import (
+    SessionSerializer, TrialSerializer,
+    VideoSerializer, ResultSerializer,
+    SubjectSerializer,
+    UserSerializer,
+    ResetPasswordSerializer,
+    NewPasswordSerializer)
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db.models import Q
@@ -754,6 +760,49 @@ class VideoViewSet(viewsets.ModelViewSet):
 class ResultViewSet(viewsets.ModelViewSet):
     queryset = Result.objects.all().order_by("-created_at")
     serializer_class = ResultSerializer
+
+
+class SubjectViewSet(viewsets.ModelViewSet):
+    serializer_class = SubjectSerializer
+    permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the subjects
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        if user.is_authenticated and user.id == 1:
+            return Subject.objects.all()
+        return Session.objects.filter(user=user)
+
+    @action(detail=False)
+    def api_health_check(self, request):
+        return Response({"status": "True"})
+
+    @action(detail=True, methods=['post'])
+    def trash(self, request, pk):
+        from django.utils.timezone import now
+
+        session = Subject.objects.get(pk=pk, user=request.user)
+        session.trashed = True
+        session.trashed_at = now()
+        session.save()
+
+        serializer = SessionSerializer(session)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk):
+        session = Subject.objects.get(pk=pk, user=request.user)
+        session.trashed = False
+        session.trashed_at = None
+        session.save()
+
+        serializer = SubjectSerializer(session)
+        return Response(serializer.data)
+
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
