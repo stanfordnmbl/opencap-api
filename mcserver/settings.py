@@ -253,7 +253,7 @@ from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
     'cleanup_trashed_sessions': {
         'task': 'mcserver.tasks.cleanup_trashed_sessions',
-        'schedule': crontab(hour='*/2', minute=0),
+        'schedule': crontab(hour='*/4', minute=0),
     },
     'cleanup_trashed_trials': {
         'task': 'mcserver.tasks.cleanup_trashed_trials',
