@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'iw8ctf3)6e-6e#$&eoou-sqawdm4p(1+*#8tsdqy+6+tx=nlt$'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", False)
+DEBUG = config("DEBUG", default=False, cast=bool)
 
 HOST = config("HOST", "127.0.0.1")
 PROTOCOL = config("PROTOCOL", "http")
@@ -171,6 +171,7 @@ AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 AWS_S3_REGION_NAME = "us-west-2"
 
+AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL', default=None)
 #AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 
 # s3 static settings
@@ -185,11 +186,11 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 SENDGRID_API_KEY = config('SENDGRID_API_KEY')
 
-EMAIL_HOST = 'smtp.sendgrid.net'
-EMAIL_HOST_USER = 'apikey'
-EMAIL_HOST_PASSWORD = SENDGRID_API_KEY
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.sendgrid.net')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='apikey')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default=SENDGRID_API_KEY)
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 
 DEFAULT_FROM_EMAIL = "noreply@opencap.ai"
 
@@ -205,3 +206,58 @@ OTP_EMAIL_TOKEN_VALIDITY = int(timedelta(days=90).total_seconds())
 OTP_EMAIL_BODY_TEMPLATE_PATH = 'email/verification_email.html'
 OTP_EMAIL_SUBJECT = ""
 OTP_EMAIL_BODY_TEMPLATE = ""
+
+
+# Sentry support
+
+SENTRY_DSN = config('SENTRY_DSN', default='')
+
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+
+
+    def strip_sensitive_data(event, hint):
+        """ This function removes the DisallowedHost errors from
+        the Sentry logs for avoiding excedding the quota.
+        """
+        if 'log_record' in hint:
+            if hint['log_record'].name == 'django.security.DisallowedHost':
+                return None
+        return event
+
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            RedisIntegration()],
+        before_send=strip_sensitive_data,
+        send_default_pii=True
+    )
+
+REDIS_URL = config('REDIS_URL', '')
+
+TRASHED_OBJECTS_CLEANUP_DAYS = config(
+    'TRASHED_OBJECTS_CLEANUP_DAYS', default=30, cast=int)  # 30 days by default
+
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_BEAT_SCHEDULER = 'redbeat.RedBeatScheduler'
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'cleanup_trashed_sessions': {
+        'task': 'mcserver.tasks.cleanup_trashed_sessions',
+        'schedule': crontab(hour='*/4', minute=0),
+    },
+    'cleanup_trashed_trials': {
+        'task': 'mcserver.tasks.cleanup_trashed_trials',
+        'schedule': crontab(hour='*/4', minute=0),
+    }
+}
+

@@ -17,20 +17,22 @@ class UserSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(validated_data['username'],
                                         validated_data['email'],
                                         validated_data['password'],
-                                        first_name = validated_data['first_name'],
-                                        last_name = validated_data['last_name'],
-                                        institution = validated_data['institution'],
-                                        reason = validated_data['reason'],
-                                        newsletter = validated_data['newsletter'],
-                                        profession = validated_data['profession'],
-                                        country = validated_data['country']
+                                        first_name=validated_data['first_name'],
+                                        last_name=validated_data['last_name'],
+                                        institution=validated_data['institution'],
+                                        reason=validated_data['reason'],
+                                        website=validated_data['website'],
+                                        newsletter=validated_data['newsletter'],
+                                        profession=validated_data['profession'],
+                                        country=validated_data['country']
         )
         
         return user
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'password', 'institution', 'reason', 'newsletter', 'profession', 'country')
+        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'password', 'institution', 'reason', 'website',
+                  'newsletter', 'profession', 'country')
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
@@ -72,7 +74,11 @@ class TrialSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Trial
-        fields = ['id', 'session', 'name', 'status', 'videos', 'results', 'meta', 'created_at', 'updated_at']
+        fields = [
+            'id', 'session', 'name', 'status', 'videos',
+            'results', 'meta', 'created_at', 'updated_at',
+            'trashed', 'trashed_at',
+        ]
 
 # Serializers define the API representation.
 class SessionSerializer(serializers.ModelSerializer):
@@ -106,5 +112,10 @@ class SessionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Session
-        fields = ['id', 'user', 'public', 'name', 'qrcode', 'meta', 'trials', 'server', 'created_at', 'updated_at']
+        fields = [
+            'id', 'user', 'public', 'name',
+            'qrcode', 'meta', 'trials', 'server',
+            'created_at', 'updated_at',
+            'trashed', 'trashed_at',
+        ]
 

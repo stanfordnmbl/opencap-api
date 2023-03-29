@@ -68,6 +68,8 @@ jobs:
     - name: Force deployment
       run: |
         aws ecs update-service --cluster opencap-api-cluster --service api-server --force-new-deployment
+        aws ecs update-service --cluster opencap-api-cluster --service api-server-celery --force-new-deployment
+        aws ecs update-service --cluster opencap-api-cluster --service api-server-celery-beat --force-new-deployment
       
     # - name: Fill in the new image ID in the Amazon ECS task definition
     #   id: task-def
