@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mcserver', '0011_auto_20230203_1355'),
+        ('mcserver', '0010_auto_20230202_1908'),
     ]
 
     operations = [
