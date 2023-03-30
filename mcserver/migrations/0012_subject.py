@@ -8,7 +8,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mcserver', '0011_rename_profesion_user_profession'),
+        ('mcserver', '0013_user_website'),
     ]
 
     operations = [

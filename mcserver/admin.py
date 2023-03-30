@@ -15,8 +15,23 @@ from django.contrib.admin.models import LogEntry
 
 
 #admin.site.unregister(Group)
-admin.site.register(User, UserAdmin)
 #admin.site.register(Group, GroupAdmin)
+
+
+@admin.register(User)
+class UserAdmin(UserAdmin):
+    fieldsets = UserAdmin.fieldsets + (
+        ('Extras', {
+            'fields': (
+                'website',
+                'institution',
+                'profession',
+                'country',
+                'reason',
+                'newsletter',
+                'otp_verified',
+            )}),
+    )
 
 
 @admin.register(Session)

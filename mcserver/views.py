@@ -784,22 +784,22 @@ class SubjectViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         from django.utils.timezone import now
 
-        session = Subject.objects.get(pk=pk, user=request.user)
-        session.trashed = True
-        session.trashed_at = now()
-        session.save()
+        subject = Subject.objects.get(pk=pk, user=request.user)
+        subject.trashed = True
+        subject.trashed_at = now()
+        subject.save()
 
-        serializer = SessionSerializer(session)
+        serializer = SubjectSerializer(subject)
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        session = Subject.objects.get(pk=pk, user=request.user)
-        session.trashed = False
-        session.trashed_at = None
-        session.save()
+        subject = Subject.objects.get(pk=pk, user=request.user)
+        subject.trashed = False
+        subject.trashed_at = None
+        subject.save()
 
-        serializer = SubjectSerializer(session)
+        serializer = SubjectSerializer(subject)
         return Response(serializer.data)
 
 
