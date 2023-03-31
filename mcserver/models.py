@@ -35,6 +35,11 @@ class Session(models.Model):
     public = models.BooleanField(blank=False, null=False, default=False)
     server = models.GenericIPAddressField(null=True, blank=True)
 
+    subject = models.ForeignKey(
+        'Subject', blank=True, null=True,
+        related_name='sessions',
+        on_delete=models.SET_NULL)
+
     trashed = models.BooleanField(default=False)
     trashed_at = models.DateTimeField(blank=True, null=True)
 

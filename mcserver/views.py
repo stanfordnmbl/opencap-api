@@ -583,7 +583,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         self.check_object_permissions(self.request, session)
         
         trials = session.trial_set.filter(name="calibration").order_by("-created_at")
-
+        print(trials)
         if len(trials) == 0:
             data = {
                 "status": "error",
@@ -603,7 +603,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             for result in trials[0].result_set.all():
                 if result.tag == "calibration-img":
                     imgs.append(result.media.url)
-           
+            print(imgs)
             if len(imgs) > 0:
                 data = {
                     "status": "done",

@@ -37,12 +37,12 @@ class UserAdmin(UserAdmin):
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'user',
+        'id', 'user', 'subject',
         'public',
         'created_at', 'updated_at', 'server',
         'trashed', 'trashed_at',
     )
-    raw_id_fields = ('user',)
+    raw_id_fields = ('user', 'subject')
     search_fields = ['id']
 
 

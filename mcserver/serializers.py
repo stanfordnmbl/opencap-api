@@ -115,6 +115,7 @@ class SessionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'public', 'name',
             'qrcode', 'meta', 'trials', 'server',
+            'subject',
             'created_at', 'updated_at',
             'trashed', 'trashed_at',
         ]
@@ -128,6 +129,7 @@ class SubjectSerializer(serializers.ModelSerializer):
             'weight', 'height', 'age',
             'gender', 'sex_at_birth',
             'characteristics',
+            'sessions',
             'created_at', 'updated_at',
             'trashed', 'trashed_at',
         ]
