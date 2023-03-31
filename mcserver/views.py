@@ -764,7 +764,7 @@ class ResultViewSet(viewsets.ModelViewSet):
 
 class SubjectViewSet(viewsets.ModelViewSet):
     serializer_class = SubjectSerializer
-    permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
 
     def get_queryset(self):
         """
@@ -802,6 +802,8 @@ class SubjectViewSet(viewsets.ModelViewSet):
         serializer = SubjectSerializer(subject)
         return Response(serializer.data)
 
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 
 class UserViewSet(viewsets.ModelViewSet):

@@ -172,3 +172,6 @@ class Subject(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_user(self):
+        return self.user
