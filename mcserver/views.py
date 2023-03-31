@@ -708,6 +708,31 @@ class TrialViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
+    def rename(self, request, pk):
+        # Get trial.
+        trial = Trial.objects.get(pk=pk, session__user=request.user)
+
+        try:
+            error_message = ""
+
+            # Update trial name and save.
+            trial.name = request.data['trialNewName']
+            trial.save()
+
+        except Exception as e:
+            error_message = 'There was an error while renaming your trial: ' + str(e)
+            print(error_message)
+
+        # Serialize trial.
+        serializer = TrialSerializer(trial)
+
+        # Return error message and data.
+        return Response({
+            'message': error_message,
+            'data': serializer.data
+        })
+
+    @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
         trial = Trial.objects.get(pk=pk, session__user=request.user)
         trial.delete()
