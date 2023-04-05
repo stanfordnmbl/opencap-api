@@ -6,6 +6,7 @@ from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, 
 from mcserver.serializers import (
     SessionSerializer, TrialSerializer,
     VideoSerializer, ResultSerializer,
+    NewSubjectSerializer,
     SubjectSerializer,
     UserSerializer,
     ResetPasswordSerializer,
@@ -520,8 +521,20 @@ class SessionViewSet(viewsets.ModelViewSet):
         serializer = SessionSerializer(session, many=False)
         
         return Response(serializer.data)
-        
-    ## Stop recording POST '<id>/stop/'
+
+    @action(detail=True)
+    def set_subject(self, request, pk):
+        session = Session.objects.get(pk=pk)
+        subject_id = request.GET.get("subject_id", "")
+        subject = get_object_or_404(Subject.objects.get(id=subject_id, user=request.user))
+        session.subject = subject
+        session.save()
+
+        serializer = SessionSerializer(session, many=False)
+        return Response(serializer.data)
+
+
+## Stop recording POST '<id>/stop/'
     # Changes the trial status from "recording" to "done"
     # Logic on the client side:
     # - session status changed so they start uploading videos
@@ -763,7 +776,6 @@ class ResultViewSet(viewsets.ModelViewSet):
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
-    serializer_class = SubjectSerializer
     permission_classes = [IsOwner | IsAdmin | IsBackend]
 
     def get_queryset(self):
@@ -774,7 +786,12 @@ class SubjectViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_authenticated and user.id == 1:
             return Subject.objects.all()
-        return Session.objects.filter(user=user)
+        return Subject.objects.filter(user=user)
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return NewSubjectSerializer
+        return SubjectSerializer
 
     @action(detail=False)
     def api_health_check(self, request):
