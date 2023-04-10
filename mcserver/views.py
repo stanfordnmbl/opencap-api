@@ -526,7 +526,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def set_subject(self, request, pk):
         session = Session.objects.get(pk=pk)
         subject_id = request.GET.get("subject_id", "")
-        subject = get_object_or_404(Subject.objects.get(id=subject_id, user=request.user))
+        subject = get_object_or_404(Subject, id=subject_id, user=request.user)
         session.subject = subject
         session.save()
 

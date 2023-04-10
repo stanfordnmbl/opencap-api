@@ -50,11 +50,13 @@ class SessionAdmin(admin.ModelAdmin):
 class TrialAdmin(admin.ModelAdmin):
     search_fields = ['session']
     list_display = (
+        'id',
         'session', 'name',
         'status',
         'created_at', 'updated_at',
         'trashed', 'trashed_at',
     )
+    raw_id_fields = ('session',)
 
 
 @admin.register(Result)
