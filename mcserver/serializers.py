@@ -144,3 +144,7 @@ class NewSubjectSerializer(serializers.ModelSerializer):
             'gender', 'sex_at_birth',
             'characteristics',
         ]
+
+    def to_representation(self, instance):
+        serializer = SubjectSerializer(instance)
+        return serializer.data
