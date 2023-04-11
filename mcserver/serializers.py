@@ -57,9 +57,12 @@ class NewPasswordSerializer(serializers.ModelSerializer):
 
 # Serializers define the API representation.
 class VideoSerializer(serializers.ModelSerializer):
+    video_url = serializers.CharField(max_length=256,
+            required=False
+            )
     class Meta:
         model = Video
-        fields = ['id', 'trial', 'device_id', 'video', 'video_thumb', 'parameters', 'created_at', 'updated_at']
+        fields = ['id', 'trial', 'device_id', 'video', 'video_url', 'video_thumb', 'parameters', 'created_at', 'updated_at']
 
 # Serializers define the API representation.
 class ResultSerializer(serializers.ModelSerializer):

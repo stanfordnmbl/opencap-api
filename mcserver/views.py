@@ -797,7 +797,12 @@ class VideoViewSet(viewsets.ModelViewSet):
 
     permission_classes = [AllowPublicCreate | ((IsOwner | IsAdmin | IsBackend))]
     
-    # Default 'update' should be enough
+    def perform_update(self, serializer):
+        if ("video_url" in serializer.validated_data) and (serializer.validated_data["video_url"]):
+            serializer.validated_data["video"] = serializer.validated_data["video_url"]
+            del serializer.validated_data["video_url"]
+
+        super().perform_update(serializer)
 
 
 class ResultViewSet(viewsets.ModelViewSet):
