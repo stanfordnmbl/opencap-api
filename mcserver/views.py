@@ -49,6 +49,11 @@ from rest_framework import permissions
 from django.contrib.auth import authenticate, login
 import logging
 
+import boto3
+import requests
+
+import uuid
+
 class IsOwner(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
@@ -374,6 +379,25 @@ class SessionViewSet(viewsets.ModelViewSet):
             
         return res
 
+     
+    @action(detail=True)
+    def get_presigned_url(self, request, pk):
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        )
+
+        key = str(uuid.uuid4()) + ".mov"
+        
+        response = s3_client.generate_presigned_post(
+            Bucket = settings.AWS_STORAGE_BUCKET_NAME,
+            Key = key,
+            ExpiresIn = 10 
+        )
+
+        return Response(response)
+    
     ## Session status GET '<id>/status/'
     # if no active trial then return "ready"
     # if there is an active trial then return "recording"
