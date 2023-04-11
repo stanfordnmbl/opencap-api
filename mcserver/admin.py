@@ -34,6 +34,11 @@ class UserAdmin(UserAdmin):
     )
 
 
+class TrialInline(admin.TabularInline):
+    model = Trial
+    extra = 0
+
+
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
     list_display = (
@@ -44,6 +49,12 @@ class SessionAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ('user', 'subject')
     search_fields = ['id']
+    inlines = [TrialInline]
+
+
+class ResultInline(admin.TabularInline):
+    model = Result
+    extra = 0
 
 
 @admin.register(Trial)
@@ -57,6 +68,7 @@ class TrialAdmin(admin.ModelAdmin):
         'trashed', 'trashed_at',
     )
     raw_id_fields = ('session',)
+    inlines = [ResultInline]
 
 
 @admin.register(Result)

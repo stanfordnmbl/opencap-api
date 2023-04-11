@@ -183,7 +183,7 @@ def getSessionJson(session_id, host=""):
     resp = requests.get(host + "/sessions/{}/".format(session_id),
                          headers = {"Authorization": "Token {}".format(API_TOKEN)})
     session = resp.json()
-    
+
     def getCreatedAt(trial):
         return trial['created_at']
     session['trials'].sort(key=getCreatedAt)
@@ -542,6 +542,34 @@ def downloadAndZipSession(session_id,deleteFolderWhenZipped=True,isDocker=True,
     #    os.remove(session_zip)
     
     return session_zip
+
+
+def downloadAndZipSubject(subject_id, deleteFolderWhenZipped=True, isDocker=True, writeToDjango=False, host=""):
+    from .models import Session
+
+    data_dir = getDataDirectory(isDocker=isDocker)
+    subject_name = f'OpenCapData_Subject_{subject_id}'
+    baseDir = os.path.join(data_dir, 'Data')
+    subject_path = os.path.join(baseDir, subject_name)
+
+    subject_zip = '{}.zip'.format(subject_path)
+
+    sessions = Session.objects.filter(subject_id=subject_id)
+    session_files = []
+    for session in sessions:
+        session_zip = downloadAndZipSession(
+            str(session.id),
+            deleteFolderWhenZipped=deleteFolderWhenZipped,
+            isDocker=isDocker,
+            writeToDjango=writeToDjango, host=host)
+        session_files.append(session_zip)
+
+    zipf = zipfile.ZipFile(subject_zip, 'w', zipfile.ZIP_DEFLATED)
+    for sfile in session_files:
+        zipf.write(sfile, os.path.relpath(sfile, baseDir))
+    zipf.close()
+
+    return subject_zip
 
 # test session
 # downloadAndZipSession('9557d441-8da1-408e-938f-7fb66225c9a5')

@@ -41,7 +41,7 @@ from django.http import FileResponse
 
 from django.db.models import Count
 
-from mcserver.zipsession import downloadAndZipSession
+from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 
 from datetime import datetime, timedelta
 
@@ -801,7 +801,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         from django.utils.timezone import now
 
-        subject = Subject.objects.get(pk=pk, user=request.user)
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
         subject.trashed = True
         subject.trashed_at = now()
         subject.save()
@@ -811,13 +811,27 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        subject = Subject.objects.get(pk=pk, user=request.user)
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
         subject.trashed = False
         subject.trashed_at = None
         subject.save()
 
         serializer = SubjectSerializer(subject)
         return Response(serializer.data)
+
+    @action(detail=True)
+    def download(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        # Extract protocol and host.
+        if request.is_secure():
+            host = "https://" + request.get_host()
+        else:
+            host = "http://" + request.get_host()
+
+        subject_zip = downloadAndZipSubject(pk, host=host)
+
+        return FileResponse(open(subject_zip, "rb"))
+
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
