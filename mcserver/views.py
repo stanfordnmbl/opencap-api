@@ -832,6 +832,12 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
         return FileResponse(open(subject_zip, "rb"))
 
+    @action(detail=True, methods=['post'])
+    def permanent_remove(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        subject.delete()
+        return Response({})
+
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
