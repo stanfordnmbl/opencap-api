@@ -789,7 +789,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
         return Subject.objects.filter(user=user)
 
     def get_serializer_class(self):
-        if self.action == 'create':
+        if self.action in ['create', 'update', 'partial_update']:
             return NewSubjectSerializer
         return SubjectSerializer
 
