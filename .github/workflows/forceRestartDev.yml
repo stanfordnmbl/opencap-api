@@ -26,10 +26,7 @@
 
 on:
   repository_dispatch:
-#    inputs:
-#      event_type:
-#        description: 'devRestart'
-#        required: true
+    types: [devRestart]
 
 name: DEV ECS forced deployment
 
