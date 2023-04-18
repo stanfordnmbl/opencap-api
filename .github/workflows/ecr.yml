@@ -27,7 +27,7 @@
 on:
   push:
     branches:
-      - dev
+      - main
 
 name: PRODUCTION ECS build & deployment
 
