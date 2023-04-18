@@ -26,7 +26,10 @@
 
 on:
   repository_dispatch:
-    event_type: devRestart
+    inputs:
+      event_type:
+        description: 'devRestart'
+        required: true
 
 name: DEV ECS forced deployment
 
