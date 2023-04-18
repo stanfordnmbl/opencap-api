@@ -28,6 +28,7 @@ on:
   push:
     branches:
       - dev
+    repository_dispatch:
 
 name: DEV ECS build & deployment
 
