@@ -28,7 +28,7 @@ on:
   repository_dispatch:
     types: [devRestart]
 
-name: DEV ECS forced deployment
+name: DEV ECS forced deployment from webhook
 
 jobs:
   deploy:
