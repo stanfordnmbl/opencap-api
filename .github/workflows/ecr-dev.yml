@@ -25,13 +25,11 @@
 #    and best practices on handling the access key credentials.
 
 on:
-  repository_dispatch:
-#    inputs:
-#      event_type:
-#        description: 'devRestart'
-#        required: true
+  push:
+    branches:
+      - dev
 
-name: DEV ECS forced deployment
+name: DEV ECS build & deployment
 
 jobs:
   deploy:
@@ -53,25 +51,26 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-#    - name: Build, tag, and push image to Amazon ECR
-#      id: build-image
-#      env:
-#        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-#        ECR_REPOSITORY: opencap/api-dev
-#        IMAGE_TAG: latest # ${{ github.sha }}
-#     run: |
-#        # Build a docker container and
-#        # push it to ECR so that it can
-#        # be deployed to ECS.
-#        docker build -f Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-#        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-#        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: opencap/api-dev
+        IMAGE_TAG: latest # ${{ github.sha }}
+      run: |
+        # Build a docker container and
+        # push it to ECR so that it can
+        # be deployed to ECS.
+        docker build -f Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
         
     - name: Force deployment
       run: |
         aws ecs update-service --cluster opencap-api-cluster-dev --service api-server-dev --force-new-deployment
         aws ecs update-service --cluster opencap-api-cluster-dev --service api-server-celery-dev --force-new-deployment
         aws ecs update-service --cluster opencap-api-cluster-dev --service api-server-celery-beat-dev --force-new-deployment
+
     # - name: Fill in the new image ID in the Amazon ECS task definition
     #   id: task-def
     #   uses: aws-actions/amazon-ecs-render-task-definition@v1
