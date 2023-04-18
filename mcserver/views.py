@@ -697,7 +697,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         # find trials with some videos not uploaded
         not_uploaded = Video.objects.filter(video='',
-                                            updated_at__gte=datetime.now() + timedelta(minutes=-2)).values_list("trial__id", flat=True)
+                                            updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
 
         print(not_uploaded)
 
