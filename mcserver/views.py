@@ -2,8 +2,15 @@ from django.http import HttpResponse
 from django.http import Http404
 
 from django.shortcuts import get_object_or_404, render
-from mcserver.models import Session, User, Trial, Video, Result, ResetPassword
-from mcserver.serializers import SessionSerializer, TrialSerializer, VideoSerializer, ResultSerializer, UserSerializer, ResetPasswordSerializer, NewPasswordSerializer
+from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, Subject
+from mcserver.serializers import (
+    SessionSerializer, TrialSerializer,
+    VideoSerializer, ResultSerializer,
+    NewSubjectSerializer,
+    SubjectSerializer,
+    UserSerializer,
+    ResetPasswordSerializer,
+    NewPasswordSerializer)
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db.models import Q
@@ -34,7 +41,7 @@ from django.http import FileResponse
 
 from django.db.models import Count
 
-from mcserver.zipsession import downloadAndZipSession
+from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 
 from datetime import datetime, timedelta
 
@@ -538,8 +545,20 @@ class SessionViewSet(viewsets.ModelViewSet):
         serializer = SessionSerializer(session, many=False)
         
         return Response(serializer.data)
-        
-    ## Stop recording POST '<id>/stop/'
+
+    @action(detail=True)
+    def set_subject(self, request, pk):
+        session = Session.objects.get(pk=pk)
+        subject_id = request.GET.get("subject_id", "")
+        subject = get_object_or_404(Subject, id=subject_id, user=request.user)
+        session.subject = subject
+        session.save()
+
+        serializer = SessionSerializer(session, many=False)
+        return Response(serializer.data)
+
+
+## Stop recording POST '<id>/stop/'
     # Changes the trial status from "recording" to "done"
     # Logic on the client side:
     # - session status changed so they start uploading videos
@@ -601,7 +620,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         self.check_object_permissions(self.request, session)
         
         trials = session.trial_set.filter(name="calibration").order_by("-created_at")
-
+        print(trials)
         if len(trials) == 0:
             data = {
                 "status": "error",
@@ -621,7 +640,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             for result in trials[0].result_set.all():
                 if result.tag == "calibration-img":
                     imgs.append(result.media.url)
-           
+            print(imgs)
             if len(imgs) > 0:
                 data = {
                     "status": "done",
@@ -808,6 +827,75 @@ class VideoViewSet(viewsets.ModelViewSet):
 class ResultViewSet(viewsets.ModelViewSet):
     queryset = Result.objects.all().order_by("-created_at")
     serializer_class = ResultSerializer
+
+
+class SubjectViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the subjects
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        if user.is_authenticated and user.id == 1:
+            return Subject.objects.all()
+        return Subject.objects.filter(user=user)
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return NewSubjectSerializer
+        return SubjectSerializer
+
+    @action(detail=False)
+    def api_health_check(self, request):
+        return Response({"status": "True"})
+
+    @action(detail=True, methods=['post'])
+    def trash(self, request, pk):
+        from django.utils.timezone import now
+
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        subject.trashed = True
+        subject.trashed_at = now()
+        subject.save()
+
+        serializer = SubjectSerializer(subject)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        subject.trashed = False
+        subject.trashed_at = None
+        subject.save()
+
+        serializer = SubjectSerializer(subject)
+        return Response(serializer.data)
+
+    @action(detail=True)
+    def download(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        # Extract protocol and host.
+        if request.is_secure():
+            host = "https://" + request.get_host()
+        else:
+            host = "http://" + request.get_host()
+
+        subject_zip = downloadAndZipSubject(pk, host=host)
+
+        return FileResponse(open(subject_zip, "rb"))
+
+    @action(detail=True, methods=['post'])
+    def permanent_remove(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        subject.delete()
+        return Response({})
+
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()

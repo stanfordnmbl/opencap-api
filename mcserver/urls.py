@@ -15,7 +15,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-from mcserver.views import SessionViewSet, VideoViewSet, TrialViewSet, ResultViewSet, UserCreate, CustomAuthToken, verify, UserViewSet, ResetPasswordView, NewPasswordView
+from mcserver.views import (
+    SessionViewSet, VideoViewSet,
+    TrialViewSet, ResultViewSet,
+    SubjectViewSet,
+    UserCreate,
+    CustomAuthToken, verify, UserViewSet, ResetPasswordView, NewPasswordView)
 from rest_framework import routers, serializers, viewsets
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -28,6 +33,7 @@ router.register(r'sessions', SessionViewSet, "session")
 router.register(r'videos', VideoViewSet)
 router.register(r'trials', TrialViewSet)
 router.register(r'results', ResultViewSet)
+router.register(r'subjects', SubjectViewSet, "subject")
 router.register(r'users', UserViewSet)
 
 urlpatterns = [

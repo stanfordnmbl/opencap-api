@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from mcserver.models import Session, User, Video, Trial, Result
+from mcserver.models import Session, User, Video, Trial, Result, Subject
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
 
@@ -118,7 +118,36 @@ class SessionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'public', 'name',
             'qrcode', 'meta', 'trials', 'server',
+            'subject',
             'created_at', 'updated_at',
             'trashed', 'trashed_at',
         ]
 
+
+class SubjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = [
+            'id', 'name',
+            'weight', 'height', 'age',
+            'gender', 'sex_at_birth',
+            'characteristics',
+            'sessions',
+            'created_at', 'updated_at',
+            'trashed', 'trashed_at',
+        ]
+
+
+class NewSubjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = [
+            'name',
+            'weight', 'height', 'age',
+            'gender', 'sex_at_birth',
+            'characteristics',
+        ]
+
+    def to_representation(self, instance):
+        serializer = SubjectSerializer(instance)
+        return serializer.data
