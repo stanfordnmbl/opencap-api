@@ -527,6 +527,16 @@ class SessionViewSet(viewsets.ModelViewSet):
                 "posemodel": request.GET.get("subject_pose_model",""),
             }
             
+        if "settings_data_sharing" in request.GET:
+            session.meta["settings"] = {
+                "datasharing": request.GET.get("settings_data_sharing",""),
+            }
+
+        if "settings_pose_model" in request.GET:
+            session.meta["settings"] = {
+                "posemodel": request.GET.get("settings_pose_model",""),
+            }
+
         if "settings_framerate" in request.GET:
             session.meta["settings"] = {
                 "framerate": request.GET.get("settings_framerate",""),
