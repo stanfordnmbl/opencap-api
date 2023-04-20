@@ -104,7 +104,9 @@ class SessionSerializer(serializers.ModelSerializer):
     def session_name(self, session):
         # Get subject name from the latest static trial
         subject_id = None
-        if session.meta is not None and "subject" in session.meta and "id" in session.meta["subject"]:
+        if session.subject:
+            subject_id = session.subject.name
+        elif session.meta is not None and "subject" in session.meta and "id" in session.meta["subject"]:
             subject_id = session.meta["subject"]["id"] 
 
         # otherwise return session id

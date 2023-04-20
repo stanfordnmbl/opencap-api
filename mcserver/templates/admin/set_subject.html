@@ -1,0 +1,37 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; {% translate 'Set subject' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<p>Are you sure you want to set the subject for the next list of sessions?</p>
+
+<div style="display: flex;">
+    <div>
+        <form action="" method="post">
+          {% csrf_token %}
+          {{ form.as_p }}
+
+          {% for object in objects %}
+          <input type="hidden" name="_selected_action" value="{{ object.pk }}" />
+          {% endfor %}
+          <input type="hidden" name="action" value="set_subject" />
+          <input type="submit" name="apply" value="Submit"/>
+        </form>
+    </div>
+    <div style="margin-left: 1rem;">
+        <ul>
+        {% for object in objects %}
+            <li>{{ object }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}
