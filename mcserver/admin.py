@@ -67,11 +67,14 @@ class SessionAdmin(admin.ModelAdmin):
                 self.message_user(request, f'Subject set to {subject}')
                 return redirect(request.get_full_path())
 
-        return render(
-            request, 'admin/set_subject.html', {
-                'form': form,
-                'objects': queryset,
-            })
+        opts = self.model._meta
+        context = self.admin_site.each_context(request)
+        context.update({
+            'opts': opts,
+            'form': form,
+            'objects': queryset,
+        })
+        return render(request, 'admin/set_subject.html', context)
 
 
 class ResultInline(admin.TabularInline):
