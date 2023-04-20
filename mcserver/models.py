@@ -55,6 +55,14 @@ class Session(models.Model):
     def get_user(self):
         return self.user
 
+    def save(self, *args, **kwargs):
+        if self.subject:
+            _subject_meta = self.subject.get_meta_dict()
+            _meta = self.meta or dict()
+            _meta.update({'subject': _subject_meta})
+            self.meta = _meta
+        super(Session, self).save(*args, **kwargs)
+
 
 class Trial(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -180,3 +188,12 @@ class Subject(models.Model):
 
     def get_user(self):
         return self.user
+
+    def get_meta_dict(self):
+        return {
+            'id': self.name,  # For backward compatibility
+            'sex': self.get_sex_at_birth_display() or '',
+            'mass': self.weight,
+            'gender': self.get_gender_display() or '',
+            'height': self.height,
+        }
