@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.shortcuts import render, redirect
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from mcserver.models import (
     User,
@@ -50,6 +51,27 @@ class SessionAdmin(admin.ModelAdmin):
     raw_id_fields = ('user', 'subject')
     search_fields = ['id']
     inlines = [TrialInline]
+    actions = ['set_subject']
+
+    def set_subject(self, request, queryset):
+        from .forms import SubjectSelectForm
+
+        form = SubjectSelectForm()
+        if request.method == 'POST' and 'apply' in request.POST:
+            form = SubjectSelectForm(request.POST)
+            if form.is_valid():
+                subject = form.cleaned_data['subject']
+                for obj in queryset:
+                    obj.subject = subject
+                    obj.save()
+                self.message_user(request, f'Subject set to {subject}')
+                return redirect(request.get_full_path())
+
+        return render(
+            request, 'admin/set_subject.html', {
+                'form': form,
+                'objects': queryset,
+            })
 
 
 class ResultInline(admin.TabularInline):
