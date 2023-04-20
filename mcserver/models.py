@@ -55,13 +55,13 @@ class Session(models.Model):
     def get_user(self):
         return self.user
 
-    def save(self, *args, **kwargs):
-        if self.subject:
-            _subject_meta = self.subject.get_meta_dict()
-            _meta = self.meta or dict()
-            _meta.update({'subject': _subject_meta})
-            self.meta = _meta
-        super(Session, self).save(*args, **kwargs)
+    # def save(self, *args, **kwargs):
+    #     if self.subject:
+    #         _subject_meta = self.subject.get_meta_dict()
+    #         _meta = self.meta or dict()
+    #         _meta.update({'subject': _subject_meta})
+    #         self.meta = _meta
+    #     super(Session, self).save(*args, **kwargs)
 
 
 class Trial(models.Model):
