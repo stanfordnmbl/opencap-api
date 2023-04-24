@@ -400,7 +400,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         response = s3_client.generate_presigned_post(
             Bucket = settings.AWS_STORAGE_BUCKET_NAME,
             Key = key,
-            ExpiresIn = 10 
+            ExpiresIn = 1200 
         )
 
         return Response(response)
