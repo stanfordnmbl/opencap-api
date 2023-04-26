@@ -740,15 +740,19 @@ class TrialViewSet(viewsets.ModelViewSet):
         uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
 #        uploaded_trials = Trial.objects.all()
 
-        # Priority for 'calibration' and 'neutral'
         if workerType != 'dynamic':
+            # Priority for 'calibration' and 'neutral'
             trials = uploaded_trials.filter(status="stopped",
                                       name__in=["calibration","neutral"],
                                       result=None)
-        
-        if workerType == 'dynamic' or (trials.count() == 0 and workerType != 'calibration'):
+            
+            if trials.count() == 0 and workerType != 'calibration':
+                trials = uploaded_trials.filter(status="stopped",
+                                          result=None)
+            
+        else:
             trials = uploaded_trials.filter(status="stopped",
-                                      result=None)
+                                            result=None).exclude(name__in=["calibration", "neutral"])
         
         if trials.count() == 0:
             raise Http404
