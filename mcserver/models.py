@@ -35,6 +35,11 @@ class Session(models.Model):
     public = models.BooleanField(blank=False, null=False, default=False)
     server = models.GenericIPAddressField(null=True, blank=True)
 
+    subject = models.ForeignKey(
+        'Subject', blank=True, null=True,
+        related_name='sessions',
+        on_delete=models.SET_NULL)
+
     trashed = models.BooleanField(default=False)
     trashed_at = models.DateTimeField(blank=True, null=True)
 
@@ -49,6 +54,14 @@ class Session(models.Model):
 
     def get_user(self):
         return self.user
+
+    # def save(self, *args, **kwargs):
+    #     if self.subject:
+    #         _subject_meta = self.subject.get_meta_dict()
+    #         _meta = self.meta or dict()
+    #         _meta.update({'subject': _subject_meta})
+    #         self.meta = _meta
+    #     super(Session, self).save(*args, **kwargs)
 
 
 class Trial(models.Model):
@@ -136,3 +149,51 @@ def post_login(sender, user, request, **kwargs):
     device.generate_challenge()
     print("CHALLENGE SENT")
 
+
+class Subject(models.Model):
+    GENDER_CHOICES = (
+        ('woman', 'Woman'),
+        ('man', 'Man'),
+        ('transgender', 'Transgender'),
+        ('non-binary', 'Non-Binary/Non-Conforming'),
+        ('prefer-not-respond', 'Prefer Not to Respond'),
+    )
+    SEX_AT_BIRTH_CHOICES = (
+        ('woman', 'Woman'),
+        ('man', 'Man'),
+        ('intersect', 'Intersect'),
+        ('not-listed', 'Not Listed'),
+        ('prefer-not-respond', 'Prefer Not to Respond'),
+    )
+
+    name = models.CharField(max_length=128)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    weight = models.FloatField('Weight (kg)', default=0.0, blank=True, null=True)
+    height = models.FloatField('Height (m)', default=0.0, blank=True, null=True)
+    age = models.IntegerField('Age (y)', default=0.0, blank=True, null=True)
+    gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
+    sex_at_birth = models.CharField(max_length=20, choices=SEX_AT_BIRTH_CHOICES, blank=True, null=True)
+    characteristics = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    trashed = models.BooleanField(default=False)
+    trashed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['name', 'id']
+
+    def __str__(self):
+        return self.name
+
+    def get_user(self):
+        return self.user
+
+    def get_meta_dict(self):
+        return {
+            'id': self.name,  # For backward compatibility
+            'sex': self.get_sex_at_birth_display() or '',
+            'mass': self.weight,
+            'gender': self.get_gender_display() or '',
+            'height': self.height,
+        }

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from mcserver.models import Session, User, Video, Trial, Result
+from mcserver.models import Session, User, Video, Trial, Result, Subject
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
 
@@ -57,9 +57,12 @@ class NewPasswordSerializer(serializers.ModelSerializer):
 
 # Serializers define the API representation.
 class VideoSerializer(serializers.ModelSerializer):
+    video_url = serializers.CharField(max_length=256,
+            required=False
+            )
     class Meta:
         model = Video
-        fields = ['id', 'trial', 'device_id', 'video', 'video_thumb', 'parameters', 'created_at', 'updated_at']
+        fields = ['id', 'trial', 'device_id', 'video', 'video_url', 'video_thumb', 'parameters', 'created_at', 'updated_at']
 
 # Serializers define the API representation.
 class ResultSerializer(serializers.ModelSerializer):
@@ -101,7 +104,9 @@ class SessionSerializer(serializers.ModelSerializer):
     def session_name(self, session):
         # Get subject name from the latest static trial
         subject_id = None
-        if session.meta is not None and "subject" in session.meta and "id" in session.meta["subject"]:
+        if session.subject:
+            subject_id = session.subject.name
+        elif session.meta is not None and "subject" in session.meta and "id" in session.meta["subject"]:
             subject_id = session.meta["subject"]["id"] 
 
         # otherwise return session id
@@ -115,7 +120,36 @@ class SessionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'public', 'name',
             'qrcode', 'meta', 'trials', 'server',
+            'subject',
             'created_at', 'updated_at',
             'trashed', 'trashed_at',
         ]
 
+
+class SubjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = [
+            'id', 'name',
+            'weight', 'height', 'age',
+            'gender', 'sex_at_birth',
+            'characteristics',
+            'sessions',
+            'created_at', 'updated_at',
+            'trashed', 'trashed_at',
+        ]
+
+
+class NewSubjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = [
+            'name',
+            'weight', 'height', 'age',
+            'gender', 'sex_at_birth',
+            'characteristics',
+        ]
+
+    def to_representation(self, instance):
+        serializer = SubjectSerializer(instance)
+        return serializer.data

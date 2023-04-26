@@ -2,8 +2,15 @@ from django.http import HttpResponse
 from django.http import Http404
 
 from django.shortcuts import get_object_or_404, render
-from mcserver.models import Session, User, Trial, Video, Result, ResetPassword
-from mcserver.serializers import SessionSerializer, TrialSerializer, VideoSerializer, ResultSerializer, UserSerializer, ResetPasswordSerializer, NewPasswordSerializer
+from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, Subject
+from mcserver.serializers import (
+    SessionSerializer, TrialSerializer,
+    VideoSerializer, ResultSerializer,
+    NewSubjectSerializer,
+    SubjectSerializer,
+    UserSerializer,
+    ResetPasswordSerializer,
+    NewPasswordSerializer)
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db.models import Q
@@ -34,7 +41,7 @@ from django.http import FileResponse
 
 from django.db.models import Count
 
-from mcserver.zipsession import downloadAndZipSession
+from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 
 from datetime import datetime, timedelta
 
@@ -48,6 +55,11 @@ from rest_framework import permissions
 
 from django.contrib.auth import authenticate, login
 import logging
+
+import boto3
+import requests
+
+import uuid
 
 class IsOwner(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -177,7 +189,14 @@ class SessionViewSet(viewsets.ModelViewSet):
             quantity = request.data['quantity']
 
         # Note the use of `get_queryset()` instead of `self.queryset`
-        sessions = self.get_queryset().annotate(trial_count=Count('trial')).filter(trial_count__gte=1, user=request.user)
+        sessions = self.get_queryset()\
+            .annotate(trial_count=Count('trial'))\
+            .filter(trial_count__gte=1, user=request.user)
+        if 'subject_id' in request.data:
+            subject = get_object_or_404(
+                Subject,
+                id=request.data['subject_id'], user=request.user)
+            sessions = sessions.filter(subject=subject)
 
         # A session is valid only if at least one trial is the "neutral" trial and its status is "done".
         for session in sessions:
@@ -374,6 +393,25 @@ class SessionViewSet(viewsets.ModelViewSet):
             
         return res
 
+     
+    @action(detail=True)
+    def get_presigned_url(self, request, pk):
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        )
+
+        key = str(uuid.uuid4()) + ".mov"
+        
+        response = s3_client.generate_presigned_post(
+            Bucket = settings.AWS_STORAGE_BUCKET_NAME,
+            Key = key,
+            ExpiresIn = 1200 
+        )
+
+        return Response(response)
+    
     ## Session status GET '<id>/status/'
     # if no active trial then return "ready"
     # if there is an active trial then return "recording"
@@ -495,11 +533,21 @@ class SessionViewSet(viewsets.ModelViewSet):
                 "datasharing": request.GET.get("subject_data_sharing",""),
                 "posemodel": request.GET.get("subject_pose_model",""),
             }
-            
+
         if "settings_framerate" in request.GET:
             session.meta["settings"] = {
                 "framerate": request.GET.get("settings_framerate",""),
             }
+
+        if "settings_data_sharing" in request.GET:
+            if not session.meta["settings"]:
+                session.meta["settings"] = {}
+            session.meta["settings"]["datasharing"] = request.GET.get("settings_data_sharing","")
+
+        if "settings_pose_model" in request.GET:
+            if not session.meta["settings"]:
+                session.meta["settings"] = {}
+            session.meta["settings"]["posemodel"] = request.GET.get("settings_pose_model","")
             
         if "cb_square" in request.GET:
             session.meta["checkerboard"] = {
@@ -514,8 +562,20 @@ class SessionViewSet(viewsets.ModelViewSet):
         serializer = SessionSerializer(session, many=False)
         
         return Response(serializer.data)
-        
-    ## Stop recording POST '<id>/stop/'
+
+    @action(detail=True)
+    def set_subject(self, request, pk):
+        session = Session.objects.get(pk=pk)
+        subject_id = request.GET.get("subject_id", "")
+        subject = get_object_or_404(Subject, id=subject_id, user=request.user)
+        session.subject = subject
+        session.save()
+
+        serializer = SessionSerializer(session, many=False)
+        return Response(serializer.data)
+
+
+## Stop recording POST '<id>/stop/'
     # Changes the trial status from "recording" to "done"
     # Logic on the client side:
     # - session status changed so they start uploading videos
@@ -577,7 +637,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         self.check_object_permissions(self.request, session)
         
         trials = session.trial_set.filter(name="calibration").order_by("-created_at")
-
+        print(trials)
         if len(trials) == 0:
             data = {
                 "status": "error",
@@ -597,7 +657,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             for result in trials[0].result_set.all():
                 if result.tag == "calibration-img":
                     imgs.append(result.media.url)
-           
+            print(imgs)
             if len(imgs) > 0:
                 data = {
                     "status": "done",
@@ -680,14 +740,19 @@ class TrialViewSet(viewsets.ModelViewSet):
         uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
 #        uploaded_trials = Trial.objects.all()
 
-        # Priority for 'calibration' and 'neutral'
-        trials = uploaded_trials.filter(status="stopped",
+        if workerType != 'dynamic':
+            # Priority for 'calibration' and 'neutral'
+            trials = uploaded_trials.filter(status="stopped",
                                       name__in=["calibration","neutral"],
                                       result=None)
-        
-        if trials.count() == 0 and workerType != 'calibration':
+            
+            if trials.count() == 0 and workerType != 'calibration':
+                trials = uploaded_trials.filter(status="stopped",
+                                          result=None)
+            
+        else:
             trials = uploaded_trials.filter(status="stopped",
-                                      result=None)
+                                            result=None).exclude(name__in=["calibration", "neutral"])
         
         if trials.count() == 0:
             raise Http404
@@ -706,6 +771,31 @@ class TrialViewSet(viewsets.ModelViewSet):
         serializer = TrialSerializer(trial, many=False)
         
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def rename(self, request, pk):
+        # Get trial.
+        trial = Trial.objects.get(pk=pk, session__user=request.user)
+
+        try:
+            error_message = ""
+
+            # Update trial name and save.
+            trial.name = request.data['trialNewName']
+            trial.save()
+
+        except Exception as e:
+            error_message = 'There was an error while renaming your trial: ' + str(e)
+            print(error_message)
+
+        # Serialize trial.
+        serializer = TrialSerializer(trial)
+
+        # Return error message and data.
+        return Response({
+            'message': error_message,
+            'data': serializer.data
+        })
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
@@ -748,12 +838,86 @@ class VideoViewSet(viewsets.ModelViewSet):
 
     permission_classes = [AllowPublicCreate | ((IsOwner | IsAdmin | IsBackend))]
     
-    # Default 'update' should be enough
+    def perform_update(self, serializer):
+        if ("video_url" in serializer.validated_data) and (serializer.validated_data["video_url"]):
+            serializer.validated_data["video"] = serializer.validated_data["video_url"]
+            del serializer.validated_data["video_url"]
+
+        super().perform_update(serializer)
 
 
 class ResultViewSet(viewsets.ModelViewSet):
     queryset = Result.objects.all().order_by("-created_at")
     serializer_class = ResultSerializer
+
+
+class SubjectViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the subjects
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        if user.is_authenticated and user.id == 1:
+            return Subject.objects.all()
+        return Subject.objects.filter(user=user)
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return NewSubjectSerializer
+        return SubjectSerializer
+
+    @action(detail=False)
+    def api_health_check(self, request):
+        return Response({"status": "True"})
+
+    @action(detail=True, methods=['post'])
+    def trash(self, request, pk):
+        from django.utils.timezone import now
+
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        subject.trashed = True
+        subject.trashed_at = now()
+        subject.save()
+
+        serializer = SubjectSerializer(subject)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        subject.trashed = False
+        subject.trashed_at = None
+        subject.save()
+
+        serializer = SubjectSerializer(subject)
+        return Response(serializer.data)
+
+    @action(detail=True)
+    def download(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        # Extract protocol and host.
+        if request.is_secure():
+            host = "https://" + request.get_host()
+        else:
+            host = "http://" + request.get_host()
+
+        subject_zip = downloadAndZipSubject(pk, host=host)
+
+        return FileResponse(open(subject_zip, "rb"))
+
+    @action(detail=True, methods=['post'])
+    def permanent_remove(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        subject.delete()
+        return Response({})
+
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
