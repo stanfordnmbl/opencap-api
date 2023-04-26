@@ -741,11 +741,12 @@ class TrialViewSet(viewsets.ModelViewSet):
 #        uploaded_trials = Trial.objects.all()
 
         # Priority for 'calibration' and 'neutral'
-        trials = uploaded_trials.filter(status="stopped",
+        if workerType != 'dynamic':
+            trials = uploaded_trials.filter(status="stopped",
                                       name__in=["calibration","neutral"],
                                       result=None)
         
-        if trials.count() == 0 and workerType != 'calibration':
+        if workerType == 'dynamic' or (trials.count() == 0 and workerType != 'calibration'):
             trials = uploaded_trials.filter(status="stopped",
                                       result=None)
         
