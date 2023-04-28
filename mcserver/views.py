@@ -459,7 +459,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 res["session"] = SessionSerializer(session, many=False).data
 
         except NotAuthenticated:
-            raise NotFound('Sorry, you have to log in to access to this session.')
+            raise NotFound('Sorry, you have to log in to access this session.')
         except PermissionDenied:
             raise NotFound('Sorry, you don\'t have the permissions required to access this session.')
         except Http404:
@@ -467,7 +467,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         except ValueError:
             raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
         except Exception:
-            raise APIException("There was an error while recoding the trial. Please try again.")
+            raise APIException("There was an error while recording the trial. Please try again.")
 
         return res
 
@@ -541,7 +541,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         except ValueError:
             raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
         except Exception:
-            raise APIException("There was an error while recoding the trial. Please try again.")
+            raise APIException("There was an error while recording the trial. Please try again.")
 
         return Response(serializer.data)
 
@@ -581,7 +581,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         except ValueError:
             raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
         except Exception:
-            raise APIException("There was an error while getting the session's settings. Please try again.")
+            raise APIException("There was an error while getting the settings of the session. Please try again.")
 
         return Response(sessionPermission)
 
@@ -625,7 +625,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         except ValueError:
             raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
         except Exception:
-            raise APIException("There was an error while getting the session's settings. Please try again.")
+            raise APIException("There was an error while getting the settings of the session. Please try again.")
 
         return Response(settings_dict)
 
@@ -1306,7 +1306,7 @@ class NewPasswordView(APIView):
                 for object in objects:
                     object.delete()
 
-                raise NotFound("The link to reset your password has expired or does not exist. Try reset your password again.")
+                raise NotFound("The link to reset your password has expired or does not exist. Try resetting your password again.")
 
             else:
                 # If token exists, and it has not expired, set new password.
@@ -1318,7 +1318,7 @@ class NewPasswordView(APIView):
                 for object in objects:
                     object.delete()
         except Http404:
-            raise NotFound("The link to reset your password has expired. Try reset your password again.")
+            raise NotFound("The link to reset your password has expired. Try resetting your password again.")
         except Exception:
             raise APIException('There was an error while creating your new password. Please, try again.')
 
