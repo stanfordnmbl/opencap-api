@@ -911,48 +911,53 @@ class TrialViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def dequeue(self, request):
         try:
-            ip = get_client_ip(request)
+          ip = get_client_ip(request)
 
-            workerType = self.request.query_params.get('workerType')
+          workerType = self.request.query_params.get('workerType')
 
-            # find trials with some videos not uploaded
-            not_uploaded = Video.objects.filter(video='',
-                                                updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list(
-                "trial__id", flat=True)
+          # find trials with some videos not uploaded
+          not_uploaded = Video.objects.filter(video='',
+                                              updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list(
+              "trial__id", flat=True)
 
-            print(not_uploaded)
+          print(not_uploaded)
 
-            uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
-            #        uploaded_trials = Trial.objects.all()
+          uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
+          #        uploaded_trials = Trial.objects.all()
 
-            # Priority for 'calibration' and 'neutral'
-            trials = uploaded_trials.filter(status="stopped",
-                                            name__in=["calibration", "neutral"],
+          if workerType != 'dynamic':
+              # Priority for 'calibration' and 'neutral'
+              trials = uploaded_trials.filter(status="stopped",
+                                        name__in=["calibration","neutral"],
+                                        result=None)
+
+              if trials.count() == 0 and workerType != 'calibration':
+                  trials = uploaded_trials.filter(status="stopped",
                                             result=None)
 
-            if trials.count() == 0 and workerType != 'calibration':
-                trials = uploaded_trials.filter(status="stopped",
-                                                result=None)
+          else:
+              trials = uploaded_trials.filter(status="stopped",
+                                              result=None).exclude(name__in=["calibration", "neutral"])
 
-            if trials.count() == 0:
-                raise Http404
+          if trials.count() == 0:
+              raise Http404
 
-            trial = trials[0]
-            trial.status = "processing"
-            trial.save()
+          trial = trials[0]
+          trial.status = "processing"
+          trial.save()
 
-            print(ip)
-            print(trial.session.server)
-            if (not trial.session.server) or len(trial.session.server) < 1:
-                session = Session.objects.get(id=trial.session.id)
-                session.server = ip
-                session.save()
+          print(ip)
+          print(trial.session.server)
+          if (not trial.session.server) or len(trial.session.server) < 1:
+              session = Session.objects.get(id=trial.session.id)
+              session.server = ip
+              session.save()
 
-            serializer = TrialSerializer(trial, many=False)
+          serializer = TrialSerializer(trial, many=False)
         except Exception:
             raise APIException("There was an error while dequeuing the trials. Please try again.")
 
-        return Response(serializer.data)
+      return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def rename(self, request, pk):
