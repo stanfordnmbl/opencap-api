@@ -957,7 +957,7 @@ class TrialViewSet(viewsets.ModelViewSet):
         except Exception:
             raise APIException("There was an error while dequeuing the trials. Please try again.")
 
-      return Response(serializer.data)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def rename(self, request, pk):
