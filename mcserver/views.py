@@ -731,6 +731,27 @@ class SessionViewSet(viewsets.ModelViewSet):
             session = get_object_or_404(Session, pk=pk)
             trials = session.trial_set.order_by("-created_at")
 
+            last_trial = session.trial_set.exclude(name="calibration").order_by("-created_at")[0]
+            calibration_trials = session.trial_set.filter(name="calibration")
+
+            # Check if there is a calibration trial. If not, it must be in a parent session.
+            if not calibration_trials:
+                id_session_with_calibration = session.meta['sessionWithCalibration']
+                session_with_calibration = get_object_or_404(Session, pk=id_session_with_calibration)
+                calibration_trials = session_with_calibration.trial_set.filter(name="calibration")
+
+            last_calibration_trial = calibration_trials.order_by("-created_at")[0]
+
+            last_trial_num_videos = Video.objects.filter(trial=last_trial).count()
+            last_calibration_trial_num_videos = Video.objects.filter(trial=last_calibration_trial.count())
+
+            if last_trial_num_videos != last_calibration_trial_num_videos:
+                error_message_cameras_mismatch = 'Sorry, there was a problem with the cameras.\
+                    Number of cameras in last calibration trial was: ' + last_calibration_trial_num_videos + ",\
+                    but current number of cameras is: " + last_trial_num_videos + "."
+                last_trial.meta['error_msg'] = error_message_cameras_mismatch
+                last_trial.save()
+                raise AssertionError()
             # name = request.GET.get("name",None)
 
             # meta = {
@@ -760,6 +781,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
         except ValueError:
             raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+        except AssertionError:
+            raise NotFound(error_message_cameras_mismatch)
         except Exception:
             raise APIException("There was an error while canceling the trial. Please try again.")
 
