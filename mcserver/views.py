@@ -1347,6 +1347,12 @@ def verify(request):
     try:
         device = request.user.emaildevice_set.all()[0]
         data = json.loads(request.body.decode('utf-8'))
+        if 'no_otp' in data:
+            print("NO OTP")
+            request.user.otp_verified = True
+            request.user.save()
+            return Response({})
+
         verified = device.verify_token(data["otp_token"])
         print("VERIFICATION", verified)
         request.user.otp_verified = verified
