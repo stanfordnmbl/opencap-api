@@ -9,6 +9,7 @@ import platform
 
 from datetime import datetime, timedelta
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.views.decorators.csrf import csrf_exempt
 from django.template.loader import render_to_string
 from django.core.files.base import ContentFile
@@ -735,41 +736,44 @@ class SessionViewSet(viewsets.ModelViewSet):
             calibration_trials = session.trial_set.filter(name="calibration")
 
             # Check if there is a calibration trial. If not, it must be in a parent session.
-            if not calibration_trials:
+            while not calibration_trials and session.meta['sessionWithCalibration']:
                 id_session_with_calibration = session.meta['sessionWithCalibration']
-                session_with_calibration = get_object_or_404(Session, pk=id_session_with_calibration)
-                calibration_trials = session_with_calibration.trial_set.filter(name="calibration")
+                # If parent does not exist, capture the exception, and continue.
+                try:
+                    session_with_calibration = Session.objects.filter(pk=id_session_with_calibration)
+                except Exception:
+                    break
+                # If parent exist, extract calibration trials.
+                if session_with_calibration:
+                    try:
+                        calibration_trials = session_with_calibration.trial_set.filter(name="calibration")
+                    except Exception:
+                        break
 
-            last_calibration_trial = calibration_trials.order_by("-created_at")[0]
+            # If there are calibration trials, check if the number of cameras is the same as in the
+            # current trial being stopped.
+            if calibration_trials:
+                last_calibration_trial = calibration_trials.order_by("-created_at")[0]
 
-            last_trial_num_videos = Video.objects.filter(trial=last_trial).count()
-            last_calibration_trial_num_videos = Video.objects.filter(trial=last_calibration_trial.count())
+                last_trial_num_videos = Video.objects.filter(trial=last_trial).count()
+                last_calibration_trial_num_videos = Video.objects.filter(trial=last_calibration_trial.count())
 
-            if last_trial_num_videos != last_calibration_trial_num_videos:
-                error_message_cameras_mismatch = 'Sorry, there was a problem with the cameras.\
-                    Number of cameras in last calibration trial was: ' + last_calibration_trial_num_videos + ",\
-                    but current number of cameras is: " + last_trial_num_videos + "."
-                last_trial.meta['error_msg'] = error_message_cameras_mismatch
-                last_trial.save()
+                if last_trial_num_videos != last_calibration_trial_num_videos:
+                    error_message = 'Sorry, there was a problem with the cameras.\
+                        Number of cameras in last calibration trial was: ' + last_calibration_trial_num_videos + ",\
+                        but current number of cameras is: " + last_trial_num_videos + "."
+                    if not last_trial.meta:
+                        last_trial.meta = {}
+                    last_trial.meta['error_msg'] = error_message
+                    last_trial.save()
+                    raise AssertionError()
+            else:
+                error_message = 'Sorry, there is no calibration trial for this session.' \
+                                                 'Maybe it was created from a session that was remove.'
+                if not last_trial.meta:
+                    last_trial.meta = {}
+                last_trial.meta['error_msg'] = error_message
                 raise AssertionError()
-            # name = request.GET.get("name",None)
-
-            # meta = {
-            #     "subject": {
-            #         "id": request.GET.get("subject_id",""),
-            #         "mass": request.GET.get("subject_mass",""),
-            #         "height": request.GET.get("subject_height",""),
-            #         "gender": request.GET.get("subject_gender",""),
-            #     },
-            #     "checkerboard": {
-            #         "square_size": request.GET.get("cb_square",""),
-            #         "rows": request.GET.get("cb_rows",""),
-            #         "cols": request.GET.get("cb_cols",""),
-            #         "placement": request.GET.get("cb_placement",""),
-            #     }
-            # }
-            # session.meta = meta
-            # session.save()
 
             # If there is at least one trial, check its status
             trial = trials[0]
@@ -782,7 +786,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         except ValueError:
             raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
         except AssertionError:
-            raise NotFound(error_message_cameras_mismatch)
+            raise NotFound(error_message)
         except Exception:
             raise APIException("There was an error while canceling the trial. Please try again.")
 
