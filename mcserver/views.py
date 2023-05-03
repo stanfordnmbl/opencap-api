@@ -1230,9 +1230,7 @@ class CustomAuthToken(ObtainAuthToken):
             token, created = Token.objects.get_or_create(user=user)
 
             print("LOGGED IN")
-            # Skip OTP verification if specified
-            if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
-                user.otp_verified = False
+            user.otp_verified = False
             user.save()
             login(request, user)
         except ValidationError:
@@ -1352,9 +1350,6 @@ def verify(request):
         verified = device.verify_token(data["otp_token"])
         print("VERIFICATION", verified)
         request.user.otp_verified = verified
-        if 'remember_device' in data and data['remember_device']:
-            request.user.otp_skip_till = timezone.now() + timedelta(days=90)
-
         request.user.save()
     except Exception:
         raise APIException('There was an error during the verification process. Please, try again.')
