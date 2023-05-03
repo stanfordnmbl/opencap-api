@@ -22,6 +22,7 @@ class User(AbstractUser):
     reason = models.CharField(max_length=256, blank=True, null=True)
     website = models.CharField(max_length=256, blank=True, null=True)
     otp_verified = models.BooleanField(default=False)
+    otp_skip_till = models.DateTimeField(blank=True, null=True)
     newsletter = models.BooleanField(default=True)
 
 
