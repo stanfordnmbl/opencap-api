@@ -147,8 +147,9 @@ def post_login(sender, user, request, **kwargs):
     # Set subject here, so everything is together.
     settings.OTP_EMAIL_SUBJECT = "Opencap - Verification Code"
 
-    device.generate_challenge()
-    print("CHALLENGE SENT")
+    if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+        device.generate_challenge()
+        print("CHALLENGE SENT")
 
 
 class Subject(models.Model):
