@@ -667,6 +667,11 @@ class SessionViewSet(viewsets.ModelViewSet):
                     session.meta["settings"] = {}
                 session.meta["settings"]["posemodel"] = request.GET.get("settings_pose_model", "")
 
+            if "settings_msk_model" in request.GET:
+                if not session.meta["settings"]:
+                    session.meta["settings"] = {}
+                session.meta["settings"]["mskmodel"] = request.GET.get("settings_msk_model", "")
+
             if "cb_square" in request.GET:
                 session.meta["checkerboard"] = {
                     "square_size": request.GET.get("cb_square", ""),
