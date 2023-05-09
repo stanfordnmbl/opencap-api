@@ -1084,15 +1084,6 @@ class VideoViewSet(viewsets.ModelViewSet):
     queryset = Video.objects.all().order_by("-created_at")
     serializer_class = VideoSerializer
 
-    permission_classes = [AllowPublicCreate | ((IsOwner | IsAdmin | IsBackend))]
-
-    def perform_update(self, serializer):
-        if ("video_url" in serializer.validated_data) and (serializer.validated_data["video_url"]):
-            serializer.validated_data["video"] = serializer.validated_data["video_url"]
-            del serializer.validated_data["video_url"]
-
-        super().perform_update(serializer)
-
 
 class ResultViewSet(viewsets.ModelViewSet):
     queryset = Result.objects.all().order_by("-created_at")
