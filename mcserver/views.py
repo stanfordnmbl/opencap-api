@@ -849,6 +849,15 @@ class VideoViewSet(viewsets.ModelViewSet):
 class ResultViewSet(viewsets.ModelViewSet):
     queryset = Result.objects.all().order_by("-created_at")
     serializer_class = ResultSerializer
+    
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
+
+    def perform_update(self, serializer):
+        if ("media_url" in serializer.validated_data) and (serializer.validated_data["media_url"]):
+            serializer.validated_data["media"] = serializer.validated_data["media_url"]
+            del serializer.validated_data["media_url"]
+
+        super().perform_update(serializer)
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
