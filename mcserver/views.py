@@ -401,8 +401,13 @@ class SessionViewSet(viewsets.ModelViewSet):
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         )
-
-        key = str(uuid.uuid4()) + ".mov"
+        
+        if request.data and request.data.get('fileName'): 
+            fileName = '-' + request.data.get('fileName') # for result uploading - matching old way
+        else: # default: link for phones to upload videos
+            fileName = '.mov'
+        
+        key = str(uuid.uuid4()) + fileName 
         
         response = s3_client.generate_presigned_post(
             Bucket = settings.AWS_STORAGE_BUCKET_NAME,
