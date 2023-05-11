@@ -731,7 +731,6 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             session = get_object_or_404(Session, pk=pk)
             trials = session.trial_set.order_by("-created_at")
-
             last_trial = session.trial_set.exclude(name="calibration").order_by("-created_at")[0]
             calibration_trials = session.trial_set.filter(name="calibration")
 
