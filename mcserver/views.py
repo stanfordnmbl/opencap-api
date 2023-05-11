@@ -845,19 +845,22 @@ class VideoViewSet(viewsets.ModelViewSet):
 
         super().perform_update(serializer)
 
-
 class ResultViewSet(viewsets.ModelViewSet):
     queryset = Result.objects.all().order_by("-created_at")
     serializer_class = ResultSerializer
-    
+
     permission_classes = [IsOwner | IsAdmin | IsBackend]
 
-    def perform_update(self, serializer):
-        if ("media_url" in serializer.validated_data) and (serializer.validated_data["media_url"]):
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if request.data.get('media_url'):
             serializer.validated_data["media"] = serializer.validated_data["media_url"]
             del serializer.validated_data["media_url"]
+        self.perform_create(serializer)
 
-        super().perform_update(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class SubjectViewSet(viewsets.ModelViewSet):

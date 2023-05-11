@@ -66,12 +66,12 @@ class VideoSerializer(serializers.ModelSerializer):
 
 # Serializers define the API representation.
 class ResultSerializer(serializers.ModelSerializer):
-    media_url = serializers.CharField(max_length=256,
-    required=False
-    )
+    media = serializers.FileField(required=False)
+    media_url = serializers.CharField(max_length=256, required=False)
+
     class Meta:
         model = Result
-        fields = ['id', 'trial', 'tag', 'media', 'media_url', 'meta', 'device_id','created_at', 'updated_at']
+        fields = ['id', 'trial', 'tag', 'media', 'media_url', 'meta', 'device_id', 'created_at', 'updated_at']
 
 # Serializers define the API representation.
 class TrialSerializer(serializers.ModelSerializer):
