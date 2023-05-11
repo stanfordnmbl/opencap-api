@@ -1107,3 +1107,34 @@ def verify(request):
         }, status.HTTP_401_UNAUTHORIZED)
 
     return Response({})
+
+
+@api_view(('POST',))
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
+def reset_otp_challenge(request):
+    from mcserver.customEmailDevice import CustomEmailDevice
+    device = request.user.emaildevice_set.all()[0]
+    device.__class__ = CustomEmailDevice
+
+    # Get template from path and set variables. The {{token}}
+    # is then substituted by the device by the real token.
+    settings.OTP_EMAIL_BODY_TEMPLATE = render_to_string(settings.OTP_EMAIL_BODY_TEMPLATE_PATH) % (settings.LOGO_LINK, "{{token}}")
+
+    # Set subject here, so everything is together.
+    settings.OTP_EMAIL_SUBJECT = "Opencap - Verification Code"
+
+    device.generate_challenge()
+    print("CHALLENGE SENT")
+
+    request.user.otp_verified = False
+    request.user.otp_skip_till = None
+    request.user.save()
+    return Response({})
+
+
+@api_view(('GET',))
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
+def check_otp_verified(request):
+    return Response({'otp_verified': request.user.otp_verified})
