@@ -22,6 +22,7 @@ class User(AbstractUser):
     reason = models.CharField(max_length=256, blank=True, null=True)
     website = models.CharField(max_length=256, blank=True, null=True)
     otp_verified = models.BooleanField(default=False)
+    otp_skip_till = models.DateTimeField(blank=True, null=True)
     newsletter = models.BooleanField(default=True)
 
 
@@ -146,8 +147,9 @@ def post_login(sender, user, request, **kwargs):
     # Set subject here, so everything is together.
     settings.OTP_EMAIL_SUBJECT = "Opencap - Verification Code"
 
-    device.generate_challenge()
-    print("CHALLENGE SENT")
+    if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+        device.generate_challenge()
+        print("CHALLENGE SENT")
 
 
 class Subject(models.Model):
