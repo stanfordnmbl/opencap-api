@@ -66,7 +66,6 @@ class VideoSerializer(serializers.ModelSerializer):
 
 # Serializers define the API representation.
 class ResultSerializer(serializers.ModelSerializer):
-    media = serializers.FileField(required=False)
     media_url = serializers.CharField(max_length=256, required=False)
 
     class Meta:
