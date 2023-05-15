@@ -947,6 +947,7 @@ class UserCreate(APIView):
 class CustomAuthToken(ObtainAuthToken):
 
     def post(self, request, *args, **kwargs):
+        from mcserver.utils import send_otp_challenge
         serializer = self.serializer_class(data=request.data,
                                            context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -954,15 +955,22 @@ class CustomAuthToken(ObtainAuthToken):
         token, created = Token.objects.get_or_create(user=user)
 
         print("LOGGED IN")
+
         # Skip OTP verification if specified
+        otp_challenge_sent = False
+
         if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
             user.otp_verified = False
         user.save()
         login(request, user)
+        if not (user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+            send_otp_challenge(user)
+            otp_challenge_sent = True
         
         return Response({
             'token': token.key,
             'user_id': user.id,
+            'otp_challenge_sent': otp_challenge_sent,
         })
 
 from django.core.mail import send_mail
@@ -1107,3 +1115,24 @@ def verify(request):
         }, status.HTTP_401_UNAUTHORIZED)
 
     return Response({})
+
+
+@api_view(('POST',))
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
+def reset_otp_challenge(request):
+    from mcserver.utils import send_otp_challenge
+
+    send_otp_challenge(request.user)
+
+    request.user.otp_verified = False
+    request.user.otp_skip_till = None
+    request.user.save()
+    return Response({'otp_challenge_sent': True})
+
+
+@api_view(('GET',))
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
+def check_otp_verified(request):
+    return Response({'otp_verified': request.user.otp_verified})
