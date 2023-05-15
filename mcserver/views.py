@@ -947,6 +947,7 @@ class UserCreate(APIView):
 class CustomAuthToken(ObtainAuthToken):
 
     def post(self, request, *args, **kwargs):
+        from mcserver.utils import send_otp_challenge
         serializer = self.serializer_class(data=request.data,
                                            context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -954,15 +955,22 @@ class CustomAuthToken(ObtainAuthToken):
         token, created = Token.objects.get_or_create(user=user)
 
         print("LOGGED IN")
+
         # Skip OTP verification if specified
+        otp_challenge_sent = False
+
         if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
             user.otp_verified = False
         user.save()
         login(request, user)
+        if not (user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+            send_otp_challenge(user)
+            otp_challenge_sent = True
         
         return Response({
             'token': token.key,
             'user_id': user.id,
+            'otp_challenge_sent': otp_challenge_sent,
         })
 
 from django.core.mail import send_mail
@@ -1113,24 +1121,14 @@ def verify(request):
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 @csrf_exempt
 def reset_otp_challenge(request):
-    from mcserver.customEmailDevice import CustomEmailDevice
-    device = request.user.emaildevice_set.all()[0]
-    device.__class__ = CustomEmailDevice
+    from mcserver.utils import send_otp_challenge
 
-    # Get template from path and set variables. The {{token}}
-    # is then substituted by the device by the real token.
-    settings.OTP_EMAIL_BODY_TEMPLATE = render_to_string(settings.OTP_EMAIL_BODY_TEMPLATE_PATH) % (settings.LOGO_LINK, "{{token}}")
-
-    # Set subject here, so everything is together.
-    settings.OTP_EMAIL_SUBJECT = "Opencap - Verification Code"
-
-    device.generate_challenge()
-    print("CHALLENGE SENT")
+    send_otp_challenge(request.user)
 
     request.user.otp_verified = False
     request.user.otp_skip_till = None
     request.user.save()
-    return Response({})
+    return Response({'otp_challenge_sent': True})
 
 
 @api_view(('GET',))
