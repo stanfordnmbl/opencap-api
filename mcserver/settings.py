@@ -241,8 +241,28 @@ if SENTRY_DSN:
 
 REDIS_URL = config('REDIS_URL', '')
 
+# TRASHED_OBJECTS_CLEANUP_DAYS = config(
+#     'TRASHED_OBJECTS_CLEANUP_DAYS', default=30, cast=int)  # 30 days by default
+
+# CELERY_BROKER_URL = REDIS_URL
+# CELERY_RESULT_BACKEND = REDIS_URL
+# CELERY_BEAT_SCHEDULER = 'redbeat.RedBeatScheduler'
+
+# from celery.schedules import crontab
+
+# CELERY_BEAT_SCHEDULE = {
+#     'cleanup_trashed_sessions': {
+#         'task': 'mcserver.tasks.cleanup_trashed_sessions',
+#         'schedule': crontab(hour='*/4', minute=0),
+#     },
+#     'cleanup_trashed_trials': {
+#         'task': 'mcserver.tasks.cleanup_trashed_trials',
+#         'schedule': crontab(hour='*/4', minute=0),
+#     }
+# }
+
 TRASHED_OBJECTS_CLEANUP_DAYS = config(
-    'TRASHED_OBJECTS_CLEANUP_DAYS', default=30, cast=int)  # 30 days by default
+    'TRASHED_OBJECTS_CLEANUP_DAYS', default=15, cast=int)  # 30 days by default
 
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
@@ -253,11 +273,11 @@ from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
     'cleanup_trashed_sessions': {
         'task': 'mcserver.tasks.cleanup_trashed_sessions',
-        'schedule': crontab(hour='*/4', minute=0),
+        'schedule': crontab(minute='*/5'),
     },
     'cleanup_trashed_trials': {
         'task': 'mcserver.tasks.cleanup_trashed_trials',
-        'schedule': crontab(hour='*/4', minute=0),
+        'schedule': crontab(minute='*/5'),
     }
 }
 
