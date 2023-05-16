@@ -275,6 +275,36 @@ class SessionViewSet(viewsets.ModelViewSet):
                 
         return Response(serializer.data)
     
+    ## Get and send QR code
+    @action(detail=True)
+    def get_qr(self, request, pk):
+        session = Session.objects.get(pk=pk)
+       
+        # # get the QR code from the database
+        if session.qrcode:
+            qr = session.qrcode
+        elif session.meta and 'sessionWithCalibration' in session.meta:
+            sessionWithCalibration = Session.objects.get(pk = str(session.meta['sessionWithCalibration']['id']))
+            qr = sessionWithCalibration.qrcode
+
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        )
+
+        url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+                'Key': str(qr)
+            },
+            ExpiresIn=12000
+        )
+    
+        res = {'qr': url}
+        return Response(res)
+       
     ## New session GET '/new_subject/'
     # Creates a new sessionm leaving metadata on previous session. Used to avoid
     # re-connecting and re-calibrating cameras with every new subject.
