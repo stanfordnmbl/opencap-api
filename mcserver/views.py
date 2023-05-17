@@ -431,8 +431,13 @@ class SessionViewSet(viewsets.ModelViewSet):
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         )
-
-        key = str(uuid.uuid4()) + ".mov"
+        
+        if request.data and request.data.get('fileName'): 
+            fileName = '-' + request.data.get('fileName') # for result uploading - matching old way
+        else: # default: link for phones to upload videos
+            fileName = '.mov'
+        
+        key = str(uuid.uuid4()) + fileName 
         
         response = s3_client.generate_presigned_post(
             Bucket = settings.AWS_STORAGE_BUCKET_NAME,
@@ -875,10 +880,22 @@ class VideoViewSet(viewsets.ModelViewSet):
 
         super().perform_update(serializer)
 
-
 class ResultViewSet(viewsets.ModelViewSet):
     queryset = Result.objects.all().order_by("-created_at")
     serializer_class = ResultSerializer
+
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if request.data.get('media_url'):
+            serializer.validated_data["media"] = serializer.validated_data["media_url"]
+            del serializer.validated_data["media_url"]
+        self.perform_create(serializer)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
