@@ -22,6 +22,7 @@ class User(AbstractUser):
     reason = models.CharField(max_length=256, blank=True, null=True)
     website = models.CharField(max_length=256, blank=True, null=True)
     otp_verified = models.BooleanField(default=False)
+    otp_skip_till = models.DateTimeField(blank=True, null=True)
     newsletter = models.BooleanField(default=True)
 
 
@@ -130,24 +131,25 @@ def create_profile(sender, instance, created, **kwargs):
         device = EmailDevice(user = instance, name = "default e-mail")
         device.save()
 
-@receiver(user_logged_in)
-def post_login(sender, user, request, **kwargs):
-    device = user.emaildevice_set.all()[0]
-
-    # The default EmailDevice didn't allow the use of html,
-    # so I have created a child class allowing it and here
-    # I am casting the device to that class.
-    device.__class__ = CustomEmailDevice
-
-    # Get template from path and set variables. The {{token}}
-    # is then substituted by the device by the real token.
-    settings.OTP_EMAIL_BODY_TEMPLATE = render_to_string(settings.OTP_EMAIL_BODY_TEMPLATE_PATH) % (settings.LOGO_LINK, "{{token}}")
-
-    # Set subject here, so everything is together.
-    settings.OTP_EMAIL_SUBJECT = "Opencap - Verification Code"
-
-    device.generate_challenge()
-    print("CHALLENGE SENT")
+# @receiver(user_logged_in)
+# def post_login(sender, user, request, **kwargs):
+#     device = user.emaildevice_set.all()[0]
+#
+#     # The default EmailDevice didn't allow the use of html,
+#     # so I have created a child class allowing it and here
+#     # I am casting the device to that class.
+#     device.__class__ = CustomEmailDevice
+#
+#     # Get template from path and set variables. The {{token}}
+#     # is then substituted by the device by the real token.
+#     settings.OTP_EMAIL_BODY_TEMPLATE = render_to_string(settings.OTP_EMAIL_BODY_TEMPLATE_PATH) % (settings.LOGO_LINK, "{{token}}")
+#
+#     # Set subject here, so everything is together.
+#     settings.OTP_EMAIL_SUBJECT = "Opencap - Verification Code"
+#
+#     if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+#         device.generate_challenge()
+#         print("CHALLENGE SENT")
 
 
 class Subject(models.Model):

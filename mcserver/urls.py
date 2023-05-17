@@ -20,7 +20,10 @@ from mcserver.views import (
     TrialViewSet, ResultViewSet,
     SubjectViewSet,
     UserCreate,
-    CustomAuthToken, verify, UserViewSet, ResetPasswordView, NewPasswordView)
+    CustomAuthToken, verify,
+    reset_otp_challenge,
+    check_otp_verified,
+    UserViewSet, ResetPasswordView, NewPasswordView)
 from rest_framework import routers, serializers, viewsets
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -43,6 +46,8 @@ urlpatterns = [
 #    path('session/<id>/status/', status),
     path('login/', CustomAuthToken.as_view()),
     path('verify/', verify),
+    path('reset-otp-challenge/', reset_otp_challenge),
+    path('check-otp-verified/', check_otp_verified),
     path('admin/', admin.site.urls),
     path('register/', UserCreate.as_view(), name='account-create'),
     path('reset-password/', ResetPasswordView.as_view()),

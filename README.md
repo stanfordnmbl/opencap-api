@@ -14,9 +14,9 @@
 
 ## Installation
 
-Clone this repo, then
+Clone this repo, then 
 ```
-conda create -n opencap python=3.7
+conda create -n opencap python=3.7 
 pip install -r requirements.txt
 ```
 Create the `.env` file with all env variables and credentials.
@@ -27,7 +27,7 @@ Create the `.env` file with all env variables and credentials.
 python manage.py runserver
 ```
 
-## Adding new fields to the data model 
+## Adding new fields to the data model
 
 1. Add fields to `mcserver/models.py`
 2. Run `python manage.py makemigrations`
