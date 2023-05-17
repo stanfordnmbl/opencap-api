@@ -168,7 +168,33 @@ class SessionViewSet(viewsets.ModelViewSet):
             "status": "ok",
             "data": request.data,
         })
-    
+
+
+    @action(detail=True, methods=['post'])
+    def rename(self, request, pk):
+        # Get session.
+        session = get_object_or_404(Session.objects.all(), pk=pk)
+
+        try:
+            error_message = ""
+
+            # Update session name and save.
+            session.meta["sessionName"] = request.data['sessionNewName']
+            session.save()
+
+        except Exception as e:
+            error_message = 'There was an error while renaming your session: ' + str(e)
+            print(error_message)
+
+        # Serialize session.
+        serializer = SessionSerializer(session)
+
+        # Return error message and data.
+        return Response({
+            'message': error_message,
+            'data': serializer.data
+        })
+
     def retrieve(self, request, pk=None):
         session = get_object_or_404(Session.objects.all(), pk=pk)
 
