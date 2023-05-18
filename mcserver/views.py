@@ -582,7 +582,11 @@ class SessionViewSet(viewsets.ModelViewSet):
                 "cols": request.GET.get("cb_cols",""),
                 "placement": request.GET.get("cb_placement",""),
             }
-            
+
+        if "sessionName" in request.GET:
+            if "sessionName" not in session.meta:
+                session.meta["sessionName"] = request.GET.get("sessionName", "")
+
         session.save()
     
         serializer = SessionSerializer(session, many=False)
