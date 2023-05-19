@@ -77,11 +77,52 @@ class Trial(models.Model):
     trashed = models.BooleanField(default=False)
     trashed_at = models.DateTimeField(blank=True, null=True)
 
+    @property
+    def formated_name(self):
+        return self.name.replace(" ", "") if self.name else ""
+
     def is_public(self):
         return self.session.is_public()
 
     def get_user(self):
         return self.session.get_user()
+    
+    @classmethod
+    def get_calibration_obj_or_none(cls, session_id):
+        """ Returns trial with name `calibration` if it exists for session,
+            otherwise returns None
+        """
+        calibration_trial = cls.objects.filter(
+            session_id=session_id, name="calibration"
+        ).order_by("created_at").last()
+        if calibration_trial:
+            return calibration_trial
+        
+        session = Session.objects.filter(id=session_id).first()
+        if session and session.meta and "sessionWithCalibration" in session.meta:
+            return cls.get_calibration_obj_or_none(
+                session.meta["sessionWithCalibration"]["id"]
+            )
+        return None
+    
+    @classmethod
+    def get_neutral_obj_or_none(cls, session_id):
+        """ Returns trial with name `neutral` if it exists for session,
+            otherwise returns None. 
+        """
+        neutral_trial = cls.objects.filter(
+            session_id=session_id, name="neutral"
+        ).order_by("created_at").last()
+        if neutral_trial:
+            return neutral_trial
+        
+        session = Session.objects.filter(id=session_id).first()
+        if session and session.meta and "neutral_trial" in session.meta:
+            return cls.objects.filter(
+                id=session.meta["neutral_trial"]["id"]
+            ).first()
+        return None
+
 
 class Video(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -114,6 +155,30 @@ class Result(models.Model):
 
     def get_user(self):
         return self.trial.get_user()
+    
+    @classmethod
+    def commit(cls, trial, device_id, tag, media_path, meta=None):
+        """ Creates result record
+        """
+        with open(media_path, 'rb') as media:
+            cls.objects.create(
+                trial=trial,
+                device_id=device_id,
+                tag=tag,
+                media=media,
+                meta=meta
+            )
+    
+    @classmethod
+    def reset(cls, trial, tag=None, selected=[]):
+        """ Deletes selected results, or all for trial with the tag
+        """
+        if selected:
+            cls.objects.filter(id__in=selected).delete()
+        elif tag:
+            cls.objects.filter(trial=trial, tag=tag).delete()
+        return
+
 
 class ResetPassword(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

@@ -20,3 +20,11 @@ def cleanup_trashed_trials():
     Trial.objects.filter(
         trashed=True,
         trashed_at__lt=now-timedelta(days=settings.TRASHED_OBJECTS_CLEANUP_DAYS)).delete()
+
+
+def upload_subjects_zip():
+    pass
+
+
+def upload_session_zip():
+    pass
