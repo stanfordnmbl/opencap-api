@@ -4,6 +4,8 @@ import shutil
 import tempfile
 import pickle
 import glob
+from moto import mock_s3
+import boto3
 
 from django.conf import settings
 from django.test import TestCase, override_settings
@@ -190,12 +192,23 @@ class TrialTests(TestCase):
 
 @override_settings(
     MEDIA_ROOT=_temp_media,
-    DEFAULT_FILE_STORAGE="django.core.files.storage.FileSystemStorage"
+    AWS_ACCESS_KEY_ID="testing",
+    AWS_SECRET_ACCESS_KEY="testing",
+    AWS_STORAGE_BUCKET_NAME="test",
+    AWS_S3_ENDPOINT_URL=None
+    # DEFAULT_FILE_STORAGE="django.core.files.storage.FileSystemStorage"
 )
 class TestZipSession(TestCase):
     def setUp(self):
         """ Full session configuration
         """
+        self.mock_s3 = mock_s3()
+        self.mock_s3.start()
+    
+        s3 = boto3.resource("s3")
+        bucket = s3.Bucket("test")
+        bucket.create()
+
         self.zip_session = ZipSession()
         self.zip_session.set_root_dir_path(settings.MEDIA_ROOT)
         self.user = User.objects.create_user(
@@ -516,4 +529,6 @@ class TestZipSession(TestCase):
         pass
 
     def tearDown(self):
-        shutil.rmtree(settings.MEDIA_ROOT)
+        self.mock_s3.stop()
+        if os.path.exists(settings.MEDIA_ROOT):
+            shutil.rmtree(settings.MEDIA_ROOT)

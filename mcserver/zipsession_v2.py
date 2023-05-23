@@ -1,6 +1,7 @@
 import os
 import shutil
 import pickle
+from urllib.parse import urlparse
 
 from django.conf import settings
 
@@ -28,6 +29,10 @@ class ZipSession():
     
     def get_root_dir_path(self):
         return self.root_dir_path
+
+    def download_file_from_s3(self, s3_src, dist):
+        with open(dist, "wb") as dist_file:
+            dist_file.write(s3_src.read())
     
     def collect_video_data(self, trial):
         root_dir_path = self.get_root_dir_path()
@@ -37,8 +42,8 @@ class ZipSession():
                 root_dir_path, "Videos", f"Cam{idx}", "InputMedia", trial.formated_name
             )
             os.makedirs(video_root, exist_ok=True)
-            shutil.copy2(
-                video.video.path, os.path.join(video_root, f"{trial.formated_name}.mov")
+            self.download_file_from_s3(
+                video.video, os.path.join(video_root, f"{trial.formated_name}.mov")
             )
             mapping_cam_device[str(video.device_id).replace('-', '').upper()] = idx
 
@@ -56,9 +61,9 @@ class ZipSession():
                 root_dir_path, "Videos", result.device_id, "InputMedia", trial.formated_name
             )
             os.makedirs(video_root, exist_ok=True)
-            ext = result.media.path.split(".")[-1]
-            shutil.copy2(
-                result.media.path,
+            ext = urlparse(result.media.url).path.split(".")[-1]
+            self.download_file_from_s3(
+                result.media,
                 os.path.join(video_root, f"{trial.formated_name}_sync.{ext}")
             )
     
@@ -67,8 +72,8 @@ class ZipSession():
         for result in trial.result_set.filter(tag="pose_pickle").only("device_id", "media"):
             device_pickle_root = os.path.join(root_dir_path, "Videos", result.device_id, "OutputPkl")
             os.makedirs(device_pickle_root, exist_ok=True)
-            shutil.copy2(
-                result.media.path,
+            self.download_file_from_s3(
+                result.media,
                 os.path.join(device_pickle_root, f"{trial.formated_name}_keypoints.pkl")
             )
     
@@ -77,8 +82,8 @@ class ZipSession():
         for result in trial.result_set.filter(tag="marker_data").only("media"):
             marker_data_root = os.path.join(root_dir_path, "MarkerData")
             os.makedirs(marker_data_root, exist_ok=True)
-            shutil.copy2(
-                result.media.path,
+            self.download_file_from_s3(
+                result.media,
                 os.path.join(marker_data_root, f"{trial.formated_name}.trc")
             )
     
@@ -87,8 +92,8 @@ class ZipSession():
         for result in trial.result_set.filter(tag="ik_results").only("media"):
             kinematics_root = os.path.join(root_dir_path, "OpenSimData", "Kinematics")
             os.makedirs(kinematics_root, exist_ok=True)
-            shutil.copy2(
-                result.media.path,
+            self.download_file_from_s3(
+                result.media,
                 os.path.join(kinematics_root, f"{trial.formated_name}.mot")
             )
 
@@ -96,11 +101,13 @@ class ZipSession():
         root_dir_path = self.get_root_dir_path()
         opensim_result = trial.result_set.filter(tag="opensim_model").first()
         if opensim_result:
-            opensim_model_short_filename = opensim_result.media.path.split("-")[-1]
+            opensim_model_short_filename = urlparse(
+                opensim_result.media.url
+            ).path.split('-')[-1]
             model_root = os.path.join(root_dir_path, "OpenSimData", "Model")
             os.makedirs(model_root, exist_ok=True)
-            shutil.copy2(
-                opensim_result.media.path,
+            self.download_file_from_s3(
+                opensim_result.media,
                 os.path.join(model_root, opensim_model_short_filename)
             )
 
@@ -113,8 +120,8 @@ class ZipSession():
             trial_id=trial.id, tag="session_metadata"
         ).first()
         if session_metadata_result:
-            shutil.copy2(
-                session_metadata_result.media.path,
+            self.download_file_from_s3(
+                session_metadata_result.media,
                 os.path.join(root_dir_path, "sessionMetadata.yml")
             )
 
