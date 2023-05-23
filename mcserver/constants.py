@@ -1,4 +1,17 @@
 import os
+from enum import Enum
+
+
+class ResultTag(Enum):
+    CALIBRATION_IMAGE = "calibration-img"
+    CAMERA_CALIBRATION_OPTS = "calibration_parameters_options"
+    IK_RESULTS= "ik_results"
+    MARKER_DATA = "marker_data"
+    OPENSIM_MODEL = "opensim_model"
+    POSE_PICKLE = "pose_pickle"
+    SESSION_METADATA = "session_metadata"
+    VIDEO_SYNC = "video-sync"
+
 
 README_TXT_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),

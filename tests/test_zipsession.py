@@ -453,10 +453,13 @@ class SessionDirectoryConstructorTests(SessionTestDataClass, TestStoragesConfigC
             self.assertEqual(dist.read(), src.read())
 
     def test_create_session_dir_with_correct_structure_and_name(self):
+        self.setup_geometry_vtps()
         session_dir = os.path.join(
             settings.MEDIA_ROOT, f"OpenCapData_{self.session.id}"
         )
-        res_session_dir = SessionDirectoryConstructor().build(self.session.id)
+        res_session_dir = SessionDirectoryConstructor().build(
+            self.session.id, upload_to=settings.MEDIA_ROOT
+        )
         self.assertEqual(res_session_dir, session_dir)
         self.assertTrue(os.path.exists(session_dir))
         for root, dirs, files in os.walk(session_dir):

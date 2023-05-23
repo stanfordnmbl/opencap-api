@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from django.conf import settings
 
 from mcserver.models import Trial, Result, Session
-from mcserver.constants import README_TXT_PATH, AWS_S3_GEOMETRY_VTP_FILENAMES
+from mcserver.constants import README_TXT_PATH, AWS_S3_GEOMETRY_VTP_FILENAMES, ResultTag
 
 
 class SessionDirectoryConstructor:
@@ -88,7 +88,7 @@ class SessionDirectoryConstructor:
     
     def collect_sync_video_files(self, trial):
         root_dir_path = self.get_root_dir_path()
-        for result in trial.result_set.filter(tag="video-sync").only("media"):
+        for result in trial.result_set.filter(tag=ResultTag.VIDEO_SYNC.value).only("media"):
             video_root = os.path.join(
                 root_dir_path, "Videos", result.device_id, "InputMedia", trial.formated_name
             )
@@ -101,7 +101,7 @@ class SessionDirectoryConstructor:
     
     def collect_pose_pickle_files(self, trial):
         root_dir_path = self.get_root_dir_path()
-        for result in trial.result_set.filter(tag="pose_pickle").only("device_id", "media"):
+        for result in trial.result_set.filter(tag=ResultTag.POSE_PICKLE.value).only("device_id", "media"):
             device_pickle_root = os.path.join(root_dir_path, "Videos", result.device_id, "OutputPkl")
             os.makedirs(device_pickle_root, exist_ok=True)
             self.download_file_from_s3(
@@ -111,7 +111,7 @@ class SessionDirectoryConstructor:
     
     def collect_marker_data_files(self, trial):
         root_dir_path = self.get_root_dir_path()
-        for result in trial.result_set.filter(tag="marker_data").only("media"):
+        for result in trial.result_set.filter(tag=ResultTag.MARKER_DATA.value).only("media"):
             marker_data_root = os.path.join(root_dir_path, "MarkerData")
             os.makedirs(marker_data_root, exist_ok=True)
             self.download_file_from_s3(
@@ -121,7 +121,7 @@ class SessionDirectoryConstructor:
     
     def collect_kinematics_files(self, trial):
         root_dir_path = self.get_root_dir_path()
-        for result in trial.result_set.filter(tag="ik_results").only("media"):
+        for result in trial.result_set.filter(tag=ResultTag.IK_RESULTS.value).only("media"):
             kinematics_root = os.path.join(root_dir_path, "OpenSimData", "Kinematics")
             os.makedirs(kinematics_root, exist_ok=True)
             self.download_file_from_s3(
@@ -143,7 +143,7 @@ class SessionDirectoryConstructor:
 
     def collect_opensim_model_files(self, trial):
         root_dir_path = self.get_root_dir_path()
-        opensim_result = trial.result_set.filter(tag="opensim_model").first()
+        opensim_result = trial.result_set.filter(tag=ResultTag.OPENSIM_MODEL.value).first()
         if opensim_result:
             opensim_model_short_filename = urlparse(
                 opensim_result.media.url
@@ -161,7 +161,7 @@ class SessionDirectoryConstructor:
     def collect_calibration_images_files(self, trial):
         if trial.meta and "calibration" in trial.meta:
             calibration_images = trial.result_set.filter(
-                tag="calibration-img"
+                tag=ResultTag.CALIBRATION_IMAGE.value
             ).only("device_id", "media")
             for camera_id, priority in trial.meta["calibration"].items():
                 if priority not in [0, 1]:
@@ -185,9 +185,9 @@ class SessionDirectoryConstructor:
     def collect_camera_calibration_files(self, trial):
         if trial.meta and "calibration" in trial.meta:
             root_dir_path = self.get_root_dir_path()
-            calibration_opts = trial.result_set.filter(tag="calibration_parameters_options").only(
-                "device_id", "media"
-            )
+            calibration_opts = trial.result_set.filter(
+                tag=ResultTag.CAMERA_CALIBRATION_OPTS.value
+            ).only("device_id", "media")
             for camera_id, priority in trial.meta["calibration"].items():
                 calib_opt_device_id = f"{camera_id}_soln{priority}"
                 camera_calib_opt = calibration_opts.filter(device_id=calib_opt_device_id).first()
@@ -201,7 +201,9 @@ class SessionDirectoryConstructor:
 
     def collect_docs(self, trial):
         root_dir_path = self.get_root_dir_path()
-        session_metadata_result = trial.result_set.filter(tag="session_metadata").first()
+        session_metadata_result = trial.result_set.filter(
+            tag=ResultTag.SESSION_METADATA.value
+        ).first()
         if session_metadata_result:
             self.download_file_from_s3(
                 session_metadata_result.media,
@@ -252,7 +254,6 @@ class SubjectDirectoryConstructor(SessionDirectoryConstructor):
         os.makedirs(subject_dir_path, exist_ok=True)
         for session in Session.objects.filter(subject_id=object_id).only("id"):
             super().build(session.id, upload_to=subject_dir_path)
-
         return subject_dir_path
 
 
