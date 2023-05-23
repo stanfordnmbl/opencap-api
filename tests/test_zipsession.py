@@ -47,7 +47,7 @@ class TestStoragesConfigClass(TestCase):
             shutil.rmtree(settings.MEDIA_ROOT)
 
 
-class SessionTestDataClass:
+class SessionTestDataClass(TestCase):
     @classmethod
     def setup_neutral_and_dynamic_trials_results(cls):
         cls.trials = ["neutral", "run", "squats", "jump", "cut"]
