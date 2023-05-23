@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 
-from mcserver.models import Trial, Result
+from mcserver.models import Trial, Result, Session
 from mcserver.constants import README_TXT_PATH, AWS_S3_GEOMETRY_VTP_FILENAMES
 
 
@@ -210,9 +210,9 @@ class SessionDirectoryConstructor:
 
         shutil.copy2(README_TXT_PATH, os.path.join(root_dir_path, "README.txt"))
 
-    def build(self, object_id):
-        session_path = os.path.join(settings.MEDIA_ROOT, f"OpenCapData_{object_id}")
-        self.set_root_dir_path(session_path)
+    def build(self, object_id, upload_to=settings.MEDIA_ROOT):
+        session_dir_path = os.path.join(upload_to, f"OpenCapData_{object_id}")
+        self.set_root_dir_path(session_dir_path)
         
         calibration_trial = Trial.get_calibration_obj_or_none(object_id)
         if calibration_trial:
@@ -234,15 +234,26 @@ class SessionDirectoryConstructor:
             self.collect_opensim_model_files(neutral_trial)
             self.collect_docs(neutral_trial)
 
-        return session_path
+        return session_dir_path
 
 
 class SubjectDirectoryConstructor(SessionDirectoryConstructor):
     """ This class is responsible for building directory
         with organized files related to Subject with `object_id`
+
+        Directory structure:
+        - OpenCapData_Subject_<object_id>:
+            - OpenCapData_<session_0_id>
+            - ...
+            - OpenCapData_<session_n_id>
     """
-    def build(self, object_id):
-        pass
+    def build(self, object_id, upload_to=settings.MEDIA_ROOT):
+        subject_dir_path = os.path.join(upload_to, f"OpenCapData_Subject_{object_id}")
+        os.makedirs(subject_dir_path, exist_ok=True)
+        for session in Session.objects.filter(subject_id=object_id).only("id"):
+            super().build(session.id, upload_to=subject_dir_path)
+
+        return subject_dir_path
 
 
 class Zip:
@@ -257,9 +268,6 @@ class Zip:
         self.object_id = object_id
         self.delete_directory_after_zip = delete_directory_after_zip
         self.commit_zip_result = commit_zip_result
-
-    def remove_old_zip_files(self):
-        pass
     
     def zip(self):
         pass

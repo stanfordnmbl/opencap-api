@@ -11,9 +11,9 @@ from django.conf import settings
 from django.test import TestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from mcserver.models import User, Session, Trial, Result, Video
+from mcserver.models import User, Session, Subject, Trial, Result, Video
 from mcserver.constants import README_TXT_PATH, AWS_S3_GEOMETRY_VTP_FILENAMES
-from mcserver.zipsession_v2 import SessionDirectoryConstructor
+from mcserver.zipsession_v2 import SessionDirectoryConstructor, SubjectDirectoryConstructor
 
 _temp_media = tempfile.mkdtemp()
 
@@ -39,6 +39,7 @@ class TestStoragesConfigClass(TestCase):
     
     @classmethod
     def tearDownClass(cls):
+        super().tearDownClass()
         cls.mock_s3.stop()
 
     def tearDown(self):
@@ -491,3 +492,36 @@ class SessionDirectoryConstructorTests(SessionTestDataClass, TestStoragesConfigC
             if root == os.path.join(session_dir, "CalibrationImages"):
                 self.assertEqual(set(dirs), set())
                 self.assertEqual(set(files), {"calib_imgCam0.jpg", "calib_imgCam1.jpg"})
+
+
+class SubjectDirectoryConstructorTests(SessionTestDataClass, TestStoragesConfigClass):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.setup_geometry_vtps()
+        cls.subject = Subject.objects.create(name="Human", user=cls.user)
+        cls.session.subject = cls.subject
+        cls.session.save()
+        cls.session.refresh_from_db()
+        cls.session_no_data = Session.objects.create(
+            user=cls.user, subject=cls.subject
+        )
+    
+    def test_build_subject_directory_with_session_data(self):
+        subject_dir = os.path.join(settings.MEDIA_ROOT, f"OpenCapData_Subject_{self.subject.id}")
+        self.assertFalse(os.path.exists(subject_dir))
+        result_subject_dir = SubjectDirectoryConstructor().build(
+            self.subject.id, upload_to=settings.MEDIA_ROOT
+        )
+        self.assertEqual(result_subject_dir, subject_dir)
+        self.assertTrue(os.path.exists(subject_dir))
+        self.assertTrue(
+            os.path.exists(
+                os.path.join(subject_dir, f"OpenCapData_{self.session.id}")
+            )
+        )
+        self.assertFalse(
+            os.path.exists(
+                os.path.join(subject_dir, f"OpenCapData_{self.session_no_data.id}")
+            )
+        )
