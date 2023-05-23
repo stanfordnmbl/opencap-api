@@ -792,8 +792,13 @@ class TrialViewSet(viewsets.ModelViewSet):
         
         if trials.count() == 0:
             raise Http404
+        
+        # prioritize admin group trials
+        trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","backend"])
+        if trialsPrioritized.count() == 0:
+            trialsPrioritized = trials
 
-        trial = trials[0]
+        trial = trialsPrioritized[0]
         trial.status = "processing"
         trial.save()
 
