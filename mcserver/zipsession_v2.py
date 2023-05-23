@@ -1,12 +1,13 @@
 import os
 import shutil
 import pickle
+import boto3
 from urllib.parse import urlparse
 
 from django.conf import settings
 
 from mcserver.models import Trial, Result
-from mcserver.constants import README_TXT_PATH
+from mcserver.constants import README_TXT_PATH, AWS_S3_GEOMETRY_VTP_FILENAMES
 
 
 class SessionDirectoryConstructor:
@@ -88,6 +89,18 @@ class SessionDirectoryConstructor:
                 result.media,
                 os.path.join(kinematics_root, f"{trial.formated_name}.mot")
             )
+    
+    def collect_geometry_vtp_files_from_s3(self, model_name):
+        s3 = boto3.client("s3")
+        root_dir_path = self.get_root_dir_path()
+        geometry_dir = os.path.join(root_dir_path, "OpenSimData", "Model", "Geometry")
+        os.makedirs(geometry_dir, exist_ok=True)
+        for name in AWS_S3_GEOMETRY_VTP_FILENAMES:
+            s3.download_file(
+                settings.AWS_S3_OPENCAP_PUBLIC_BUCKET,
+                f"geometries_vtp/{model_name}/{name}.vtp",
+                os.path.join(geometry_dir, f"{name}.vtp")
+            )
 
     def collect_opensim_model_files(self, trial):
         root_dir_path = self.get_root_dir_path()
@@ -104,7 +117,7 @@ class SessionDirectoryConstructor:
             )
 
             if "LaiArnold" in opensim_model_short_filename:
-                print("Download geometry...")
+                self.collect_geometry_vtp_files_from_s3("LaiArnold")
     
     def collect_calibration_images_files(self, trial):
         if trial.meta and "calibration" in trial.meta:

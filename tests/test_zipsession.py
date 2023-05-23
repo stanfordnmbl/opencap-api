@@ -12,7 +12,7 @@ from django.test import TestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from mcserver.models import User, Session, Trial, Result, Video
-from mcserver.constants import README_TXT_PATH
+from mcserver.constants import README_TXT_PATH, AWS_S3_GEOMETRY_VTP_FILENAMES
 from mcserver.zipsession_v2 import SessionDirectoryConstructor
 
 _temp_media = tempfile.mkdtemp()
@@ -23,6 +23,7 @@ _temp_media = tempfile.mkdtemp()
     AWS_ACCESS_KEY_ID="testing",
     AWS_SECRET_ACCESS_KEY="testing",
     AWS_STORAGE_BUCKET_NAME="test",
+    AWS_S3_OPENCAP_PUBLIC_BUCKET="test-mc-opencap-public",
     AWS_S3_ENDPOINT_URL=None
 )
 class TestStoragesConfigClass(TestCase):
@@ -170,6 +171,18 @@ class SessionTestDataClass:
                         content=f"camera_{device_id}_{opt}".encode()
                     )
                 )
+
+    @classmethod
+    def setup_geometry_vtps(cls):
+        s3 = boto3.client("s3")
+        s3.create_bucket(Bucket="test-mc-opencap-public")
+
+        for name in AWS_S3_GEOMETRY_VTP_FILENAMES:
+            s3.put_object(
+                Bucket="test-mc-opencap-public",
+                Key=f"geometries_vtp/LaiArnold/{name}.vtp",
+                Body=name.encode(),
+            )
 
     @classmethod
     def setUpClass(cls):
@@ -412,6 +425,18 @@ class SessionDirectoryConstructorTests(SessionTestDataClass, TestStoragesConfigC
         self.assertFalse(os.path.exists(calib_imgs_dir))
         SessionDirectoryConstructor().collect_calibration_images_files(trial)
         self.assertFalse(os.path.exists(calib_imgs_dir))
+    
+    def test_collect_geometry_vtp_files(self):
+        self.setup_geometry_vtps()
+        geometry_dir = os.path.join(settings.MEDIA_ROOT, "OpenSimData", "Model", "Geometry")
+        self.assertFalse(os.path.exists(geometry_dir))
+        SessionDirectoryConstructor().collect_geometry_vtp_files_from_s3("LaiArnold")
+        self.assertTrue(os.path.exists(geometry_dir))
+        for name in AWS_S3_GEOMETRY_VTP_FILENAMES:
+            vtp_file_path = os.path.join(geometry_dir, f"{name}.vtp")
+            self.assertTrue(os.path.exists(vtp_file_path))
+            with open(vtp_file_path) as vtp_file:
+                self.assertEqual(vtp_file.read(), name)
 
     def test_collect_docs(self):
         trial = Trial.objects.get(name="neutral")
@@ -460,7 +485,7 @@ class SessionDirectoryConstructorTests(SessionTestDataClass, TestStoragesConfigC
                 self.assertEqual(set(files), {f"{name}.mot" for name in self.trials})
             
             if root == os.path.join(session_dir, "OpenSimData", "Model"):
-                self.assertEqual(set(dirs), set())
+                self.assertEqual(set(dirs), {"Geometry"})
                 self.assertEqual(set(files), {"LaiArnold.osim"})
             
             if root == os.path.join(session_dir, "CalibrationImages"):
