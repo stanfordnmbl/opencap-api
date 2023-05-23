@@ -13,6 +13,45 @@ from mcserver.constants import README_TXT_PATH, AWS_S3_GEOMETRY_VTP_FILENAMES
 class SessionDirectoryConstructor:
     """ This class is responsible for building directory
         with organized files related to Session with `object_id`
+
+        Directory structure:
+        - OpenCapData_<object_id>
+            - Videos
+                - Cam0
+                    - OutputPkl
+                        - squats_keypoints.pkl
+                        - ...
+                        - trialN_keypoints.pkl
+                    - InputMedia
+                        - squats
+                            - squats.mov
+                            - squats_sync.mp4
+                        - ...
+                        - trialN
+                            - trialN.mov
+                            - trialN_sync.mp4
+                    - cameraIntrinsicsExtrinsics.pickle
+                - ...
+                - CamN
+                - mappingCamDevice.pickle
+            - MarkerData
+                - neutral.trc
+                - ...
+                - trialN.trc
+            - OpenSimData
+                - Model
+                    - Geometry
+                    - ModelName.osim
+                - Kinematics
+                    - squats.mot
+                    - ...
+                    - trialN.mot
+            - CalibrationImages
+                - calib_imgCam0.jpg
+                - ...
+                - calib_imgCamN.jpg
+            - sessionMetadata.yaml
+            - README.txt
     """
     def __init__(self, *args, **kwargs):
         self.root_dir_path = settings.MEDIA_ROOT
@@ -166,7 +205,7 @@ class SessionDirectoryConstructor:
         if session_metadata_result:
             self.download_file_from_s3(
                 session_metadata_result.media,
-                os.path.join(root_dir_path, "sessionMetadata.yml")
+                os.path.join(root_dir_path, "sessionMetadata.yaml")
             )
 
         shutil.copy2(README_TXT_PATH, os.path.join(root_dir_path, "README.txt"))

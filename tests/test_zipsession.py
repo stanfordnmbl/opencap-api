@@ -75,7 +75,7 @@ class SessionTestDataClass:
                     tag="session_metadata",
                     device_id="all",
                     media=SimpleUploadedFile(
-                        "random_session_metadata.yml",
+                        "random_session_metadata.yaml",
                         content=b"metadata"
                     )
                 )
@@ -440,7 +440,7 @@ class SessionDirectoryConstructorTests(SessionTestDataClass, TestStoragesConfigC
 
     def test_collect_docs(self):
         trial = Trial.objects.get(name="neutral")
-        session_metadata_yml_path = os.path.join(settings.MEDIA_ROOT, "sessionMetadata.yml")
+        session_metadata_yml_path = os.path.join(settings.MEDIA_ROOT, "sessionMetadata.yaml")
         readme_txt_path = os.path.join(settings.MEDIA_ROOT, "README.txt")
         self.assertFalse(os.path.exists(session_metadata_yml_path))
         self.assertFalse(os.path.exists(readme_txt_path))
@@ -463,7 +463,7 @@ class SessionDirectoryConstructorTests(SessionTestDataClass, TestStoragesConfigC
                 self.assertEqual(
                     set(dirs), {"Videos", "OpenSimData", "MarkerData", "CalibrationImages"}
                 )
-                self.assertEqual(set(files), {"sessionMetadata.yml", "README.txt"})
+                self.assertEqual(set(files), {"sessionMetadata.yaml", "README.txt"})
             
             if root == os.path.join(session_dir, "Videos"):
                 self.assertEqual(set(dirs), {"Cam0", "Cam1"})
