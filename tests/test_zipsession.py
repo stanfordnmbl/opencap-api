@@ -301,7 +301,7 @@ class TestZipSession(TestCase):
                 tag="calibration-img",
                 media=SimpleUploadedFile(
                     f"random-extrinsicCalib_{device_id}.jpg",
-                    content=b"extrinsicCalib"
+                    content=f"calibration_img_{device_id}".encode()
                 )
             )
             Result.objects.create(
@@ -310,7 +310,7 @@ class TestZipSession(TestCase):
                 tag="calibration-img",
                 media=SimpleUploadedFile(
                     f"random-extrinsicCalib_{device_id}.jpg",
-                    content=b"extrinsicCalib"
+                    content=f"calibration_img_{device_id}_altSoln".encode()
                 )
             )
             Result.objects.create(
@@ -319,7 +319,7 @@ class TestZipSession(TestCase):
                 device_id=device_id,
                 media=SimpleUploadedFile(
                     f"{device_id}_cameraIntrinsicsExtrinsics.pickle",
-                    content=b"cameraintrinsicsextrinsicspickle"
+                    content=f"cameraspickle_{device_id}".encode()
                 )
             )
             Result.objects.create(
@@ -338,7 +338,7 @@ class TestZipSession(TestCase):
                     device_id=f"{device_id}_{opt}",
                     media=SimpleUploadedFile(
                         f"{device_id}-cameraintrinsicsExtrinsics_{opt}.pickle",
-                        content=b"intrisicsExtrisics"
+                        content=f"camera_{device_id}_{opt}".encode()
                     )
                 )
 
@@ -473,21 +473,124 @@ class TestZipSession(TestCase):
         self.zip_session.collect_opensim_model_data(trial)
         self.assertFalse(os.path.exists(opensim_model_folder))
     
+    def test_collect_camera_calibration_options(self):
+        self.setUpCalibration()
+        trial = Trial.objects.get(name="calibration")
+        calibration_opt_camera_0_path = os.path.join(
+            settings.MEDIA_ROOT, "Videos", "Cam0", "cameraIntrinsicsExtrinsics.pickle"
+        )
+        calibration_opt_camera_1_path = os.path.join(
+            settings.MEDIA_ROOT, "Videos", "Cam1", "cameraIntrinsicsExtrinsics.pickle"
+        )
+        self.assertFalse(os.path.exists(calibration_opt_camera_0_path))
+        self.assertFalse(os.path.exists(calibration_opt_camera_1_path))
+        self.zip_session.collect_camera_calibration_options(trial)
+        self.assertTrue(os.path.exists(calibration_opt_camera_0_path))
+        self.assertTrue(os.path.exists(calibration_opt_camera_1_path))
+        for idx, path in enumerate(
+            (calibration_opt_camera_0_path, calibration_opt_camera_1_path)
+        ):
+            self.assertTrue(os.path.exists(path))
+            with open(path) as opt_camera:
+                self.assertEqual(opt_camera.read(), f"camera_Cam{idx}_soln{idx}")
+    
+    def test_collect_camera_calibration_opt_no_trial_metadata(self):
+        self.setUpCalibration()
+        trial = Trial.objects.get(name="calibration")
+        trial.meta = None
+        trial.save()
+        trial.refresh_from_db()
+        videos_dir = os.path.join(settings.MEDIA_ROOT, "Videos")
+        self.assertFalse(os.path.exists(videos_dir))
+        self.zip_session.collect_camera_calibration_options(trial)
+        self.assertFalse(os.path.exists(videos_dir))
+    
+    def test_collect_camera_calibration_opt_no_calibration_metadata(self):
+        self.setUpCalibration()
+        trial = Trial.objects.get(name="calibration")
+        trial.meta = {"calibration": {}}
+        trial.save()
+        trial.refresh_from_db()
+        videos_dir = os.path.join(settings.MEDIA_ROOT, "Videos")
+        self.assertFalse(os.path.exists(videos_dir))
+        self.zip_session.collect_camera_calibration_options(trial)
+        self.assertFalse(os.path.exists(videos_dir))
+    
+    def test_collect_camera_calibration_opt_no_data_for_calibration_metadata(self):
+        self.setUpCalibration()
+        trial = Trial.objects.get(name="calibration")
+        trial.meta = {"calibration": {"Cam0": 1234, "Camera34": 1}}
+        trial.save()
+        trial.refresh_from_db()
+        videos_dir = os.path.join(settings.MEDIA_ROOT, "Videos")
+        self.assertFalse(os.path.exists(videos_dir))
+        self.zip_session.collect_camera_calibration_options(trial)
+        self.assertFalse(os.path.exists(videos_dir))
+    
+    def test_collect_calibration_images(self):
+        self.setUpCalibration()
+        trial = Trial.objects.get(name="calibration")
+        calibration_images_dir = os.path.join(settings.MEDIA_ROOT, "CalibrationImages")
+        self.assertFalse(os.path.exists(calibration_images_dir))
+        self.zip_session.collect_calibration_images(trial)
+        self.assertTrue(os.path.exists(calibration_images_dir))
+        for priority in range(2):
+            calib_img_content = f"calibration_img_Cam{priority}"
+            if priority:
+                calib_img_content += "_altSoln"
+            calib_img_path = os.path.join(calibration_images_dir, f"calib_imgCam{priority}.jpg")
+            self.assertTrue(os.path.exists(calib_img_path))
+            with open(calib_img_path) as calib_img:
+                self.assertEqual(calib_img.read(), calib_img_content)
+
+    def test_collect_calibration_images_no_trial_metadata(self):
+        self.setUpCalibration()
+        trial = Trial.objects.get(name="calibration")
+        trial.meta = None
+        trial.save()
+        trial.refresh_from_db()
+        calib_imgs_dir = os.path.join(settings.MEDIA_ROOT, "CalibrationImages")
+        self.assertFalse(os.path.exists(calib_imgs_dir))
+        self.zip_session.collect_calibration_images(trial)
+        self.assertFalse(os.path.exists(calib_imgs_dir))
+    
+    def test_collect_calibration_images_no_calibration_metadata(self):
+        self.setUpCalibration()
+        trial = Trial.objects.get(name="calibration")
+        trial.meta = {"calibration": {}}
+        trial.save()
+        trial.refresh_from_db()
+        calib_imgs_dir = os.path.join(settings.MEDIA_ROOT, "CalibrationImages")
+        self.assertFalse(os.path.exists(calib_imgs_dir))
+        self.zip_session.collect_calibration_images(trial)
+        self.assertFalse(os.path.exists(calib_imgs_dir))
+    
+    def test_collect_calibration_images_no_data_for_calibration_metadata(self):
+        self.setUpCalibration()
+        trial = Trial.objects.get(name="calibration")
+        trial.meta = {"calibration": {"Cam0": 1234, "Camera34": 1}}
+        trial.save()
+        trial.refresh_from_db()
+        calib_imgs_dir = os.path.join(settings.MEDIA_ROOT, "CalibrationImages")
+        self.assertFalse(os.path.exists(calib_imgs_dir))
+        self.zip_session.collect_calibration_images(trial)
+        self.assertFalse(os.path.exists(calib_imgs_dir))
+
     def test_collect_docs(self):
         trial = Trial.objects.get(name="neutral")
         session_metadata_yml_path = os.path.join(settings.MEDIA_ROOT, "sessionMetadata.yml")
         readme_txt_path = os.path.join(settings.MEDIA_ROOT, "README.txt")
         self.assertFalse(os.path.exists(session_metadata_yml_path))
         self.assertFalse(os.path.exists(readme_txt_path))
-        zip_session =self.zip_session
-        zip_session.collect_docs(trial)
+        self.zip_session.collect_docs(trial)
         self.assertTrue(os.path.exists(session_metadata_yml_path))
         self.assertTrue(os.path.exists(readme_txt_path))
 
-        with open(zip_session.readme_txt, "rb") as src, open(readme_txt_path, "rb") as dist:
+        with open(self.zip_session.readme_txt, "rb") as src, open(readme_txt_path, "rb") as dist:
             self.assertEqual(dist.read(), src.read())
 
     def test_create_session_dir_with_correct_structure_and_name(self):
+        self.setUpCalibration()
         session_dir = os.path.join(
             settings.MEDIA_ROOT, f"OpenCapData_{self.session.id}"
         )
@@ -496,7 +599,9 @@ class TestZipSession(TestCase):
         self.assertTrue(os.path.exists(session_dir))
         for root, dirs, files in os.walk(session_dir):
             if root == session_dir:
-                self.assertEqual(set(dirs), {"Videos", "OpenSimData", "MarkerData"})
+                self.assertEqual(
+                    set(dirs), {"Videos", "OpenSimData", "MarkerData", "CalibrationImages"}
+                )
                 self.assertEqual(set(files), {"sessionMetadata.yml", "README.txt"})
             
             if root == os.path.join(session_dir, "Videos"):
@@ -508,7 +613,7 @@ class TestZipSession(TestCase):
                 or root == os.path.join(session_dir, "Videos", "Cam1")
             ):
                 self.assertEqual(set(dirs), {"OutputPkl", "InputMedia"})
-                # self.assertEqual(set(files), {"cameraIntrinsicsExtrinsics.pickle"})
+                self.assertEqual(set(files), {"cameraIntrinsicsExtrinsics.pickle"})
             
             if root == os.path.join(session_dir, "OpenSimData"):
                 self.assertEqual(set(dirs), {"Kinematics", "Model"})
@@ -521,6 +626,10 @@ class TestZipSession(TestCase):
             if root == os.path.join(session_dir, "OpenSimData", "Model"):
                 self.assertEqual(set(dirs), set())
                 self.assertEqual(set(files), {"LaiArnold.osim"})
+            
+            if root == os.path.join(session_dir, "CalibrationImages"):
+                self.assertEqual(set(dirs), set())
+                self.assertEqual(set(files), {"calib_imgCam0.jpg", "calib_imgCam1.jpg"})
 
     def test_zip_session_dir_successful(self):
         pass

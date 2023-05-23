@@ -8,6 +8,37 @@ from django.conf import settings
 from mcserver.models import Trial, Result
 
 
+
+# class SessionDirectoryConstructor:
+#     def build(self, session_id):
+#         pass
+
+
+# class SubjectDirectoryConstructor(SessionDirectoryConstructor):
+#     def build(self, subject_id):
+#         pass
+
+
+# class Zip:
+#     def __init__(
+#         self,
+#         constructor_class,
+#         object_id,
+#         delete_directory_after_zip=True,
+#         commit_zip_result=False,
+#     ):
+#         self.constructor = constructor_class()
+#         self.object_id = object_id
+#         self.delete_directory_after_zip = delete_directory_after_zip
+#         self.commit_zip_result = commit_zip_result
+
+#     def remove_old_zip_files(self):
+#         pass
+    
+#     def zip(self):
+#         pass
+
+
 class ZipSession():
     def __init__(
         self,
@@ -116,9 +147,7 @@ class ZipSession():
     
     def collect_docs(self, trial):
         root_dir_path = self.get_root_dir_path()
-        session_metadata_result = Result.objects.filter(
-            trial_id=trial.id, tag="session_metadata"
-        ).first()
+        session_metadata_result = trial.result_set.filter(tag="session_metadata").first()
         if session_metadata_result:
             self.download_file_from_s3(
                 session_metadata_result.media,
@@ -126,6 +155,47 @@ class ZipSession():
             )
 
         shutil.copy2(self.readme_txt, os.path.join(root_dir_path, "README.txt"))
+    
+    def collect_calibration_images(self, trial):
+        if trial.meta and "calibration" in trial.meta:
+            calibration_images = trial.result_set.filter(
+                tag="calibration-img"
+            ).only("device_id", "media")
+            for camera_id, priority in trial.meta["calibration"].items():
+                if priority not in [0, 1]:
+                    return
+
+                calib_img_device_id = camera_id
+                if priority == 1:
+                    calib_img_device_id = f"{camera_id}_altSoln"
+
+                camera_calib_img = calibration_images.filter(device_id=calib_img_device_id).first()
+                if camera_calib_img:
+                    root_dir_path = self.get_root_dir_path()
+                    calibration_images_dir = os.path.join(root_dir_path, "CalibrationImages")
+                    os.makedirs(calibration_images_dir, exist_ok=True)
+                    ext = urlparse(camera_calib_img.media.url).path.split(".")[-1]
+                    self.download_file_from_s3(
+                        camera_calib_img.media,
+                        os.path.join(calibration_images_dir, f"calib_img{camera_id}.{ext}")
+                    )
+
+    def collect_camera_calibration_options(self, trial):
+        if trial.meta and "calibration" in trial.meta:
+            root_dir_path = self.get_root_dir_path()
+            calibration_opts = trial.result_set.filter(tag="calibration_parameters_options").only(
+                "device_id", "media"
+            )
+            for camera_id, priority in trial.meta["calibration"].items():
+                calib_opt_device_id = f"{camera_id}_soln{priority}"
+                camera_calib_opt = calibration_opts.filter(device_id=calib_opt_device_id).first()
+                if camera_calib_opt:
+                    camera_dir = os.path.join(root_dir_path, "Videos", camera_id)
+                    os.makedirs(camera_dir, exist_ok=True)
+                    self.download_file_from_s3(
+                        camera_calib_opt.media,
+                        os.path.join(camera_dir, "cameraIntrinsicsExtrinsics.pickle")
+                    )
 
     def collect_session_data(self, session_id, root_dir_path=settings.MEDIA_ROOT):
         session_path = os.path.join(settings.MEDIA_ROOT, f"OpenCapData_{session_id}")
@@ -133,7 +203,8 @@ class ZipSession():
         
         calibration_trial = Trial.get_calibration_obj_or_none(session_id)
         if calibration_trial:
-            print("Calibration trial processing...")
+            self.collect_camera_calibration_options(calibration_trial)
+            self.collect_calibration_images(calibration_trial)
 
         neutral_and_dynamic_trials = Trial.objects.filter(
             session_id=session_id
@@ -151,10 +222,3 @@ class ZipSession():
             self.collect_docs(neutral_trial)
 
         return session_path
-        # return self.zip(session_path)
-
-    def collect_subject_data(self, subject_id):
-        pass
-
-    def zip(self, root_dir_path):
-        pass
