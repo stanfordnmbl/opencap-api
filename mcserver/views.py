@@ -2,7 +2,9 @@ from django.http import HttpResponse
 from django.http import Http404
 
 from django.shortcuts import get_object_or_404, render
-from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, Subject
+from mcserver.models import (
+    Session, User, Trial, Video, Result, ResetPassword, Subject, DownloadLog
+)
 from mcserver.serializers import (
     SessionSerializer, TrialSerializer,
     VideoSerializer, ResultSerializer,
@@ -25,6 +27,7 @@ from rest_framework import status
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
+from rest_framework.generics import RetrieveAPIView
 
 import qrcode
 import json
@@ -36,6 +39,7 @@ from decouple import config
 
 import os
 import zipfile
+import pathlib
 
 from django.http import FileResponse
 
@@ -968,6 +972,23 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class DownloadFileOnReadyAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        log = DownloadLog.objects.filter(
+            task_id=self.kwargs["task_id"], user=request.user
+        ).first()
+        if log:
+            if os.path.exists(log.media_path):
+                file_obj = open(log.media_path, "rb")
+                response = HttpResponse(file_obj, content_type=f"application/{log.media_type}")
+                response["Content-Disposition"] = f"attachment; filename={log.media_filename}"
+                return response
+            raise Http404
+        return HttpResponse(status=202)
 
 
 class UserViewSet(viewsets.ModelViewSet):
