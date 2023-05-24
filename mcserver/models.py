@@ -180,6 +180,20 @@ class Result(models.Model):
         return
 
 
+class DownloadLog(models.Model):
+    """ This model is responsible for logging files downloading
+        with Celery tasks
+    """
+    task_id = models.CharField(max_length=255)
+    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    media_path = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.task_id
+
+
 class ResetPassword(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.CharField(max_length=255)
