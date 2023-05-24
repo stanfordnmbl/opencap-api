@@ -42,6 +42,7 @@ from django.http import FileResponse
 from django.db.models import Count
 
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
+from mcserver.tasks import download_session_archive, download_subject_archive
 
 from datetime import datetime, timedelta
 
@@ -500,6 +501,16 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return FileResponse(open(session_zip, "rb"))
     
+    @action(
+        detail=True,
+        url_path="async-download",
+        url_name="async_session_download"
+    )
+    def async_download(self, request, pk):
+        session = get_object_or_404(Session, pk=pk, user=request.user)
+        task = download_session_archive.delay(request.user.id, session.id)
+        return Response({"task_id": task.id}, status=200)
+    
     
     @action(detail=True)
     def get_session_permission(self, request, pk): 
@@ -938,13 +949,22 @@ class SubjectViewSet(viewsets.ModelViewSet):
         subject_zip = downloadAndZipSubject(pk, host=host)
 
         return FileResponse(open(subject_zip, "rb"))
+    
+    @action(
+        detail=True,
+        url_path="async-download",
+        url_name="async_subject_download"
+    )
+    def async_download(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        task = download_subject_archive.delay(request.user.id, subject.id)
+        return Response({"task_id": task.id}, status=200)
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
         subject = get_object_or_404(Subject, pk=pk, user=request.user)
         subject.delete()
         return Response({})
-
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

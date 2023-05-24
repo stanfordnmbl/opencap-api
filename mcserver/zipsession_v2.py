@@ -69,11 +69,13 @@ class SessionDirectoryConstructor:
             dist_file.write(s3_src.read())
     
     def collect_video_files(self, trial):
-        root_dir_path = self.get_root_dir_path()
         mapping_cam_device = {}
+        root_dir_path = self.get_root_dir_path()
+        videos_dir = os.path.join(root_dir_path, "Videos")
+        os.makedirs(videos_dir, exist_ok=True)
         for idx, video in enumerate(trial.video_set.all().only("device_id", "video")):
             video_root = os.path.join(
-                root_dir_path, "Videos", f"Cam{idx}", "InputMedia", trial.formated_name
+                videos_dir, f"Cam{idx}", "InputMedia", trial.formated_name
             )
             os.makedirs(video_root, exist_ok=True)
             self.download_file_from_s3(
@@ -81,9 +83,9 @@ class SessionDirectoryConstructor:
             )
             mapping_cam_device[str(video.device_id).replace('-', '').upper()] = idx
 
-        mapping_cam_device_path = os.path.join(root_dir_path, "Videos", 'mappingCamDevice.pickle')
+        mapping_cam_device_path = os.path.join(videos_dir, 'mappingCamDevice.pickle')
         if os.path.exists(mapping_cam_device_path):
-            with open(mapping_cam_device_path, "rb") as handle:
+            with open(mapping_cam_device_path, "r+b") as handle:
                 mapping_cam_device = {**mapping_cam_device, **pickle.load(handle)}
         with open(mapping_cam_device_path, "wb") as handle:
             pickle.dump(mapping_cam_device, handle)
@@ -216,6 +218,7 @@ class SessionDirectoryConstructor:
 
     def build(self, object_id, upload_to=settings.MEDIA_ROOT):
         session_dir_path = os.path.join(upload_to, f"OpenCapData_{object_id}")
+        os.makedirs(session_dir_path, exist_ok=True)
         self.set_root_dir_path(session_dir_path)
         
         calibration_trial = Trial.get_calibration_obj_or_none(object_id)
