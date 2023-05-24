@@ -3,7 +3,6 @@ import os
 import shutil
 import tempfile
 import pickle
-import glob
 from moto import mock_s3
 import boto3
 
@@ -12,8 +11,16 @@ from django.test import TestCase, override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from mcserver.models import User, Session, Subject, Trial, Result, Video
-from mcserver.constants import README_TXT_PATH, AWS_S3_GEOMETRY_VTP_FILENAMES
-from mcserver.zipsession_v2 import SessionDirectoryConstructor, SubjectDirectoryConstructor
+from mcserver.constants import (
+    README_TXT_PATH,
+    AWS_S3_GEOMETRY_VTP_FILENAMES,
+    ResultTag
+)
+from mcserver.zipsession_v2 import (
+    SessionDirectoryConstructor,
+    SubjectDirectoryConstructor,
+    zipdir
+)
 
 _temp_media = tempfile.mkdtemp()
 
@@ -528,3 +535,27 @@ class SubjectDirectoryConstructorTests(SessionTestDataClass, TestStoragesConfigC
                 os.path.join(subject_dir, f"OpenCapData_{self.session_no_data.id}")
             )
         )
+
+
+@override_settings(
+    MEDIA_ROOT=_temp_media,
+    ZIP_ROOT=os.path.join(_temp_media, "zip")
+)
+class OpencapZipTests(TestCase):
+    def setUp(self):
+        self.session_id = uuid.uuid4()
+        self.session_dir_path = os.path.join(
+            settings.MEDIA_ROOT, f"OpenCapData_{self.session_id}"
+        )
+        os.makedirs(self.session_dir_path)
+        self.session_dir_zip_path = os.path.join(
+            settings.ZIP_ROOT, f"OpenCapData_{self.session_id}.zip"
+        )
+    
+    def test_create_zip_file_with_default_config(self):
+        self.assertTrue(os.path.exists(self.session_dir_path))
+        self.assertFalse(os.path.exists(self.session_dir_zip_path))
+        res_zip_file_path = zipdir(self.session_dir_path)
+        self.assertEqual(res_zip_file_path, self.session_dir_zip_path)
+        self.assertFalse(os.path.exists(self.session_dir_path))
+        self.assertTrue(os.path.exists(self.session_dir_zip_path))

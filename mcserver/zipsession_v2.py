@@ -1,7 +1,9 @@
 import os
+import pathlib
 import shutil
 import pickle
 import boto3
+import zipfile
 from urllib.parse import urlparse
 
 from django.conf import settings
@@ -257,18 +259,28 @@ class SubjectDirectoryConstructor(SessionDirectoryConstructor):
         return subject_dir_path
 
 
-class Zip:
-    def __init__(
-        self,
-        constructor_class,
-        object_id,
-        delete_directory_after_zip=True,
-        commit_zip_result=False,
-    ):
-        self.constructor = constructor_class()
-        self.object_id = object_id
-        self.delete_directory_after_zip = delete_directory_after_zip
-        self.commit_zip_result = commit_zip_result
-    
-    def zip(self):
-        pass
+def zipdir(dir_path, delete_directory_after_zip=True):
+    """ This function creates zip file for directory and saves it
+        in settings.ZIP_ROOT
+    """
+    os.makedirs(settings.ZIP_ROOT, exist_ok=True)
+    zip_path = os.path.join(
+        settings.ZIP_ROOT, f"{pathlib.PurePath(dir_path).parts[-1]}.zip"
+    )
+
+    if os.path.isfile(zip_path):
+        os.remove(zip_path)
+
+    zip_file = zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED)
+    for root, dirs, files in os.walk(dir_path):
+        for f in files:
+            zip_file.write(
+                os.path.join(root, f), 
+                os.path.relpath(os.path.join(root, f), os.path.join(dir_path, '..'))
+            )
+    zip_file.close()
+
+    if delete_directory_after_zip and os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
+
+    return zip_path

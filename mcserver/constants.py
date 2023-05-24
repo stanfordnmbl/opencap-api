@@ -10,6 +10,7 @@ class ResultTag(Enum):
     OPENSIM_MODEL = "opensim_model"
     POSE_PICKLE = "pose_pickle"
     SESSION_METADATA = "session_metadata"
+    SESSION_ZIP = "session_zip"
     VIDEO_SYNC = "video-sync"
 
 
