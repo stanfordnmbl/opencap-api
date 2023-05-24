@@ -261,11 +261,11 @@ class SubjectDirectoryConstructor(SessionDirectoryConstructor):
 
 def zipdir(dir_path, delete_directory_after_zip=True):
     """ This function creates zip file for directory and saves it
-        in settings.ZIP_ROOT
+        in settings.ARCHIVES_ROOT
     """
-    os.makedirs(settings.ZIP_ROOT, exist_ok=True)
+    os.makedirs(settings.ARCHIVES_ROOT, exist_ok=True)
     zip_path = os.path.join(
-        settings.ZIP_ROOT, f"{pathlib.PurePath(dir_path).parts[-1]}.zip"
+        settings.ARCHIVES_ROOT, f"{pathlib.PurePath(dir_path).parts[-1]}.zip"
     )
 
     if os.path.isfile(zip_path):

@@ -183,7 +183,7 @@ STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 #MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
 #DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-ZIP_ROOT = config('ZIP_ROOT', default=os.path.join(MEDIA_ROOT, 'zip'))
+ARCHIVES_ROOT = config('ARCHIVES_ROOT', default=os.path.join(MEDIA_ROOT, 'archives'))
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 

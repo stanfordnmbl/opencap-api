@@ -539,7 +539,7 @@ class SubjectDirectoryConstructorTests(SessionTestDataClass, TestStoragesConfigC
 
 @override_settings(
     MEDIA_ROOT=_temp_media,
-    ZIP_ROOT=os.path.join(_temp_media, "zip")
+    ARCHIVES_ROOT=os.path.join(_temp_media, "archives")
 )
 class OpencapZipTests(TestCase):
     def setUp(self):
@@ -549,7 +549,7 @@ class OpencapZipTests(TestCase):
         )
         os.makedirs(self.session_dir_path)
         self.session_dir_zip_path = os.path.join(
-            settings.ZIP_ROOT, f"OpenCapData_{self.session_id}.zip"
+            settings.ARCHIVES_ROOT, f"OpenCapData_{self.session_id}.zip"
         )
     
     def test_create_zip_file_with_default_config(self):
