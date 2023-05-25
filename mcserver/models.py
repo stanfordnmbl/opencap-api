@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+import os
 import uuid
 import base64
 import pathlib
@@ -14,6 +15,10 @@ from django.conf import settings
 
 def random_filename(instance, filename):
     return "{}-{}".format(uuid.uuid4(), filename)
+
+
+def archives_dir_path(instance, filename):
+    return os.path.join("archives", "{}-{}".format(uuid.uuid4(), filename))
                                             
 
 class User(AbstractUser):
@@ -187,20 +192,12 @@ class DownloadLog(models.Model):
     """
     task_id = models.CharField(max_length=255)
     user = models.ForeignKey(to=User, on_delete=models.CASCADE)
-    media_path = models.CharField(max_length=255)
+    media = models.FileField(upload_to=archives_dir_path, max_length=500)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.task_id
-    
-    @property
-    def media_filename(self):
-        return pathlib.PurePath(self.media_path).parts[-1]
-    
-    @property
-    def media_type(self):
-        return self.media_path.split(".")[-1]
 
 
 class ResetPassword(models.Model):

@@ -981,13 +981,10 @@ class DownloadFileOnReadyAPIView(APIView):
         log = DownloadLog.objects.filter(
             task_id=self.kwargs["task_id"], user=request.user
         ).first()
-        if log:
-            if os.path.exists(log.media_path):
-                file_obj = open(log.media_path, "rb")
-                response = HttpResponse(file_obj, content_type=f"application/{log.media_type}")
-                response["Content-Disposition"] = f"attachment; filename={log.media_filename}"
-                return response
-            raise Http404
+        if log and log.media:
+            response = HttpResponse(log.media.read(), content_type="application/zip")
+            response["Content-Disposition"] = f'attachment; filename="{log.media.name}"'
+            return response
         return HttpResponse(status=202)
 
 

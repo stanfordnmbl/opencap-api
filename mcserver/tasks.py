@@ -1,3 +1,4 @@
+import os
 from django.conf import settings
 from celery import shared_task
 from django.utils import timezone
@@ -35,9 +36,9 @@ def download_session_archive(self, user_id, session_id):
     """
     session_dir_path = SessionDirectoryConstructor().build(session_id)
     session_zip_path = zipdir(session_dir_path)
-    DownloadLog.objects.create(
-        task_id=str(self.request.id), user_id=user_id, media_path=session_zip_path
-    )
+    with open(session_zip_path, "rb") as archive:
+        log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
+        log.media.save(os.path.basename(session_zip_path), archive)
 
 
 @shared_task(bind=True)
@@ -46,6 +47,6 @@ def download_subject_archive(self, user_id, subject_id):
     """
     subject_dir_path = SubjectDirectoryConstructor().build(subject_id)
     subject_zip_path = zipdir(subject_dir_path)
-    DownloadLog.objects.create(
-        task_id=str(self.request.id), user_id=user_id, media_path=subject_zip_path
-    )
+    with open(subject_zip_path, "rb") as archive:
+        log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
+        log.media.save(os.path.basename(subject_zip_path), archive)
