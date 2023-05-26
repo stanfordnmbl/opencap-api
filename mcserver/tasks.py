@@ -39,6 +39,7 @@ def download_session_archive(self, user_id, session_id):
     with open(session_zip_path, "rb") as archive:
         log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
         log.media.save(os.path.basename(session_zip_path), archive)
+        os.remove(session_zip_path)
 
 
 @shared_task(bind=True)
@@ -50,6 +51,7 @@ def download_subject_archive(self, user_id, subject_id):
     with open(subject_zip_path, "rb") as archive:
         log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
         log.media.save(os.path.basename(subject_zip_path), archive)
+        os.remove(subject_zip_path)
 
 
 @shared_task
@@ -58,18 +60,8 @@ def cleanup_archives():
         that older than ARCHIVE_CLEANUP_DAYS
     """
     now = timezone.now()
-    # delete old logs and related archives on s3
     for log in DownloadLog.objects.filter(
         created_at__lt=now - timedelta(days=settings.ARCHIVE_CLEANUP_DAYS)
     ):
         log.media.delete(save=False)
         log.delete()
-
-    # delete old archives from ARCHIVES_ROOT
-    if os.path.exists(settings.ARCHIVES_ROOT):
-        for archive in os.listdir(settings.ARCHIVES_ROOT):
-            days_since_archive_modified_last = (
-                (int(time.time()) - os.path.getmtime(archive)) / (60 * 60 * 24)
-            )
-            if days_since_archive_modified_last > settings.ARCHIVE_CLEANUP_DAYS:
-                os.remove(archive)
