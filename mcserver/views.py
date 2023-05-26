@@ -982,10 +982,8 @@ class DownloadFileOnReadyAPIView(APIView):
             task_id=self.kwargs["task_id"], user=request.user
         ).first()
         if log and log.media:
-            response = HttpResponse(log.media.read(), content_type="application/zip")
-            response["Content-Disposition"] = f'attachment; filename="{log.media.name}"'
-            return response
-        return HttpResponse(status=202)
+            return Response({"url": log.media.url})
+        return Response(status=202)
 
 
 class UserViewSet(viewsets.ModelViewSet):
