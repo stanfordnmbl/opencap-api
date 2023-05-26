@@ -246,6 +246,7 @@ REDIS_URL = config('REDIS_URL', '')
 
 TRASHED_OBJECTS_CLEANUP_DAYS = config(
     'TRASHED_OBJECTS_CLEANUP_DAYS', default=30, cast=int)  # 30 days by default
+ARCHIVE_CLEANUP_DAYS = config('ARCHIVE_CLEANUP_DAYS', default=4, cast=int)
 
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
@@ -261,5 +262,9 @@ CELERY_BEAT_SCHEDULE = {
     'cleanup_trashed_trials': {
         'task': 'mcserver.tasks.cleanup_trashed_trials',
         'schedule': crontab(hour='*/4', minute=0),
+    },
+    'cleanup_archives': {
+        'task': 'mcserver.tasks.cleanup_archives',
+        'schedule': crontab(hour=0, minute=0)
     }
 }

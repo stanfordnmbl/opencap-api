@@ -30,6 +30,24 @@ def cleanup_trashed_trials():
         trashed_at__lt=now-timedelta(days=settings.TRASHED_OBJECTS_CLEANUP_DAYS)).delete()
 
 
+@shared_task
+def cleanup_archives():
+    """ This task deletes DownloadLogs and related files
+        that older than ARCHIVE_CLEANUP_DAYS
+    """
+    now = timezone.now()
+    DownloadLog.objects.filter(
+        created_at__lt=now - timedelta(days=settings.ARCHIVE_CLEANUP_DAYS)
+    ).delete()
+    if os.path.exists(settings.ARCHIVES_ROOT):
+        for archive in os.listdir(settings.ARCHIVES_ROOT):
+            days_since_archive_modified_last = (
+                (int(time.time()) - os.path.getmtime(archive)) / (60 * 60 * 24)
+            )
+            if days_since_archive_modified_last > settings.ARCHIVE_CLEANUP_DAYS:
+                os.remove(archive)
+
+
 @shared_task(bind=True)
 def download_session_archive(self, user_id, session_id):
     """ This task is responsible for asynchronous session archive download
