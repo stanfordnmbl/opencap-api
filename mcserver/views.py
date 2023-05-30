@@ -583,9 +583,9 @@ class SessionViewSet(viewsets.ModelViewSet):
                 "placement": request.GET.get("cb_placement",""),
             }
 
-        if "sessionName" in request.GET:
-            if "sessionName" not in session.meta:
-                session.meta["sessionName"] = request.GET.get("sessionName", "")
+        if "settings_session_name" in request.GET:
+            if "settings_session_name" not in session.meta:
+                session.meta["sessionName"] = request.GET.get("settings_session_name", "")
 
         session.save()
     
