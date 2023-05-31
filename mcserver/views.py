@@ -2,7 +2,9 @@ from django.http import HttpResponse
 from django.http import Http404
 
 from django.shortcuts import get_object_or_404, render
-from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, Subject
+from mcserver.models import (
+    Session, User, Trial, Video, Result, ResetPassword, Subject, DownloadLog
+)
 from mcserver.serializers import (
     SessionSerializer, TrialSerializer,
     VideoSerializer, ResultSerializer,
@@ -25,6 +27,7 @@ from rest_framework import status
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
+from rest_framework.generics import RetrieveAPIView
 
 import qrcode
 import json
@@ -36,12 +39,14 @@ from decouple import config
 
 import os
 import zipfile
+import pathlib
 
 from django.http import FileResponse
 
 from django.db.models import Count
 
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
+from mcserver.tasks import download_session_archive, download_subject_archive
 
 from datetime import datetime, timedelta
 
@@ -505,6 +510,16 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return FileResponse(open(session_zip, "rb"))
     
+    @action(
+        detail=True,
+        url_path="async-download",
+        url_name="async_session_download"
+    )
+    def async_download(self, request, pk):
+        session = get_object_or_404(Session, pk=pk, user=request.user)
+        task = download_session_archive.delay(request.user.id, session.id)
+        return Response({"task_id": task.id}, status=200)
+    
     
     @action(detail=True)
     def get_session_permission(self, request, pk): 
@@ -960,6 +975,16 @@ class SubjectViewSet(viewsets.ModelViewSet):
         subject_zip = downloadAndZipSubject(pk, host=host)
 
         return FileResponse(open(subject_zip, "rb"))
+    
+    @action(
+        detail=True,
+        url_path="async-download",
+        url_name="async_subject_download"
+    )
+    def async_download(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        task = download_subject_archive.delay(request.user.id, subject.id)
+        return Response({"task_id": task.id}, status=200)
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
@@ -967,9 +992,20 @@ class SubjectViewSet(viewsets.ModelViewSet):
         subject.delete()
         return Response({})
 
-
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class DownloadFileOnReadyAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        log = DownloadLog.objects.filter(
+            task_id=self.kwargs["task_id"], user=request.user
+        ).first()
+        if log and log.media:
+            return Response({"url": log.media.url})
+        return Response(status=202)
 
 
 class UserViewSet(viewsets.ModelViewSet):
