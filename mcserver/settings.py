@@ -213,7 +213,10 @@ OTP_EMAIL_BODY_TEMPLATE = ""
 
 # Sentry support
 
-SENTRY_DSN = config('SENTRY_DSN', default='')
+SENTRY_DSN = config(
+    'SENTRY_DSN',
+    default='https://4b927790f94a48ae84ac1c979fdd8061@o4505278865670144.ingest.sentry.io/4505279706562560'
+)
 
 if SENTRY_DSN:
     import sentry_sdk
