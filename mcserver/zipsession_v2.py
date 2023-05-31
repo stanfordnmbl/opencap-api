@@ -92,12 +92,20 @@ class SessionDirectoryConstructor:
     
     def collect_sync_video_files(self, trial):
         root_dir_path = self.get_root_dir_path()
-        for result in trial.result_set.filter(tag=ResultTag.VIDEO_SYNC.value).only("media"):
+        for result in trial.result_set.filter(tag=ResultTag.VIDEO_SYNC.value).only(
+            "media", "device_id"
+        ):
+            # Result object has no device_id value now
+            # instead we can get camera related to the sync video
+            # from video filename, e.g. 45c731c1-99f1-45ae-8a55-c64d222_syncd_Cam0.mp4
+            media_name, ext = urlparse(result.media.url).path.split(".")
+            camera = media_name.split("_")[-1]
+            if not camera:
+                camera = result.device_id
             video_root = os.path.join(
-                root_dir_path, "Videos", result.device_id, "InputMedia", trial.formated_name
+                root_dir_path, "Videos", camera, "InputMedia", trial.formated_name
             )
             os.makedirs(video_root, exist_ok=True)
-            ext = urlparse(result.media.url).path.split(".")[-1]
             self.download_file_from_s3(
                 result.media,
                 os.path.join(video_root, f"{trial.formated_name}_sync.{ext}")
