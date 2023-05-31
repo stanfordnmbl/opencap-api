@@ -251,6 +251,7 @@ ARCHIVE_CLEANUP_DAYS = config('ARCHIVE_CLEANUP_DAYS', default=4, cast=int)
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_BEAT_SCHEDULER = 'redbeat.RedBeatScheduler'
+CELERY_IMPORTS = ['mcserver.tasks']
 
 from celery.schedules import crontab
 
