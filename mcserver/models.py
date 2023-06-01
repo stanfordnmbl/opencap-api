@@ -18,7 +18,8 @@ def random_filename(instance, filename):
 
 
 def archives_dir_path(instance, filename):
-    return os.path.join("archives", "{}-{}".format(uuid.uuid4(), filename))
+    filename, ext = filename.split(".")
+    return os.path.join("archives", f"{filename}_{uuid.uuid4()}.{ext}")
                                             
 
 class User(AbstractUser):
