@@ -167,6 +167,7 @@ AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
 
 AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_OPENCAP_PUBLIC_BUCKET = config("AWS_S3_OPENCAP_PUBLIC_BUCKET", default="mc-opencap-public")
 
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 AWS_S3_REGION_NAME = "us-west-2"
@@ -181,6 +182,8 @@ STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 #MEDIA_LOCATION = 'media'
 #MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
 #DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+ARCHIVES_ROOT = config('ARCHIVES_ROOT', default=os.path.join(MEDIA_ROOT, 'archives'))
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
@@ -243,10 +246,12 @@ REDIS_URL = config('REDIS_URL', '')
 
 TRASHED_OBJECTS_CLEANUP_DAYS = config(
     'TRASHED_OBJECTS_CLEANUP_DAYS', default=30, cast=int)  # 30 days by default
+ARCHIVE_CLEANUP_DAYS = config('ARCHIVE_CLEANUP_DAYS', default=4, cast=int)
 
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_BEAT_SCHEDULER = 'redbeat.RedBeatScheduler'
+CELERY_IMPORTS = ['mcserver.tasks']
 
 from celery.schedules import crontab
 
@@ -258,6 +263,9 @@ CELERY_BEAT_SCHEDULE = {
     'cleanup_trashed_trials': {
         'task': 'mcserver.tasks.cleanup_trashed_trials',
         'schedule': crontab(hour='*/4', minute=0),
+    },
+    'cleanup_archives': {
+        'task': 'mcserver.tasks.cleanup_archives',
+        'schedule': crontab(hour=0, minute=0)
     }
 }
-

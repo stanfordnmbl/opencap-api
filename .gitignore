@@ -5,7 +5,9 @@ db.sqlite3
 keys
 tests/data
 mcserver/tmp/
+/media/
 *.ini
 *.env
 \#*
 .idea
+.DS_Store

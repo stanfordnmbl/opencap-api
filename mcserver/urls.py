@@ -18,9 +18,12 @@ from django.urls import include, path
 from mcserver.views import (
     SessionViewSet, VideoViewSet,
     TrialViewSet, ResultViewSet,
-    SubjectViewSet,
+    SubjectViewSet, DownloadFileOnReadyAPIView,
     UserCreate,
-    CustomAuthToken, verify, UserViewSet, ResetPasswordView, NewPasswordView)
+    CustomAuthToken, verify,
+    reset_otp_challenge,
+    check_otp_verified,
+    UserViewSet, ResetPasswordView, NewPasswordView)
 from rest_framework import routers, serializers, viewsets
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -43,9 +46,16 @@ urlpatterns = [
 #    path('session/<id>/status/', status),
     path('login/', CustomAuthToken.as_view()),
     path('verify/', verify),
+    path('reset-otp-challenge/', reset_otp_challenge),
+    path('check-otp-verified/', check_otp_verified),
     path('admin/', admin.site.urls),
     path('register/', UserCreate.as_view(), name='account-create'),
     path('reset-password/', ResetPasswordView.as_view()),
-    path('new-password/', NewPasswordView.as_view())
+    path('new-password/', NewPasswordView.as_view()),
+    path(
+        'logs/<str:task_id>/on-ready/',
+        DownloadFileOnReadyAPIView.as_view(),
+        name="logs-on-ready"
+    )
 #    path('accounts/login/', OTPAuthenticationForm.as_view(authentication_form=OTPAuthenticationForm)),
 ]

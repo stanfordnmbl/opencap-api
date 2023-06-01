@@ -9,6 +9,7 @@ from mcserver.models import (
     Result,
     ResetPassword,
     Subject,
+    DownloadLog
 )
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
@@ -151,3 +152,10 @@ class LogEntryAdmin(admin.ModelAdmin):
         'content_type',
         'action_flag',
     ]
+
+
+@admin.register(DownloadLog)
+class DownloadLogAdmin(admin.ModelAdmin):
+    list_display = ["task_id", "user", "created_at", "updated_at"]
+    list_filter = ["user"]
+    search_fields = ["task_id"]
