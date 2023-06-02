@@ -114,6 +114,7 @@ class VideoAdmin(admin.ModelAdmin):
 class SubjectAdmin(admin.ModelAdmin):
     search_fields = ['name']
     list_display = (
+        'id',
         'name', 'user',
         'weight', 'height',
         'age', 'gender', 'sex_at_birth',
