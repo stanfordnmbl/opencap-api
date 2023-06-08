@@ -167,7 +167,7 @@ class SessionDirectoryConstructor:
                 os.path.join(model_root, opensim_model_short_filename)
             )
 
-            if "LaiArnold" in opensim_model_short_filename:
+            if "Lai" in opensim_model_short_filename:
                 self.collect_geometry_vtp_files_from_s3("LaiArnold")
     
     def collect_calibration_images_files(self, trial):
