@@ -18,7 +18,8 @@ def random_filename(instance, filename):
 
 
 def archives_dir_path(instance, filename):
-    return os.path.join("archives", "{}-{}".format(uuid.uuid4(), filename))
+    filename, ext = filename.split(".")
+    return os.path.join("archives", f"{filename}_{uuid.uuid4()}.{ext}")
                                             
 
 class User(AbstractUser):
@@ -191,7 +192,9 @@ class DownloadLog(models.Model):
         with Celery tasks
     """
     task_id = models.CharField(max_length=255)
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, blank=True, null=True
+    )
     media = models.FileField(upload_to=archives_dir_path, max_length=500)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -17,6 +17,7 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework.decorators import action, permission_classes
 from rest_framework.response import Response
@@ -173,7 +174,33 @@ class SessionViewSet(viewsets.ModelViewSet):
             "status": "ok",
             "data": request.data,
         })
-    
+
+
+    @action(detail=True, methods=['post'])
+    def rename(self, request, pk):
+        # Get session.
+        session = get_object_or_404(Session.objects.all(), pk=pk)
+
+        try:
+            error_message = ""
+
+            # Update session name and save.
+            session.meta["sessionName"] = request.data['sessionNewName']
+            session.save()
+
+        except Exception as e:
+            error_message = 'There was an error while renaming your session: ' + str(e)
+            print(error_message)
+
+        # Serialize session.
+        serializer = SessionSerializer(session)
+
+        # Return error message and data.
+        return Response({
+            'message': error_message,
+            'data': serializer.data
+        })
+
     def retrieve(self, request, pk=None):
         session = get_object_or_404(Session.objects.all(), pk=pk)
 
@@ -516,10 +543,13 @@ class SessionViewSet(viewsets.ModelViewSet):
         url_name="async_session_download"
     )
     def async_download(self, request, pk):
-        session = get_object_or_404(Session, pk=pk, user=request.user)
-        task = download_session_archive.delay(request.user.id, session.id)
+        if request.user.is_authenticated:
+            session = get_object_or_404(Session, pk=pk, user=request.user)
+            task = download_session_archive.delay(session.id, request.user.id)
+        else:
+            session = get_object_or_404(Session, pk=pk, public=True)
+            task = download_session_archive.delay(session.id)
         return Response({"task_id": task.id}, status=200)
-    
     
     @action(detail=True)
     def get_session_permission(self, request, pk): 
@@ -612,7 +642,11 @@ class SessionViewSet(viewsets.ModelViewSet):
                 "cols": request.GET.get("cb_cols",""),
                 "placement": request.GET.get("cb_placement",""),
             }
-            
+
+        if "settings_session_name" in request.GET:
+            if "settings_session_name" not in session.meta:
+                session.meta["sessionName"] = request.GET.get("settings_session_name", "")
+
         session.save()
     
         serializer = SessionSerializer(session, many=False)
@@ -988,7 +1022,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
     )
     def async_download(self, request, pk):
         subject = get_object_or_404(Subject, pk=pk, user=request.user)
-        task = download_subject_archive.delay(request.user.id, subject.id)
+        task = download_subject_archive.delay(subject.id, request.user.id)
         return Response({"task_id": task.id}, status=200)
 
     @action(detail=True, methods=['post'])
@@ -1002,12 +1036,10 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
 
 class DownloadFileOnReadyAPIView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
-        log = DownloadLog.objects.filter(
-            task_id=self.kwargs["task_id"], user=request.user
-        ).first()
+        log = DownloadLog.objects.filter(task_id=self.kwargs["task_id"]).first()
         if log and log.media:
             return Response({"url": log.media.url})
         return Response(status=202)
