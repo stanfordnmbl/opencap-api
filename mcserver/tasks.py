@@ -31,8 +31,9 @@ def cleanup_trashed_trials():
 
 
 @shared_task(bind=True)
-def download_session_archive(self, user_id, session_id):
-    """ This task is responsible for asynchronous session archive download
+def download_session_archive(self, session_id, user_id=None):
+    """ This task is responsible for asynchronous session archive download.
+        If user_id is None, the public session download occurred.
     """
     session_dir_path = SessionDirectoryConstructor().build(session_id)
     session_zip_path = zipdir(session_dir_path)
@@ -43,7 +44,7 @@ def download_session_archive(self, user_id, session_id):
 
 
 @shared_task(bind=True)
-def download_subject_archive(self, user_id, subject_id):
+def download_subject_archive(self, subject_id, user_id):
     """ This task is responsible for asynchronous subject archive download
     """
     subject_dir_path = SubjectDirectoryConstructor().build(subject_id)

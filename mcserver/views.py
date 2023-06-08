@@ -17,6 +17,7 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework.decorators import action, permission_classes
 from rest_framework.response import Response
@@ -516,10 +517,13 @@ class SessionViewSet(viewsets.ModelViewSet):
         url_name="async_session_download"
     )
     def async_download(self, request, pk):
-        session = get_object_or_404(Session, pk=pk, user=request.user)
-        task = download_session_archive.delay(request.user.id, session.id)
+        if request.user.is_authenticated:
+            session = get_object_or_404(Session, pk=pk, user=request.user)
+            task = download_session_archive.delay(session.id, request.user.id)
+        else:
+            session = get_object_or_404(Session, pk=pk, public=True)
+            task = download_session_archive.delay(session.id)
         return Response({"task_id": task.id}, status=200)
-    
     
     @action(detail=True)
     def get_session_permission(self, request, pk): 
@@ -983,7 +987,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
     )
     def async_download(self, request, pk):
         subject = get_object_or_404(Subject, pk=pk, user=request.user)
-        task = download_subject_archive.delay(request.user.id, subject.id)
+        task = download_subject_archive.delay(subject.id, request.user.id)
         return Response({"task_id": task.id}, status=200)
 
     @action(detail=True, methods=['post'])
@@ -997,12 +1001,10 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
 
 class DownloadFileOnReadyAPIView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
-        log = DownloadLog.objects.filter(
-            task_id=self.kwargs["task_id"], user=request.user
-        ).first()
+        log = DownloadLog.objects.filter(task_id=self.kwargs["task_id"]).first()
         if log and log.media:
             return Response({"url": log.media.url})
         return Response(status=202)
