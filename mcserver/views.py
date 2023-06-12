@@ -36,6 +36,8 @@ from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework.views import APIView
 
+from django.utils.translation import gettext as _
+
 from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, Subject
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 from mcserver.serializers import (
@@ -148,7 +150,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def calibration(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
             trial = session.trial_set.filter(name="calibration").order_by("-created_at")[0]
@@ -161,16 +163,16 @@ class SessionViewSet(viewsets.ModelViewSet):
             trial.save()
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise APIException("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error during the calibration step. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("calibration_error"))
 
         return Response({
             "status": "ok",
@@ -180,7 +182,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, pk=None):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
 
@@ -188,16 +190,16 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(session)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while retrieving the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_retrieve_error"))
 
         return Response(serializer.data)
 
@@ -233,12 +235,12 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(sessions, many=True)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a subject with UUID: ' + request.data['subject_id'])
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("subject_uuid_not_found"))
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while checking the validity of the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_not_valid"))
 
         return Response(serializer.data)
 
@@ -246,22 +248,22 @@ class SessionViewSet(viewsets.ModelViewSet):
     def permanent_remove(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk, user=request.user)
             session.delete()
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while permanently removing the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_permanent_remove_error"))
 
         return Response({})
 
@@ -269,7 +271,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk, user=request.user)
             session.trashed = True
@@ -279,16 +281,16 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(session)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while removing the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_remove_error"))
 
         return Response(serializer.data)
 
@@ -296,7 +298,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def restore(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk, user=request.user)
             session.trashed = False
@@ -306,16 +308,16 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(session)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while restoring the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_restore_error"))
 
         return Response(serializer.data)
 
@@ -355,8 +357,8 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while creating a new session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_create_error"))
 
         return Response(serializer.data)
 
@@ -367,7 +369,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def new_subject(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             sessionNew = Session()
             sessionOld = get_object_or_404(Session, pk=pk)
@@ -406,20 +408,20 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except NotFound:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find this user.')
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("user_not_found"))
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while creating a new subject. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("subject_create_error"))
 
         return Response(serializer.data)
 
@@ -431,7 +433,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def get_status(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
             self.check_object_permissions(self.request, session)
@@ -505,24 +507,24 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except NotAuthenticated:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, you have to log in to access this session.')
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, you don\'t have the permissions required to access this session.')
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('unauthorized_access_session'))
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while recording the trial. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_record_error'))
 
         return res
 
@@ -569,7 +571,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def record(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
 
@@ -593,16 +595,16 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while recording the trial. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_record_error'))
 
         return Response(serializer.data)
 
@@ -619,8 +621,8 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while downloading the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('session_download_error'))
 
         return FileResponse(open(session_zip, "rb"))
 
@@ -628,7 +630,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def get_session_permission(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
 
@@ -641,16 +643,16 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while getting the settings of the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('session_get_settings_error'))
 
         return Response(sessionPermission)
 
@@ -658,7 +660,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def get_session_settings(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
 
@@ -691,16 +693,16 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while getting the settings of the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('session_get_settings_error'))
 
         return Response(settings_dict)
 
@@ -708,7 +710,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def set_metadata(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
 
@@ -755,16 +757,16 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
                 raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while setting the metadata of the session. Please try again.")
+            raise APIException(_('session_set_metadata_error'))
 
         return Response(serializer.data)
 
@@ -772,33 +774,33 @@ class SessionViewSet(viewsets.ModelViewSet):
     def set_subject(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while assigning this subject to the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_assign_error'))
 
         try:
             subject_id = request.GET.get("subject_id", "")
             subject = get_object_or_404(Subject, id=subject_id, user=request.user)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a subject with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while assigning this subject to the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_assign_error'))
 
         try:
             session.subject = subject
@@ -806,8 +808,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(session, many=False)
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while assigning this subject to the session. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_assign_error'))
 
         return Response(serializer.data)
 
@@ -819,7 +821,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def stop(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
             trials = session.trial_set.order_by("-created_at")
@@ -851,16 +853,16 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = TrialSerializer(trial, many=False)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
                 raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while canceling the trial. Please try again.")
+            raise APIException(_('trial_cancel_error'))
 
         return Response(serializer.data)
 
@@ -872,7 +874,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def cancel_trial(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
             trials = session.trial_set.order_by("-created_at")
@@ -887,16 +889,16 @@ class SessionViewSet(viewsets.ModelViewSet):
                 data = {"status": "noTrials"}
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
                 raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while canceling the trial. Please try again.")
+            raise APIException(_('trial_cancel_error'))
 
         return Response(data)
 
@@ -904,7 +906,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def calibration_img(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
             self.check_object_permissions(self.request, session)
@@ -945,22 +947,24 @@ class SessionViewSet(viewsets.ModelViewSet):
                     }
 
         except Http404:
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while retrieving the calibration image. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('calibration_image_retrieve_error'))
         return Response(data)
 
     @action(detail=True)
     def neutral_img(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
             self.check_object_permissions(self.request, session)
@@ -999,16 +1003,16 @@ class SessionViewSet(viewsets.ModelViewSet):
                     }
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a session with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the session with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while retrieving the neutral image. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("neutral_image_retrieve_error") % {"uuid": str(pk)})
 
         return Response(data)
 
@@ -1071,8 +1075,8 @@ class TrialViewSet(viewsets.ModelViewSet):
           serializer = TrialSerializer(trial, many=False)
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while dequeuing the trials. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_dequeue_error'))
 
         return Response(serializer.data)
 
@@ -1080,7 +1084,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def rename(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             # Get trial.
             trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
@@ -1094,16 +1098,16 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a trial with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the trial with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while renaming the trial. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_rename_error'))
 
         # Return error message and data.
         return Response({
@@ -1114,21 +1118,23 @@ class TrialViewSet(viewsets.ModelViewSet):
     def permanent_remove(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
             trial.delete()
 
         except Http404:
-            raise NotFound('Sorry, we couldn\'t find a trial with UUID: ' + pk)
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the trial with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while removing the trial. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_permanent_remove_error'))
 
         return Response({})
 
@@ -1136,7 +1142,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
             trial.trashed = True
@@ -1146,15 +1152,17 @@ class TrialViewSet(viewsets.ModelViewSet):
             serializer = TrialSerializer(trial)
 
         except Http404:
-            raise NotFound('Sorry, we couldn\'t find a trial with UUID: ' + pk)
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the trial with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while removing the trial. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_remove_error'))
 
         return Response(serializer.data)
 
@@ -1162,7 +1170,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def restore(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
             trial.trashed = False
@@ -1172,16 +1180,16 @@ class TrialViewSet(viewsets.ModelViewSet):
             serializer = TrialSerializer(trial)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a trial with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the trial with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while restoring the trial. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_restore_error'))
 
         return Response(serializer.data)
 
@@ -1235,7 +1243,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             subject = get_object_or_404(Subject, pk=pk, user=request.user)
             subject.trashed = True
@@ -1246,22 +1254,22 @@ class SubjectViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a subject with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the subject with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while removing the subject. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_remove_error'))
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             subject = get_object_or_404(Subject, pk=pk, user=request.user)
             subject.trashed = False
@@ -1272,22 +1280,22 @@ class SubjectViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a subject with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the subject with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while restoring the subject. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_restore_error'))
 
     @action(detail=True)
     def download(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             subject = get_object_or_404(Subject, pk=pk, user=request.user)
             # Extract protocol and host.
@@ -1299,16 +1307,16 @@ class SubjectViewSet(viewsets.ModelViewSet):
             subject_zip = downloadAndZipSubject(pk, host=host)
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a subject with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the subject with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while creating the subject. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_create_error'))
 
         return FileResponse(open(subject_zip, "rb"))
 
@@ -1316,31 +1324,31 @@ class SubjectViewSet(viewsets.ModelViewSet):
     def permanent_remove(self, request, pk):
         try:
             if pk == 'undefined':
-                raise ValueError("Undefined UUID.")
+                raise ValueError(_("undefined_uuid"))
 
             subject = get_object_or_404(Subject, pk=pk, user=request.user)
             subject.delete()
             return Response({})
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find a subject with UUID: ' + pk)
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, the UUID of the subject with UUID: ' + pk + " is not valid")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while permanently removing the subject. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_permanent_remove_error'))
 
     def perform_create(self, serializer):
         try:
             serializer.save(user=self.request.user)
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while creating the subject. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_create_error'))
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -1368,8 +1376,8 @@ class UserCreate(APIView):
                     return Response(json, status=status.HTTP_201_CREATED)
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while creating your user in. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_create_error'))
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1391,12 +1399,13 @@ class CustomAuthToken(ObtainAuthToken):
             login(request, user)
         except ValidationError:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise ValidationError("Looks like the username or password you entered is incorrect. Please double check and try again.")
+                print(str(traceback.format_exc()))
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('credentials_incorrect'))
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException("There was an error while logging in. Please try again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('login_error'))
 
         return Response({
             'token': token.key,
@@ -1432,7 +1441,7 @@ class ResetPasswordView(APIView):
             token = get_object_or_404(ResetPassword, email__exact=email).id
             username = get_object_or_404(User, email__exact=email).username
 
-            reset_password_email_subject = 'Opencap - Forgot Username or Password'
+            reset_password_email_subject = _('reset_password_email_subject')
 
             link = host + '/new-password/' + str(token)
 
@@ -1446,12 +1455,12 @@ class ResetPasswordView(APIView):
             email.send()
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound('Sorry, we couldn\'t find an account associated with that email.')
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('account_email_not_found'))
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException('There was an error while resetting your password. Please, try again.')
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('error_reset_password'))
 
         return Response({
             'message': error_message
@@ -1484,7 +1493,9 @@ class NewPasswordView(APIView):
                 for object in objects:
                     object.delete()
 
-                raise NotFound("The link to reset your password has expired or does not exist. Try resetting your password again.")
+                if settings.DEBUG:
+                    raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise NotFound(_('reset_password_link_expired'))
 
             else:
                 # If token exists, and it has not expired, set new password.
@@ -1497,12 +1508,12 @@ class NewPasswordView(APIView):
                     object.delete()
         except Http404:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise NotFound("The link to reset your password has expired. Try resetting your password again.")
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('reset_password_link_expired'))
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
-            raise APIException('There was an error while creating your new password. Please, try again.')
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('new_password_creation_error'))
 
         # Return message. At this point no error have been thrown and this should return success.
         return Response({})
@@ -1521,10 +1532,12 @@ def verify(request):
         request.user.save()
     except Exception:
         if settings.DEBUG:
-            raise Exception("Error: " + traceback.format_exc())
-        raise APIException('There was an error during the verification process. Please, try again.')
+            raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+        raise APIException(_('verification_error'))
 
     if not verified:
-        raise NotAuthenticated("Looks like the verification code is incorrect. Please double check and try again.")
+        if settings.DEBUG:
+            raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+        raise NotAuthenticated(_('verification_code_incorrect'))
 
     return Response({})

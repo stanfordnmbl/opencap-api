@@ -1,0 +1,318 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-06-12 15:46-0700\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: .\models.py:148
+msgid "verification_code_email_subject"
+msgstr ""
+
+#: .\templates\admin\set_subject.html:6
+msgid "home"
+msgstr "Home"
+
+#: .\templates\admin\set_subject.html:9
+msgid "set_subject"
+msgstr "Set Subject"
+
+#: .\templates\admin\set_subject.html:14
+msgid "set_subject_confirmation"
+msgstr ""
+"Are you sure you want to set the subject for the next list of sessions?"
+
+#: .\templates\email\reset_password_email.html:9
+msgid "reset_password_email_greeting"
+msgstr "Hi,"
+
+#: .\templates\email\reset_password_email.html:10
+msgid "reset_password_email_your_username"
+msgstr "Your username is:"
+
+#: .\templates\email\reset_password_email.html:13
+msgid "reset_password_email_click_button"
+msgstr "To reset your password click on the following button:"
+
+#: .\templates\email\reset_password_email.html:16
+msgid "reset_password_email_reset_button_text"
+msgstr "Reset my Password"
+
+#: .\templates\email\reset_password_email.html:19
+msgid "reset_password_email_token"
+msgstr "If the button if not working, click on the following token:"
+
+#: .\templates\email\reset_password_email.html:21
+msgid "reset_password_email_ignore"
+msgstr ""
+"If you did not request to retrieve your username or change your password, "
+"you can ignore this email."
+
+#: .\templates\email\reset_password_email.html:24
+msgid "reset_password_email_team"
+msgstr "OpenCap Team."
+
+#: .\templates\email\verification_email.html:9
+msgid "verification_code_email_greeting"
+msgstr "Hi,"
+
+#: .\templates\email\verification_email.html:10
+msgid "verification_code_email_your_code"
+msgstr "Your verification code is:"
+
+#: .\templates\email\verification_email.html:18
+msgid "verification_code_email_copy_paste"
+msgstr "Please copy-paste it to the OpenCap webapp."
+
+#: .\templates\email\verification_email.html:21
+msgid "verification_code_email_ignore"
+msgstr "If you did not try to log in into OpenCap, you can ignore this email."
+
+#: .\templates\email\verification_email.html:24
+msgid "verification_code_email_team"
+msgstr "OpenCap Team."
+
+#: .\views.py:153 .\views.py:185 .\views.py:251 .\views.py:274 .\views.py:301
+#: .\views.py:372 .\views.py:436 .\views.py:574 .\views.py:633 .\views.py:663
+#: .\views.py:713 .\views.py:777 .\views.py:824 .\views.py:877 .\views.py:909
+#: .\views.py:967 .\views.py:1087 .\views.py:1121 .\views.py:1145
+#: .\views.py:1173 .\views.py:1246 .\views.py:1272 .\views.py:1298
+#: .\views.py:1327
+msgid "undefined_uuid"
+msgstr "Undefined UUID."
+
+#: .\views.py:166 .\views.py:170 .\views.py:174 .\views.py:193 .\views.py:197
+#: .\views.py:201 .\views.py:238 .\views.py:242 .\views.py:257 .\views.py:261
+#: .\views.py:265 .\views.py:284 .\views.py:288 .\views.py:292 .\views.py:311
+#: .\views.py:315 .\views.py:319 .\views.py:360 .\views.py:411 .\views.py:415
+#: .\views.py:419 .\views.py:423 .\views.py:510 .\views.py:514 .\views.py:518
+#: .\views.py:522 .\views.py:526 .\views.py:598 .\views.py:602 .\views.py:606
+#: .\views.py:624 .\views.py:646 .\views.py:650 .\views.py:654 .\views.py:696
+#: .\views.py:700 .\views.py:704 .\views.py:760 .\views.py:764 .\views.py:782
+#: .\views.py:786 .\views.py:790 .\views.py:798 .\views.py:802 .\views.py:811
+#: .\views.py:856 .\views.py:860 .\views.py:892 .\views.py:896 .\views.py:951
+#: .\views.py:955 .\views.py:959 .\views.py:1006 .\views.py:1010
+#: .\views.py:1014 .\views.py:1078 .\views.py:1101 .\views.py:1105
+#: .\views.py:1109 .\views.py:1128 .\views.py:1132 .\views.py:1136
+#: .\views.py:1156 .\views.py:1160 .\views.py:1164 .\views.py:1183
+#: .\views.py:1187 .\views.py:1191 .\views.py:1257 .\views.py:1261
+#: .\views.py:1265 .\views.py:1283 .\views.py:1287 .\views.py:1291
+#: .\views.py:1310 .\views.py:1314 .\views.py:1318 .\views.py:1334
+#: .\views.py:1338 .\views.py:1342 .\views.py:1350 .\views.py:1379
+#: .\views.py:1402 .\views.py:1406 .\views.py:1457 .\views.py:1461
+#: .\views.py:1496 .\views.py:1510 .\views.py:1514 .\views.py:1534
+#: .\views.py:1539
+msgid "error"
+msgstr "Error: %(error_message)"
+
+#: .\views.py:167 .\views.py:194 .\views.py:258 .\views.py:285 .\views.py:312
+#: .\views.py:416 .\views.py:519 .\views.py:599 .\views.py:647 .\views.py:697
+#: .\views.py:761 .\views.py:783 .\views.py:857 .\views.py:893 .\views.py:952
+#: .\views.py:1007
+msgid "session_uuid_not_found"
+msgstr "Sorry, we couldn't find a session with UUID: %(uuid)"
+
+#: .\views.py:171 .\views.py:198 .\views.py:262 .\views.py:289 .\views.py:316
+#: .\views.py:420 .\views.py:523 .\views.py:603 .\views.py:651 .\views.py:701
+#: .\views.py:765 .\views.py:787 .\views.py:861 .\views.py:897 .\views.py:956
+#: .\views.py:1011
+msgid "session_uuid_not_valid"
+msgstr "Sorry, the session UUID: %(uuid) is not valid"
+
+#: .\views.py:175
+msgid "calibration_error"
+msgstr "There was an error during the calibration step. Please try again."
+
+#: .\views.py:202
+msgid "session_retrieve_error"
+msgstr "There was an error while retrieving the session. Please try again."
+
+#: .\views.py:239 .\views.py:799 .\views.py:1258 .\views.py:1284
+#: .\views.py:1311 .\views.py:1335
+msgid "subject_uuid_not_found"
+msgstr "Sorry, we couldn't find a subject with UUID: %(uuid)"
+
+#: .\views.py:243
+msgid "session_not_valid"
+msgstr ""
+"There was an error while checking the validity of the session. Please try "
+"again."
+
+#: .\views.py:266
+msgid "session_permanent_remove_error"
+msgstr ""
+"There was an error while permanently removing the session. Please try again."
+
+#: .\views.py:293
+msgid "session_remove_error"
+msgstr "There was an error while removing the session. Please try again."
+
+#: .\views.py:320
+msgid "session_restore_error"
+msgstr "There was an error while restoring the session. Please try again."
+
+#: .\views.py:361
+msgid "session_create_error"
+msgstr "There was an error while creating the session. Please try again."
+
+#: .\views.py:412
+msgid "user_not_found"
+msgstr "Sorry, we couldn't find the user."
+
+#: .\views.py:424 .\views.py:1319 .\views.py:1351
+msgid "subject_create_error"
+msgstr "There was an error while creating a new subject. Please try again."
+
+#: .\views.py:511
+msgid "login_needed"
+msgstr "Sorry, you have to log in to access to this session."
+
+#: .\views.py:515
+msgid "unauthorized_access_session"
+msgstr "Sorry, you don't have the permissions required to access this session."
+
+#: .\views.py:527 .\views.py:607
+msgid "trial_record_error"
+msgstr "There was an error while recording the trial. Please try again."
+
+#: .\views.py:625
+msgid "session_download_error"
+msgstr "There was an error while downloading the session. Please try again."
+
+#: .\views.py:655 .\views.py:705
+msgid "session_get_settings_error"
+msgstr ""
+"There was an error while getting the settings of the session. Please try "
+"again."
+
+#: .\views.py:769
+msgid "session_set_metadata_error"
+msgstr ""
+"There was an error while setting the metadata of the session. Please try "
+"again."
+
+#: .\views.py:791 .\views.py:803 .\views.py:812
+msgid "subject_assign_error"
+msgstr ""
+"There was an error while assigning this subject to the session. Please try "
+"again."
+
+#: .\views.py:865 .\views.py:901
+msgid "trial_cancel_error"
+msgstr "There was an error while canceling the trial. Please try again."
+
+#: .\views.py:960
+msgid "calibration_image_retrieve_error"
+msgstr ""
+" There was an error while retrieving the calibration image. Please try again."
+
+#: .\views.py:1015
+msgid "neutral_image_retrieve_error"
+msgstr ""
+"There was an error while retrieving the neutral image. Please try again."
+
+#: .\views.py:1079
+msgid "trial_dequeue_error"
+msgstr "There was an error while dequeuing the trials. Please try again."
+
+#: .\views.py:1102 .\views.py:1129 .\views.py:1157 .\views.py:1184
+msgid "trial_uuid_not_found"
+msgstr "Sorry, we couldn't find a trial with UUID: %(uuid)."
+
+#: .\views.py:1106 .\views.py:1133 .\views.py:1161 .\views.py:1188
+msgid "trial_uuid_not_valid"
+msgstr "Sorry, the trial UUID: %(uuid) is not valid."
+
+#: .\views.py:1110
+msgid "trial_rename_error"
+msgstr "There was an error while renaming the trial. Please try again."
+
+#: .\views.py:1137
+msgid "trial_permanent_remove_error"
+msgstr ""
+"There was an error while permanently removing the trial. Please try again."
+
+#: .\views.py:1165
+msgid "trial_remove_error"
+msgstr "There was an error while removing the trial. Please try again."
+
+#: .\views.py:1192
+msgid "trial_restore_error"
+msgstr "There was an error while removing the trial. Please try again."
+
+#: .\views.py:1262 .\views.py:1288 .\views.py:1315 .\views.py:1339
+msgid "subject_uuid_not_valid"
+msgstr "Sorry, the subject UUID: %(uuid) is not valid"
+
+#: .\views.py:1266
+msgid "subject_remove_error"
+msgstr ""
+
+#: .\views.py:1292
+msgid "subject_restore_error"
+msgstr "There was an error while removing the subject. Please try again."
+
+#: .\views.py:1343
+msgid "subject_permanent_remove_error"
+msgstr ""
+"There was an error while permanently removing the subject. Please try again."
+
+#: .\views.py:1380
+msgid "user_create_error"
+msgstr "There was an error while creating your user. Please try again."
+
+#: .\views.py:1403
+msgid "credentials_incorrect"
+msgstr ""
+"Looks like the username or password you entered is incorrect. Please double "
+"check and try again."
+
+#: .\views.py:1407
+msgid "login_error"
+msgstr "There was an error while logging in. Please try again."
+
+#: .\views.py:1443
+msgid "reset_password_email_subject"
+msgstr "Opencap - Forgot Username or Password"
+
+#: .\views.py:1458
+msgid "account_email_not_found"
+msgstr "Sorry, we couldn't find an account associated with that email."
+
+#: .\views.py:1462
+msgid "error_reset_password"
+msgstr "There was an error while resetting your password. Please, try again."
+
+#: .\views.py:1497 .\views.py:1511
+msgid "reset_password_link_expired"
+msgstr ""
+"The link to reset your password has expired or does not exist. Try resetting "
+"your password again."
+
+#: .\views.py:1515
+msgid "new_password_creation_error"
+msgstr ""
+"There was an error while creating your new password. Please, try again."
+
+#: .\views.py:1535
+msgid "verification_error"
+msgstr "There was an error during the verification process. Please, try again."
+
+#: .\views.py:1540
+msgid "verification_code_incorrect"
+msgstr ""
+"Looks like the verification code is incorrect. Please double check and try "
+"again."

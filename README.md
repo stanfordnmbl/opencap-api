@@ -36,6 +36,22 @@ python manage.py runserver
 
 Then for deploying to production we pull all the updated code and run the step 3. (with the production `.env` file)
 
+## Internationalization/Localization
+
+Instructions in this [Link](https://docs.djangoproject.com/en/4.2/topics/i18n/translation/).
+
+**Note:** You must also install gettext. After install, restart your IDE/Terminal).
+
+Inside of mcserver folder:
+
+1. Create files for a language:
+
+   `django-admin makemessages -l <language-code>`
+
+2. Compile messages:
+
+   `django-admin compilemessages`
+
 
 ## Current routes (not up to date, there are more):
 

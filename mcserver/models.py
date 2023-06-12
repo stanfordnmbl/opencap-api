@@ -7,6 +7,7 @@ from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
+from django.utils.translation import gettext as _
 
 from django.conf import settings
 
@@ -144,7 +145,7 @@ def post_login(sender, user, request, **kwargs):
     settings.OTP_EMAIL_BODY_TEMPLATE = render_to_string(settings.OTP_EMAIL_BODY_TEMPLATE_PATH) % (settings.LOGO_LINK, "{{token}}")
 
     # Set subject here, so everything is together.
-    settings.OTP_EMAIL_SUBJECT = "Opencap - Verification Code"
+    settings.OTP_EMAIL_SUBJECT = _('verification_code_email_subject')
 
     device.generate_challenge()
     print("CHALLENGE SENT")

@@ -59,3 +59,4 @@ vine==5.0.0
 watchgod==0.8.2
 wcwidth==0.2.6
 zipp==3.12.0
+python-gettext
