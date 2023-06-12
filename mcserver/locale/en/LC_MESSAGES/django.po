@@ -20,7 +20,7 @@ msgstr ""
 
 #: .\models.py:148
 msgid "verification_code_email_subject"
-msgstr ""
+msgstr "Opencap - Verification Code"
 
 #: .\templates\admin\set_subject.html:6
 msgid "home"
@@ -32,8 +32,8 @@ msgstr "Set Subject"
 
 #: .\templates\admin\set_subject.html:14
 msgid "set_subject_confirmation"
-msgstr ""
-"Are you sure you want to set the subject for the next list of sessions?"
+msgstr "Are you sure you want to set the subject for the next list of sessions?"
+
 
 #: .\templates\email\reset_password_email.html:9
 msgid "reset_password_email_greeting"
@@ -57,9 +57,8 @@ msgstr "If the button if not working, click on the following token:"
 
 #: .\templates\email\reset_password_email.html:21
 msgid "reset_password_email_ignore"
-msgstr ""
-"If you did not request to retrieve your username or change your password, "
-"you can ignore this email."
+msgstr "If you did not request to retrieve your username or change your password, you can ignore this email."
+
 
 #: .\templates\email\reset_password_email.html:24
 msgid "reset_password_email_team"
@@ -147,14 +146,13 @@ msgstr "Sorry, we couldn't find a subject with UUID: %(uuid)"
 
 #: .\views.py:243
 msgid "session_not_valid"
-msgstr ""
-"There was an error while checking the validity of the session. Please try "
-"again."
+msgstr "There was an error while checking the validity of the session. Please try again."
+
 
 #: .\views.py:266
 msgid "session_permanent_remove_error"
-msgstr ""
-"There was an error while permanently removing the session. Please try again."
+msgstr "There was an error while permanently removing the session. Please try again."
+
 
 #: .\views.py:293
 msgid "session_remove_error"
@@ -194,21 +192,18 @@ msgstr "There was an error while downloading the session. Please try again."
 
 #: .\views.py:655 .\views.py:705
 msgid "session_get_settings_error"
-msgstr ""
-"There was an error while getting the settings of the session. Please try "
-"again."
+msgstr "There was an error while getting the settings of the session. Please try again."
+
 
 #: .\views.py:769
 msgid "session_set_metadata_error"
-msgstr ""
-"There was an error while setting the metadata of the session. Please try "
-"again."
+msgstr "There was an error while setting the metadata of the session. Please try again."
+
 
 #: .\views.py:791 .\views.py:803 .\views.py:812
 msgid "subject_assign_error"
-msgstr ""
-"There was an error while assigning this subject to the session. Please try "
-"again."
+msgstr "There was an error while assigning this subject to the session. Please try again."
+
 
 #: .\views.py:865 .\views.py:901
 msgid "trial_cancel_error"
@@ -216,13 +211,13 @@ msgstr "There was an error while canceling the trial. Please try again."
 
 #: .\views.py:960
 msgid "calibration_image_retrieve_error"
-msgstr ""
-" There was an error while retrieving the calibration image. Please try again."
+msgstr "There was an error while retrieving the calibration image. Please try again."
+
 
 #: .\views.py:1015
 msgid "neutral_image_retrieve_error"
-msgstr ""
-"There was an error while retrieving the neutral image. Please try again."
+msgstr "There was an error while retrieving the neutral image. Please try again."
+
 
 #: .\views.py:1079
 msgid "trial_dequeue_error"
@@ -242,8 +237,8 @@ msgstr "There was an error while renaming the trial. Please try again."
 
 #: .\views.py:1137
 msgid "trial_permanent_remove_error"
-msgstr ""
-"There was an error while permanently removing the trial. Please try again."
+msgstr "There was an error while permanently removing the trial. Please try again."
+
 
 #: .\views.py:1165
 msgid "trial_remove_error"
@@ -259,7 +254,7 @@ msgstr "Sorry, the subject UUID: %(uuid) is not valid"
 
 #: .\views.py:1266
 msgid "subject_remove_error"
-msgstr ""
+msgstr "There was an error while removing the subject. Please try again."
 
 #: .\views.py:1292
 msgid "subject_restore_error"
@@ -267,8 +262,8 @@ msgstr "There was an error while removing the subject. Please try again."
 
 #: .\views.py:1343
 msgid "subject_permanent_remove_error"
-msgstr ""
-"There was an error while permanently removing the subject. Please try again."
+msgstr "There was an error while permanently removing the subject. Please try again."
+
 
 #: .\views.py:1380
 msgid "user_create_error"
@@ -276,9 +271,8 @@ msgstr "There was an error while creating your user. Please try again."
 
 #: .\views.py:1403
 msgid "credentials_incorrect"
-msgstr ""
-"Looks like the username or password you entered is incorrect. Please double "
-"check and try again."
+msgstr "Looks like the username or password you entered is incorrect. Please double check and try again."
+
 
 #: .\views.py:1407
 msgid "login_error"
@@ -298,14 +292,13 @@ msgstr "There was an error while resetting your password. Please, try again."
 
 #: .\views.py:1497 .\views.py:1511
 msgid "reset_password_link_expired"
-msgstr ""
-"The link to reset your password has expired or does not exist. Try resetting "
-"your password again."
+msgstr "The link to reset your password has expired or does not exist. Try resetting your password again."
+
 
 #: .\views.py:1515
 msgid "new_password_creation_error"
-msgstr ""
-"There was an error while creating your new password. Please, try again."
+msgstr "There was an error while creating your new password. Please, try again."
+
 
 #: .\views.py:1535
 msgid "verification_error"
@@ -313,6 +306,5 @@ msgstr "There was an error during the verification process. Please, try again."
 
 #: .\views.py:1540
 msgid "verification_code_incorrect"
-msgstr ""
-"Looks like the verification code is incorrect. Please double check and try "
-"again."
+msgstr "Looks like the verification code is incorrect. Please double check and try again."
+
