@@ -1,10 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import MinValueValidator, MaxValueValidator
 import os
 import uuid
 import base64
 import pathlib
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
@@ -20,8 +22,8 @@ def random_filename(instance, filename):
 def archives_dir_path(instance, filename):
     filename, ext = filename.split(".")
     return os.path.join("archives", f"{filename}_{uuid.uuid4()}.{ext}")
-                                            
 
+                                            
 class User(AbstractUser):
     institution = models.CharField(max_length=128, blank=True, null=True)
     profession = models.CharField(max_length=128, blank=True, null=True)
@@ -261,6 +263,9 @@ class Subject(models.Model):
     weight = models.FloatField('Weight (kg)', default=0.0, blank=True, null=True)
     height = models.FloatField('Height (m)', default=0.0, blank=True, null=True)
     age = models.IntegerField('Age (y)', default=0.0, blank=True, null=True)
+    birth_year = models.PositiveIntegerField(
+        'Birth year', blank=True, null=True, help_text="Use the following format: <YYYY>"
+    )
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
     sex_at_birth = models.CharField(max_length=20, choices=SEX_AT_BIRTH_CHOICES, blank=True, null=True)
     characteristics = models.TextField(blank=True, default='')
@@ -287,3 +292,15 @@ class Subject(models.Model):
             'gender': self.get_gender_display() or '',
             'height': self.height,
         }
+
+    def clean(self):
+        super().clean()
+        if self.birth_year is not None:
+            if self.birth_year < 1900 or self.birth_year > timezone.now().year:
+                raise ValidationError('Ensure this value is between 1900 and today\'s year.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        if self.age is not None and not self.birth_year:
+            self.birth_year = timezone.now().year - self.age
+        return super().save(*args, **kwargs)

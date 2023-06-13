@@ -1,8 +1,10 @@
 import uuid
 
 from django.test import TestCase
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 
-from mcserver.models import User, Session, Trial
+from mcserver.models import User, Session, Trial, Subject
 
 
 class ModelsTests(TestCase):
@@ -175,3 +177,38 @@ class ModelsTests(TestCase):
         self.assertIsNone(
             Trial.get_calibration_obj_or_none(root_session.id)
         )
+    
+    def test_subject_raises_validation_error_if_birth_year_less_than_1900(self):
+        with self.assertRaisesMessage(
+            ValidationError, 'Ensure this value is between 1900 and today\'s year.'
+        ):
+            Subject.objects.create(name='person 1', user=self.user, birth_year=1899)
+    
+    def test_subject_raises_validation_error_if_birth_year_greater_than_todays_year(self):
+        with self.assertRaisesMessage(
+            ValidationError, 'Ensure this value is between 1900 and today\'s year.'
+        ):
+            Subject.objects.create(
+                name='person 2', user=self.user, birth_year=timezone.now().year + 1
+            )
+    
+    def test_subject_raises_validation_error_if_birth_year_is_negative_integer(self):
+        with self.assertRaisesMessage(
+            ValidationError, 'Ensure this value is greater than or equal to 0.'
+        ):
+            Subject.objects.create(name='person 3',  user=self.user, birth_year=-1)
+    
+    def test_subject_raises_validation_error_if_birth_year_is_zero(self):
+        with self.assertRaisesMessage(
+            ValidationError, 'Ensure this value is between 1900 and today\'s year.'
+        ):
+            Subject.objects.create(name='person 4',  user=self.user, birth_year=0)
+    
+    def test_create_subject_with_birth_year_from_age_field_successfull(self):
+        subject = Subject.objects.create(name='person 5',  user=self.user, age=30)
+        self.assertEqual(subject.birth_year, timezone.now().year - 30)
+    
+    def test_create_subject_without_age_and_birth_year(self):
+        subject = Subject.objects.create(name='person 6', user=self.user)
+        self.assertEqual(subject.age, 0)
+        self.assertEqual(subject.birth_year, timezone.now().year)
