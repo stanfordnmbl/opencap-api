@@ -132,13 +132,20 @@ class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
         fields = [
-            'id', 'name',
-            'weight', 'height', 'age',
-            'gender', 'sex_at_birth',
+            'id',
+            'name',
+            'weight',
+            'height',
+            'age',
+            'birth_year',
+            'gender',
+            'sex_at_birth',
             'characteristics',
             'sessions',
-            'created_at', 'updated_at',
-            'trashed', 'trashed_at',
+            'created_at',
+            'updated_at',
+            'trashed',
+            'trashed_at'
         ]
 
 
