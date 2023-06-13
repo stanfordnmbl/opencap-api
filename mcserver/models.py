@@ -301,6 +301,6 @@ class Subject(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean()
-        if self.age is not None and not self.birth_year:
+        if not self.birth_year:
             self.birth_year = timezone.now().year - self.age
         return super().save(*args, **kwargs)

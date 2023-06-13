@@ -154,8 +154,11 @@ class NewSubjectSerializer(serializers.ModelSerializer):
         model = Subject
         fields = [
             'name',
-            'weight', 'height', 'age',
-            'gender', 'sex_at_birth',
+            'weight',
+            'height',
+            'birth_year',
+            'gender',
+            'sex_at_birth',
             'characteristics',
         ]
 
