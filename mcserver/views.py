@@ -894,7 +894,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.delete()
         return Response({})
 
@@ -902,7 +902,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         from django.utils.timezone import now
 
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.trashed = True
         trial.trashed_at = now()
         trial.save()
@@ -912,7 +912,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.trashed = False
         trial.trashed_at = None
         trial.save()
