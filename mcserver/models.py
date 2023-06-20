@@ -287,3 +287,47 @@ class Subject(models.Model):
             'gender': self.get_gender_display() or '',
             'height': self.height,
         }
+
+
+class AnalysisFunction(models.Model):
+    """ This model describes AWS Lambda function object.
+    """
+    title = models.CharField('Title', max_length=255)
+    description = models.CharField('Description', max_length=255)
+    url = models.URLField('Url', max_length=255)
+    is_active = models.BooleanField('Active', default=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+
+class AnalysisResult(models.Model):
+    """ This model describes the result of AWS Lambda function.
+    """
+    task_id = models.CharField('Celery task id.', max_length=255)
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, verbose_name='User'
+    )
+    function = models.ForeignKey(
+        to=AnalysisFunction,
+        on_delete=models.CASCADE,
+        verbose_name='Analysis function'
+    )
+    data = models.JSONField(
+        'Data', default=dict, help_text='Data function was called with.'
+    )
+    result = models.JSONField(
+        'Result', default=dict, help_text='Data function responsed with.'
+    )
+    status = models.IntegerField(
+        'Status',
+        default=200,
+        help_text='Status code function responsed with.'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.function.title}-{self.status}'
