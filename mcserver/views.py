@@ -695,6 +695,22 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         # If there is at least one trial, check it's status
         trial = trials[0]
+
+        # delete video instances if there are any redundant ones
+        # which happens when theres wifi latency in phone connection
+        videos = trial.video_set.all()
+        unique_device_ids = set()
+        videos_to_delete = []
+
+        for video in videos:
+            if video.device_id in unique_device_ids:
+                videos_to_delete.append(video)
+            else:
+                unique_device_ids.add(video.device_id)
+
+        for video in videos_to_delete:
+            video.delete()
+
         trial.status = "stopped"
         trial.save()
 
