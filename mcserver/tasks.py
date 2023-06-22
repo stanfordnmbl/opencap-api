@@ -1,10 +1,13 @@
 import os
+import requests
 from django.conf import settings
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
 
-from mcserver.models import DownloadLog
+from mcserver.models import (
+    DownloadLog, AnalysisFunction, AnalysisResult
+)
 from mcserver.zipsession_v2 import (
     SessionDirectoryConstructor,
     SubjectDirectoryConstructor,
@@ -66,3 +69,17 @@ def cleanup_archives():
     ):
         log.media.delete(save=False)
         log.delete()
+
+
+@shared_task(bind=True)
+def invoke_aws_lambda_function(self, user_id, function_id, data):
+    function = AnalysisFunction.objects.get(id=function_id)
+    response = requests.post(function.url, data)
+    AnalysisResult.objects.create(
+        task_id=str(self.request.id),
+        function=function,
+        user_id=user_id,
+        data=data,
+        result=response.json(),
+        status=response.status_code,
+    )
