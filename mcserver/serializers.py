@@ -1,7 +1,16 @@
 from rest_framework import serializers
-from mcserver.models import Session, User, Video, Trial, Result, Subject
+from mcserver.models import (
+    Session,
+    User,
+    Video,
+    Trial,
+    Result,
+    Subject,
+    AnalysisFunction
+)
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
+
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
@@ -155,3 +164,9 @@ class NewSubjectSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         serializer = SubjectSerializer(instance)
         return serializer.data
+
+
+class AnalysisFunctionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnalysisFunction
+        fields = ('id', 'title', 'description')

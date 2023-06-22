@@ -3,16 +3,28 @@ from django.http import Http404
 
 from django.shortcuts import get_object_or_404, render
 from mcserver.models import (
-    Session, User, Trial, Video, Result, ResetPassword, Subject, DownloadLog
+    Session,
+    User,
+    Trial,
+    Video,
+    Result,
+    ResetPassword,
+    Subject,
+    DownloadLog,
+    AnalysisFunction
 )
 from mcserver.serializers import (
-    SessionSerializer, TrialSerializer,
-    VideoSerializer, ResultSerializer,
+    SessionSerializer,
+    TrialSerializer,
+    VideoSerializer,
+    ResultSerializer,
     NewSubjectSerializer,
     SubjectSerializer,
     UserSerializer,
     ResetPasswordSerializer,
-    NewPasswordSerializer)
+    NewPasswordSerializer,
+    AnalysisFunctionSerializer
+)
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db.models import Q
@@ -28,7 +40,7 @@ from rest_framework import status
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
-from rest_framework.generics import RetrieveAPIView
+from rest_framework.generics import RetrieveAPIView, ListAPIView
 
 import qrcode
 import json
@@ -1262,3 +1274,9 @@ def reset_otp_challenge(request):
 @csrf_exempt
 def check_otp_verified(request):
     return Response({'otp_verified': request.user.otp_verified})
+
+
+class AnalysisFunctionAPIView(ListAPIView):
+    permission_classes = (IsAuthenticated, )
+    serializer_class = AnalysisFunctionSerializer
+    queryset = AnalysisFunction.objects.filter(is_active=True)
