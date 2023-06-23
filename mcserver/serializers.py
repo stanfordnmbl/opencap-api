@@ -6,7 +6,8 @@ from mcserver.models import (
     Trial,
     Result,
     Subject,
-    AnalysisFunction
+    AnalysisFunction,
+    AnalysisResult
 )
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
@@ -170,3 +171,9 @@ class AnalysisFunctionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnalysisFunction
         fields = ('id', 'title', 'description')
+
+
+class AnalysisResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnalysisResult
+        fields = ('function', 'result', 'status', 'state')

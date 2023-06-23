@@ -11,7 +11,9 @@ from mcserver.models import (
     ResetPassword,
     Subject,
     DownloadLog,
-    AnalysisFunction
+    AnalysisFunction,
+    AnalysisResult,
+    AnalysisResultState
 )
 from mcserver.serializers import (
     SessionSerializer,
@@ -23,7 +25,8 @@ from mcserver.serializers import (
     UserSerializer,
     ResetPasswordSerializer,
     NewPasswordSerializer,
-    AnalysisFunctionSerializer
+    AnalysisFunctionSerializer,
+    AnalysisResultSerializer
 )
 from django.core.files.base import ContentFile
 from django.conf import settings
@@ -59,7 +62,11 @@ from django.http import FileResponse
 from django.db.models import Count
 
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
-from mcserver.tasks import download_session_archive, download_subject_archive
+from mcserver.tasks import (
+    download_session_archive,
+    download_subject_archive,
+    invoke_aws_lambda_function
+)
 
 from datetime import datetime, timedelta
 
@@ -1276,7 +1283,41 @@ def check_otp_verified(request):
     return Response({'otp_verified': request.user.otp_verified})
 
 
-class AnalysisFunctionAPIView(ListAPIView):
+class AnalysisFunctionsListAPIView(ListAPIView):
+    """ Returns active AnalysisFunction's.
+    """
     permission_classes = (IsAuthenticated, )
     serializer_class = AnalysisFunctionSerializer
     queryset = AnalysisFunction.objects.filter(is_active=True)
+
+
+class InvokeAnalysisFunctionAPIView(APIView):
+    """ Invokes AnalysisFunction asynchronously with Celery.
+    """
+    permission_classes = (IsAuthenticated, )
+
+    def post(self, request, *args, **kwargs):
+        function = get_object_or_404(
+            AnalysisFunction, pk=self.kwargs['pk'], is_active=True
+        )
+        invoke_aws_lambda_function.delay(function.id, request.user.id, request.data)
+        return Response(status=201)
+
+
+class AnalysisResultOnReadyAPIView(APIView):
+    """ Returns AnalysisResult if it has been proccessed,
+        otherwise responses with 202 status and makes FE
+        wait for completion.
+    """
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        result = AnalysisResult.objects.filter(
+            task_id=self.kwargs["task_id"], user=request.user
+        ).first()
+        if result and result.state in (
+            AnalysisResultState.SUCCESSFULL, AnalysisResultState.FAILED
+        ):
+            serializer = AnalysisResultSerializer(result)
+            return Response(serializer.data)
+        return Response(status=202)

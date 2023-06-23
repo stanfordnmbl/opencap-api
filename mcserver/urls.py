@@ -16,14 +16,24 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from mcserver.views import (
-    SessionViewSet, VideoViewSet,
-    TrialViewSet, ResultViewSet,
-    SubjectViewSet, DownloadFileOnReadyAPIView,
+    SessionViewSet,
+    VideoViewSet,
+    TrialViewSet,
+    ResultViewSet,
+    SubjectViewSet,
+    DownloadFileOnReadyAPIView,
     UserCreate,
-    CustomAuthToken, verify,
+    CustomAuthToken,
+    verify,
     reset_otp_challenge,
     check_otp_verified,
-    UserViewSet, ResetPasswordView, NewPasswordView)
+    UserViewSet,
+    ResetPasswordView,
+    NewPasswordView,
+    AnalysisFunctionsListAPIView,
+    InvokeAnalysisFunctionAPIView,
+    AnalysisResultOnReadyAPIView
+)
 from rest_framework import routers, serializers, viewsets
 from rest_framework.authtoken.views import obtain_auth_token
 
@@ -56,6 +66,21 @@ urlpatterns = [
         'logs/<str:task_id>/on-ready/',
         DownloadFileOnReadyAPIView.as_view(),
         name="logs-on-ready"
+    ),
+    path(
+        'analysis-functions/',
+        AnalysisFunctionsListAPIView.as_view(),
+        name='analysis-functions-list'
+    ),
+    path(
+        'analysis-functions/<int:pk>/invoke/',
+        InvokeAnalysisFunctionAPIView.as_view(),
+        name='analysis-function-invoke'
+    ),
+    path(
+        'analysis-result/<str:task_id>/',
+        AnalysisResultOnReadyAPIView.as_view(),
+        name='analysis-result-on-ready'
     )
 #    path('accounts/login/', OTPAuthenticationForm.as_view(authentication_form=OTPAuthenticationForm)),
 ]
