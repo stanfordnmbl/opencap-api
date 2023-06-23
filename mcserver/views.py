@@ -1300,8 +1300,8 @@ class InvokeAnalysisFunctionAPIView(APIView):
         function = get_object_or_404(
             AnalysisFunction, pk=self.kwargs['pk'], is_active=True
         )
-        invoke_aws_lambda_function.delay(function.id, request.user.id, request.data)
-        return Response(status=201)
+        task = invoke_aws_lambda_function.delay(function.id, request.user.id, request.data)
+        return Response({'task_id': task.id}, status=201)
 
 
 class AnalysisResultOnReadyAPIView(APIView):
