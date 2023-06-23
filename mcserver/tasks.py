@@ -1,12 +1,16 @@
 import os
 import requests
+from http import HTTPStatus
 from django.conf import settings
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
 
 from mcserver.models import (
-    DownloadLog, AnalysisFunction, AnalysisResult
+    DownloadLog,
+    AnalysisFunction,
+    AnalysisResult,
+    AnalysisResultState
 )
 from mcserver.zipsession_v2 import (
     SessionDirectoryConstructor,
@@ -74,12 +78,22 @@ def cleanup_archives():
 @shared_task(bind=True)
 def invoke_aws_lambda_function(self, user_id, function_id, data):
     function = AnalysisFunction.objects.get(id=function_id)
-    response = requests.post(function.url, data)
-    AnalysisResult.objects.create(
+    result = AnalysisResult.objects.create(
         task_id=str(self.request.id),
         function=function,
         user_id=user_id,
         data=data,
-        result=response.json(),
-        status=response.status_code,
+        state=AnalysisResultState.PENDING
     )
+    try:
+        response = requests.post(function.url, data)
+        result.result = response.json()
+        result.status = response.status_code
+        result.state = AnalysisResultState.SUCCESSFULL
+        if response.status_code >= HTTPStatus.BAD_REQUEST.value:
+            result.state = AnalysisResultState.FAILED
+    except (ValueError, requests.RequestException) as e:
+        result.result = {'error': str(e)}
+        result.status = HTTPStatus.INTERNAL_SERVER_ERROR.value
+        result.state = AnalysisResultState.FAILED
+    result.save(update_fields=['result', 'status', 'state'])

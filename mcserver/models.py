@@ -4,11 +4,13 @@ import os
 import uuid
 import base64
 import pathlib
+from http import HTTPStatus
 from django.utils import timezone
 from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
+from rest_framework import status
 
 from django.conf import settings
 
@@ -20,7 +22,13 @@ def random_filename(instance, filename):
 def archives_dir_path(instance, filename):
     filename, ext = filename.split(".")
     return os.path.join("archives", f"{filename}_{uuid.uuid4()}.{ext}")
-                                            
+
+
+class AnalysisResultState(models.TextChoices):
+    PENDING = "pending", "Pending"
+    SUCCESSFULL = "successfull", "Successful"
+    FAILED = "failed", "Failed"
+                                         
 
 class User(AbstractUser):
     institution = models.CharField(max_length=128, blank=True, null=True)
@@ -323,8 +331,16 @@ class AnalysisResult(models.Model):
     )
     status = models.IntegerField(
         'Status',
-        default=200,
+        choices=[(status.value, status.phrase) for status in list(HTTPStatus)],
+        default=HTTPStatus.OK.value,
         help_text='Status code function responsed with.'
+    )
+    state = models.CharField(
+        'Invokation state',
+        max_length=20,
+        choices=AnalysisResultState.choices,
+        default=AnalysisResultState.PENDING,
+        help_text='The state of invokation request.'
     )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
