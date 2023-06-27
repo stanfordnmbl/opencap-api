@@ -23,7 +23,7 @@ class SerializersTests(TestCase):
     def test_analysis_result_serializer_represents_correct_fields(self):
         self.assertEqual(
             set(AnalysisResultSerializer.Meta.fields),
-            {'function', 'result', 'status', 'state'}
+            {'analysis_function', 'result', 'status', 'state'}
         )
 
 
@@ -74,6 +74,7 @@ class ViewsTests(TestCase):
     def test_invoke_analysis_function_endpoint_calls_correct_celery_task_for_func(
         self, mock_celery_task
     ):
+        mock_celery_task.return_value = mock.Mock(id='test-task-id')
         data = {'session_id': 'fdffa654-523b-4940-948a-b4178bb3fc65'}
         self.client.force_login(self.user)
         response = self.client.post(
@@ -82,6 +83,7 @@ class ViewsTests(TestCase):
             content_type="application/json"
         )
         self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data, {'task_id': 'test-task-id'})
         mock_celery_task.assert_called_once_with(
             self.function.id, self.user.id, data
         )
