@@ -302,7 +302,7 @@ class AnalysisFunction(models.Model):
     """
     title = models.CharField('Title', max_length=255)
     description = models.CharField('Description', max_length=255)
-    url = models.URLField('Url', max_length=255)
+    url = models.CharField('Url', max_length=255)
     is_active = models.BooleanField('Active', default=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)

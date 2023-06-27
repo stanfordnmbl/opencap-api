@@ -86,7 +86,9 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
         state=AnalysisResultState.PENDING
     )
     try:
-        response = requests.post(function.url, data)
+        response = requests.post(
+            function.url, json=data, headers={'Content-Type': 'application/json'}
+        )
         result.result = response.json()
         result.status = response.status_code
         result.state = AnalysisResultState.SUCCESSFULL

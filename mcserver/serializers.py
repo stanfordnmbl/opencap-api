@@ -174,6 +174,8 @@ class AnalysisFunctionSerializer(serializers.ModelSerializer):
 
 
 class AnalysisResultSerializer(serializers.ModelSerializer):
+    analysis_function = AnalysisFunctionSerializer(source="function")
+
     class Meta:
         model = AnalysisResult
-        fields = ('function', 'result', 'status', 'state')
+        fields = ('analysis_function', 'result', 'status', 'state')
