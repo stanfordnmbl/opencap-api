@@ -503,6 +503,13 @@ class SessionViewSet(viewsets.ModelViewSet):
     # - creates a new trial with "recording" state
     @action(detail=True)
     def record(self, request, pk):
+        def get_count_from_name(name, base_name):
+            try:
+                count = int(name[len(base_name) + 1:])
+                return count
+            except ValueError:
+                return 0
+        
         session = Session.objects.get(pk=pk)
 
         name = request.GET.get("name",None)
@@ -510,9 +517,10 @@ class SessionViewSet(viewsets.ModelViewSet):
         trial = Trial()
         trial.session = session
 
-        name_count = Trial.objects.filter(name__startswith=name, session=session).count()
-        if (name_count > 0) and (name not in ["calibration","neutral"]):
-            name = "{}_{}".format(name, name_count)
+        existing_names = Trial.objects.filter(name__startswith=name, session=session).values_list('name', flat=True)
+        if (len(existing_names) > 0) and (name not in ["calibration","neutral"]) and (name in existing_names):
+            highest_count = max([get_count_from_name(existing_name, name) for existing_name in existing_names])
+            name = "{}_{}".format(name, highest_count + 1)
         
         trial.name = name
         trial.save()
@@ -910,7 +918,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.delete()
         return Response({})
 
@@ -918,7 +926,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         from django.utils.timezone import now
 
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.trashed = True
         trial.trashed_at = now()
         trial.save()
@@ -928,7 +936,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.trashed = False
         trial.trashed_at = None
         trial.save()
