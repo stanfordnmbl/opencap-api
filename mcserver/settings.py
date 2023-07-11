@@ -267,5 +267,9 @@ CELERY_BEAT_SCHEDULE = {
     'cleanup_archives': {
         'task': 'mcserver.tasks.cleanup_archives',
         'schedule': crontab(hour=0, minute=0)
+    },
+    'cleanup_archives': {
+        'task': 'mcserver.tasks.delete_pingdom_sessions',
+        'schedule': crontab(hour='*', minute=0)
     }
 }
