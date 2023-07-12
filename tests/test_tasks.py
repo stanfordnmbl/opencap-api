@@ -1,10 +1,13 @@
+import os
 from unittest import mock
 
 from django.test import TestCase, override_settings
 
-from mcserver.models import User, DownloadLog
+from mcserver.models import User, DownloadLog, Session
 from mcserver.tasks import (
-    download_session_archive, download_subject_archive
+    download_session_archive,
+    download_subject_archive,
+    delete_pingdom_sessions
 )
 from mcserver.zipsession_v2 import (
     SessionDirectoryConstructor, SubjectDirectoryConstructor
@@ -17,6 +20,13 @@ class TasksTests(TestCase):
         self.user = User.objects.create_user(
             username="johndoe",
             email="johndoe@email.com",
+            first_name="John",
+            last_name="Dou",
+            password="testpass"
+        )
+        self.pingdom_user = User.objects.create_user(
+            username="pingdom",
+            email="pingdom@mail.com",
             first_name="John",
             last_name="Dou",
             password="testpass"
@@ -81,3 +91,27 @@ class TasksTests(TestCase):
 
         mock_dir_builder.assert_called_once_with("dummy-subject-id")
         mock_zipdir.assert_called_once_with("archive")
+    
+    def test_delete_pingdom_sessions_successful(self):
+        Session.objects.create(user=self.pingdom_user)
+        Session.objects.create(user=self.pingdom_user)
+        self.assertTrue(
+            Session.objects.filter(user=self.pingdom_user).exists()
+        )
+        delete_pingdom_sessions.delay()
+        self.assertFalse(
+            Session.objects.filter(user=self.pingdom_user).exists()
+        )
+
+    def test_delete_pingdom_sessions_if_user_does_not_exist(self):
+        self.pingdom_user.delete()
+        Session.objects.create(user=self.user)
+        Session.objects.create(user=self.user)
+        self.assertTrue(Session.objects.filter(user=self.user).exists())
+        delete_pingdom_sessions.delay()
+        self.assertTrue(Session.objects.filter(user=self.user).exists())
+
+    def test_delete_pingdom_sessions_no_sessions(self):
+        self.assertFalse(Session.objects.filter(user=self.pingdom_user).exists())
+        delete_pingdom_sessions.delay()
+        self.assertFalse(Session.objects.filter(user=self.pingdom_user).exists())
