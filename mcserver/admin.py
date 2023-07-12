@@ -115,11 +115,17 @@ class SubjectAdmin(admin.ModelAdmin):
     search_fields = ['name']
     list_display = (
         'id',
-        'name', 'user',
-        'weight', 'height',
-        'age', 'gender', 'sex_at_birth',
+        'name',
+        'user',
+        'weight',
+        'height',
+        'age',
+        'birth_year',
+        'gender',
+        'sex_at_birth',
         'trashed',
-        'created_at', 'updated_at',
+        'created_at',
+        'updated_at',
     )
 
 
