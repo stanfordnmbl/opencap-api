@@ -2,7 +2,9 @@ from django.http import HttpResponse
 from django.http import Http404
 
 from django.shortcuts import get_object_or_404, render
-from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, Subject
+from mcserver.models import (
+    Session, User, Trial, Video, Result, ResetPassword, Subject, DownloadLog
+)
 from mcserver.serializers import (
     SessionSerializer, TrialSerializer,
     VideoSerializer, ResultSerializer,
@@ -15,6 +17,7 @@ from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework.decorators import action, permission_classes
 from rest_framework.response import Response
@@ -25,6 +28,7 @@ from rest_framework import status
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
+from rest_framework.generics import RetrieveAPIView
 
 import qrcode
 import json
@@ -36,12 +40,14 @@ from decouple import config
 
 import os
 import zipfile
+import pathlib
 
 from django.http import FileResponse
 
 from django.db.models import Count
 
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
+from mcserver.tasks import download_session_archive, download_subject_archive
 
 from datetime import datetime, timedelta
 
@@ -168,7 +174,33 @@ class SessionViewSet(viewsets.ModelViewSet):
             "status": "ok",
             "data": request.data,
         })
-    
+
+
+    @action(detail=True, methods=['post'])
+    def rename(self, request, pk):
+        # Get session.
+        session = get_object_or_404(Session.objects.all(), pk=pk)
+
+        try:
+            error_message = ""
+
+            # Update session name and save.
+            session.meta["sessionName"] = request.data['sessionNewName']
+            session.save()
+
+        except Exception as e:
+            error_message = 'There was an error while renaming your session: ' + str(e)
+            print(error_message)
+
+        # Serialize session.
+        serializer = SessionSerializer(session)
+
+        # Return error message and data.
+        return Response({
+            'message': error_message,
+            'data': serializer.data
+        })
+
     def retrieve(self, request, pk=None):
         session = get_object_or_404(Session.objects.all(), pk=pk)
 
@@ -275,6 +307,37 @@ class SessionViewSet(viewsets.ModelViewSet):
                 
         return Response(serializer.data)
     
+    ## Get and send QR code
+    @action(detail=True)
+    def get_qr(self, request, pk):
+        session = Session.objects.get(pk=pk)
+       
+        # # get the QR code from the database
+        if session.qrcode:
+            qr = session.qrcode
+        elif session.meta and 'sessionWithCalibration' in session.meta:
+            sessionWithCalibration = Session.objects.get(pk = str(session.meta['sessionWithCalibration']['id']))
+            qr = sessionWithCalibration.qrcode
+
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        )
+
+        url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+                'Key': str(qr)
+            },
+            ExpiresIn=12000
+        )
+    
+        res = {'qr': url}
+        return Response(res)
+       
     ## New session GET '/new_subject/'
     # Creates a new sessionm leaving metadata on previous session. Used to avoid
     # re-connecting and re-calibrating cameras with every new subject.
@@ -401,8 +464,13 @@ class SessionViewSet(viewsets.ModelViewSet):
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         )
-
-        key = str(uuid.uuid4()) + ".mov"
+        
+        if request.data and request.data.get('fileName'): 
+            fileName = '-' + request.data.get('fileName') # for result uploading - matching old way
+        else: # default: link for phones to upload videos
+            fileName = '.mov'
+        
+        key = str(uuid.uuid4()) + fileName 
         
         response = s3_client.generate_presigned_post(
             Bucket = settings.AWS_STORAGE_BUCKET_NAME,
@@ -435,6 +503,13 @@ class SessionViewSet(viewsets.ModelViewSet):
     # - creates a new trial with "recording" state
     @action(detail=True)
     def record(self, request, pk):
+        def get_count_from_name(name, base_name):
+            try:
+                count = int(name[len(base_name) + 1:])
+                return count
+            except ValueError:
+                return 0
+        
         session = Session.objects.get(pk=pk)
 
         name = request.GET.get("name",None)
@@ -442,9 +517,10 @@ class SessionViewSet(viewsets.ModelViewSet):
         trial = Trial()
         trial.session = session
 
-        name_count = Trial.objects.filter(name__startswith=name, session=session).count()
-        if (name_count > 0) and (name not in ["calibration","neutral"]):
-            name = "{}_{}".format(name, name_count)
+        existing_names = Trial.objects.filter(name__startswith=name, session=session).values_list('name', flat=True)
+        if (len(existing_names) > 0) and (name not in ["calibration","neutral"]) and (name in existing_names):
+            highest_count = max([get_count_from_name(existing_name, name) for existing_name in existing_names])
+            name = "{}_{}".format(name, highest_count + 1)
         
         trial.name = name
         trial.save()
@@ -469,6 +545,19 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return FileResponse(open(session_zip, "rb"))
     
+    @action(
+        detail=True,
+        url_path="async-download",
+        url_name="async_session_download"
+    )
+    def async_download(self, request, pk):
+        if request.user.is_authenticated:
+            session = get_object_or_404(Session, pk=pk, user=request.user)
+            task = download_session_archive.delay(session.id, request.user.id)
+        else:
+            session = get_object_or_404(Session, pk=pk, public=True)
+            task = download_session_archive.delay(session.id)
+        return Response({"task_id": task.id}, status=200)
     
     @action(detail=True)
     def get_session_permission(self, request, pk): 
@@ -548,6 +637,16 @@ class SessionViewSet(viewsets.ModelViewSet):
             if not session.meta["settings"]:
                 session.meta["settings"] = {}
             session.meta["settings"]["posemodel"] = request.GET.get("settings_pose_model","")
+
+        if "settings_openSimModel" in request.GET:
+            if not session.meta["settings"]:
+                session.meta["settings"] = {}
+            session.meta["settings"]["openSimModel"] = request.GET.get("settings_openSimModel", "")
+
+        if "settings_augmenter_model" in request.GET:
+            if not session.meta["settings"]:
+                session.meta["settings"] = {}
+            session.meta["settings"]["augmentermodel"] = request.GET.get("settings_augmenter_model", "")
             
         if "cb_square" in request.GET:
             session.meta["checkerboard"] = {
@@ -556,7 +655,11 @@ class SessionViewSet(viewsets.ModelViewSet):
                 "cols": request.GET.get("cb_cols",""),
                 "placement": request.GET.get("cb_placement",""),
             }
-            
+
+        if "settings_session_name" in request.GET:
+            if "settings_session_name" not in session.meta:
+                session.meta["sessionName"] = request.GET.get("settings_session_name", "")
+
         session.save()
     
         serializer = SessionSerializer(session, many=False)
@@ -632,6 +735,22 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             # If there is at least one trial, check its status
             trial = trials[0]
+            
+            # delete video instances if there are any redundant ones
+            # which happens when theres wifi latency in phone connection
+            videos = trial.video_set.all()
+            unique_device_ids = set()
+            videos_to_delete = []
+
+            for video in videos:
+                if video.device_id in unique_device_ids:
+                    videos_to_delete.append(video)
+                else:
+                    unique_device_ids.add(video.device_id)
+
+            for video in videos_to_delete:
+                video.delete()
+
             trial.status = "stopped"
             trial.save()
 
@@ -792,8 +911,13 @@ class TrialViewSet(viewsets.ModelViewSet):
         
         if trials.count() == 0:
             raise Http404
+        
+        # prioritize admin group trials
+        trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","backend"])
+        if trialsPrioritized.count() == 0:
+            trialsPrioritized = trials
 
-        trial = trials[0]
+        trial = trialsPrioritized[0]
         trial.status = "processing"
         trial.save()
 
@@ -835,7 +959,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.delete()
         return Response({})
 
@@ -843,7 +967,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         from django.utils.timezone import now
 
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.trashed = True
         trial.trashed_at = now()
         trial.save()
@@ -853,7 +977,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.trashed = False
         trial.trashed_at = None
         trial.save()
@@ -881,10 +1005,22 @@ class VideoViewSet(viewsets.ModelViewSet):
 
         super().perform_update(serializer)
 
-
 class ResultViewSet(viewsets.ModelViewSet):
     queryset = Result.objects.all().order_by("-created_at")
     serializer_class = ResultSerializer
+
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
+
+    def create(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if request.data.get('media_url'):
+            serializer.validated_data["media"] = serializer.validated_data["media_url"]
+            del serializer.validated_data["media_url"]
+        self.perform_create(serializer)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
@@ -943,6 +1079,16 @@ class SubjectViewSet(viewsets.ModelViewSet):
         subject_zip = downloadAndZipSubject(pk, host=host)
 
         return FileResponse(open(subject_zip, "rb"))
+    
+    @action(
+        detail=True,
+        url_path="async-download",
+        url_name="async_subject_download"
+    )
+    def async_download(self, request, pk):
+        subject = get_object_or_404(Subject, pk=pk, user=request.user)
+        task = download_subject_archive.delay(subject.id, request.user.id)
+        return Response({"task_id": task.id}, status=200)
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
@@ -950,9 +1096,18 @@ class SubjectViewSet(viewsets.ModelViewSet):
         subject.delete()
         return Response({})
 
-
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class DownloadFileOnReadyAPIView(APIView):
+    permission_classes = (AllowAny,)
+
+    def get(self, request, *args, **kwargs):
+        log = DownloadLog.objects.filter(task_id=self.kwargs["task_id"]).first()
+        if log and log.media:
+            return Response({"url": log.media.url})
+        return Response(status=202)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -983,6 +1138,7 @@ class UserCreate(APIView):
 class CustomAuthToken(ObtainAuthToken):
 
     def post(self, request, *args, **kwargs):
+        from mcserver.utils import send_otp_challenge
         serializer = self.serializer_class(data=request.data,
                                            context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -990,15 +1146,22 @@ class CustomAuthToken(ObtainAuthToken):
         token, created = Token.objects.get_or_create(user=user)
 
         print("LOGGED IN")
+
         # Skip OTP verification if specified
+        otp_challenge_sent = False
+
         if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
             user.otp_verified = False
         user.save()
         login(request, user)
+        if not (user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+            send_otp_challenge(user)
+            otp_challenge_sent = True
         
         return Response({
             'token': token.key,
             'user_id': user.id,
+            'otp_challenge_sent': otp_challenge_sent,
         })
 
 from django.core.mail import send_mail
@@ -1143,3 +1306,24 @@ def verify(request):
         }, status.HTTP_401_UNAUTHORIZED)
 
     return Response({})
+
+
+@api_view(('POST',))
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
+def reset_otp_challenge(request):
+    from mcserver.utils import send_otp_challenge
+
+    send_otp_challenge(request.user)
+
+    request.user.otp_verified = False
+    request.user.otp_skip_till = None
+    request.user.save()
+    return Response({'otp_challenge_sent': True})
+
+
+@api_view(('GET',))
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
+def check_otp_verified(request):
+    return Response({'otp_verified': request.user.otp_verified})

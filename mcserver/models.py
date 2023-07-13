@@ -1,8 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import MinValueValidator, MaxValueValidator
+import os
 import uuid
 import base64
+import pathlib
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
@@ -13,8 +17,13 @@ from django.conf import settings
 
 def random_filename(instance, filename):
     return "{}-{}".format(uuid.uuid4(), filename)
-                                            
 
+
+def archives_dir_path(instance, filename):
+    filename, ext = filename.split(".")
+    return os.path.join("archives", f"{filename}_{uuid.uuid4()}.{ext}")
+
+                                            
 class User(AbstractUser):
     institution = models.CharField(max_length=128, blank=True, null=True)
     profession = models.CharField(max_length=128, blank=True, null=True)
@@ -77,11 +86,52 @@ class Trial(models.Model):
     trashed = models.BooleanField(default=False)
     trashed_at = models.DateTimeField(blank=True, null=True)
 
+    @property
+    def formated_name(self):
+        return self.name.replace(" ", "") if self.name else ""
+
     def is_public(self):
         return self.session.is_public()
 
     def get_user(self):
         return self.session.get_user()
+    
+    @classmethod
+    def get_calibration_obj_or_none(cls, session_id):
+        """ Returns trial with name `calibration` if it exists for session,
+            otherwise returns None
+        """
+        calibration_trial = cls.objects.filter(
+            session_id=session_id, name="calibration"
+        ).order_by("created_at").last()
+        if calibration_trial:
+            return calibration_trial
+        
+        session = Session.objects.filter(id=session_id).first()
+        if session and session.meta and "sessionWithCalibration" in session.meta:
+            return cls.get_calibration_obj_or_none(
+                session.meta["sessionWithCalibration"]["id"]
+            )
+        return None
+    
+    @classmethod
+    def get_neutral_obj_or_none(cls, session_id):
+        """ Returns trial with name `neutral` if it exists for session,
+            otherwise returns None. 
+        """
+        neutral_trial = cls.objects.filter(
+            session_id=session_id, name="neutral"
+        ).order_by("created_at").last()
+        if neutral_trial:
+            return neutral_trial
+        
+        session = Session.objects.filter(id=session_id).first()
+        if session and session.meta and "neutral_trial" in session.meta:
+            return cls.objects.filter(
+                id=session.meta["neutral_trial"]["id"]
+            ).first()
+        return None
+
 
 class Video(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -114,6 +164,46 @@ class Result(models.Model):
 
     def get_user(self):
         return self.trial.get_user()
+    
+    @classmethod
+    def commit(cls, trial, device_id, tag, media_path, meta=None):
+        """ Creates result record
+        """
+        with open(media_path, 'rb') as media:
+            cls.objects.create(
+                trial=trial,
+                device_id=device_id,
+                tag=tag,
+                media=media,
+                meta=meta
+            )
+    
+    @classmethod
+    def reset(cls, trial, tag=None, selected=[]):
+        """ Deletes selected results, or all for trial with the tag
+        """
+        if selected:
+            cls.objects.filter(id__in=selected).delete()
+        elif tag:
+            cls.objects.filter(trial=trial, tag=tag).delete()
+        return
+
+
+class DownloadLog(models.Model):
+    """ This model is responsible for logging files downloading
+        with Celery tasks
+    """
+    task_id = models.CharField(max_length=255)
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, blank=True, null=True
+    )
+    media = models.FileField(upload_to=archives_dir_path, max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.task_id
+
 
 class ResetPassword(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -131,25 +221,25 @@ def create_profile(sender, instance, created, **kwargs):
         device = EmailDevice(user = instance, name = "default e-mail")
         device.save()
 
-@receiver(user_logged_in)
-def post_login(sender, user, request, **kwargs):
-    device = user.emaildevice_set.all()[0]
-
-    # The default EmailDevice didn't allow the use of html,
-    # so I have created a child class allowing it and here
-    # I am casting the device to that class.
-    device.__class__ = CustomEmailDevice
-
-    # Get template from path and set variables. The {{token}}
-    # is then substituted by the device by the real token.
-    settings.OTP_EMAIL_BODY_TEMPLATE = render_to_string(settings.OTP_EMAIL_BODY_TEMPLATE_PATH) % (settings.LOGO_LINK, "{{token}}")
-
-    # Set subject here, so everything is together.
-    settings.OTP_EMAIL_SUBJECT = "Opencap - Verification Code"
-
-    if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
-        device.generate_challenge()
-        print("CHALLENGE SENT")
+# @receiver(user_logged_in)
+# def post_login(sender, user, request, **kwargs):
+#     device = user.emaildevice_set.all()[0]
+#
+#     # The default EmailDevice didn't allow the use of html,
+#     # so I have created a child class allowing it and here
+#     # I am casting the device to that class.
+#     device.__class__ = CustomEmailDevice
+#
+#     # Get template from path and set variables. The {{token}}
+#     # is then substituted by the device by the real token.
+#     settings.OTP_EMAIL_BODY_TEMPLATE = render_to_string(settings.OTP_EMAIL_BODY_TEMPLATE_PATH) % (settings.LOGO_LINK, "{{token}}")
+#
+#     # Set subject here, so everything is together.
+#     settings.OTP_EMAIL_SUBJECT = "Opencap - Verification Code"
+#
+#     if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+#         device.generate_challenge()
+#         print("CHALLENGE SENT")
 
 
 class Subject(models.Model):
@@ -173,6 +263,9 @@ class Subject(models.Model):
     weight = models.FloatField('Weight (kg)', default=0.0, blank=True, null=True)
     height = models.FloatField('Height (m)', default=0.0, blank=True, null=True)
     age = models.IntegerField('Age (y)', default=0.0, blank=True, null=True)
+    birth_year = models.PositiveIntegerField(
+        'Birth year', blank=True, null=True, help_text="Use the following format: <YYYY>"
+    )
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
     sex_at_birth = models.CharField(max_length=20, choices=SEX_AT_BIRTH_CHOICES, blank=True, null=True)
     characteristics = models.TextField(blank=True, default='')
@@ -199,3 +292,15 @@ class Subject(models.Model):
             'gender': self.get_gender_display() or '',
             'height': self.height,
         }
+
+    def clean(self):
+        super().clean()
+        if self.birth_year is not None:
+            if self.birth_year < 1900 or self.birth_year > timezone.now().year:
+                raise ValidationError('Ensure this value is between 1900 and today\'s year.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        if not self.birth_year:
+            self.birth_year = timezone.now().year - self.age
+        return super().save(*args, **kwargs)
