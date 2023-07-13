@@ -468,7 +468,7 @@ def downloadAndZipSession(session_id,deleteFolderWhenZipped=True,isDocker=True,
         
     # Geometry
     try:
-        if 'LaiArnold' in modelName:
+        if 'Lai' in modelName:
             modelType = 'LaiArnold'
         else:
             raise ValueError("Geometries not available for this model, please contact us")
@@ -479,7 +479,7 @@ def downloadAndZipSession(session_id,deleteFolderWhenZipped=True,isDocker=True,
         # If not in cache, download from s3.
         if not os.path.exists(geometryDir):
             os.makedirs(geometryDir, exist_ok=True)
-            if 'LaiArnold' in modelName:
+            if 'Lai' in modelName:
                 vtpNames = ['capitate_lvs','capitate_rvs','hamate_lvs','hamate_rvs',
                             'hat_jaw','hat_ribs_scap','hat_skull','hat_spine','humerus_lv',
                             'humerus_rv','index_distal_lvs','index_distal_rvs','index_medial_lvs',

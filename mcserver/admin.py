@@ -9,6 +9,7 @@ from mcserver.models import (
     Result,
     ResetPassword,
     Subject,
+    DownloadLog
 )
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
@@ -31,6 +32,7 @@ class UserAdmin(UserAdmin):
                 'reason',
                 'newsletter',
                 'otp_verified',
+                'otp_skip_till',
             )}),
     )
 
@@ -112,6 +114,7 @@ class VideoAdmin(admin.ModelAdmin):
 class SubjectAdmin(admin.ModelAdmin):
     search_fields = ['name']
     list_display = (
+        'id',
         'name', 'user',
         'weight', 'height',
         'age', 'gender', 'sex_at_birth',
@@ -150,3 +153,10 @@ class LogEntryAdmin(admin.ModelAdmin):
         'content_type',
         'action_flag',
     ]
+
+
+@admin.register(DownloadLog)
+class DownloadLogAdmin(admin.ModelAdmin):
+    list_display = ["task_id", "user", "created_at", "updated_at"]
+    list_filter = ["user"]
+    search_fields = ["task_id"]
