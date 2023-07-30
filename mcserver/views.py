@@ -865,21 +865,37 @@ class TrialViewSet(viewsets.ModelViewSet):
                                       name__in=["calibration","neutral"],
                                       result=None)
             
+            trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                      name__in=["calibration","neutral"],
+                                      result=None)
+            
             if trials.count() == 0 and workerType != 'calibration':
                 trials = uploaded_trials.filter(status="stopped",
+                                          result=None)
+                
+            if trials.count()==0 and trialsReprocess.count() == 0 and workerType != 'calibration':
+                trialsReprocess = uploaded_trials.filter(status="reprocess",
                                           result=None)
             
         else:
             trials = uploaded_trials.filter(status="stopped",
                                             result=None).exclude(name__in=["calibration", "neutral"])
+            
+            trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                            result=None).exclude(name__in=["calibration", "neutral"])
+            
         
-        if trials.count() == 0:
+        if trials.count() == 0 and trialsReprocess.count() == 0:
             raise Http404
         
-        # prioritize admin group trials
-        trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","backend"])
+        # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
+        trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
+        # if not priority trials, go to normal trials
         if trialsPrioritized.count() == 0:
             trialsPrioritized = trials
+        # if no normal trials, go to reprocess trials
+        if trials.count() == 0:
+            trialsPrioritized = trialsReprocess
 
         trial = trialsPrioritized[0]
         trial.status = "processing"
