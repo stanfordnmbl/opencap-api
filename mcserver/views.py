@@ -843,9 +843,11 @@ class TrialViewSet(viewsets.ModelViewSet):
     serializer_class = TrialSerializer
 
     permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
+
     
-    @action(detail=False)
+    @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
     def dequeue(self, request):
+
         ip = get_client_ip(request)
 
         workerType = self.request.query_params.get('workerType')
@@ -910,6 +912,24 @@ class TrialViewSet(viewsets.ModelViewSet):
             
         serializer = TrialSerializer(trial, many=False)
         
+        return Response(serializer.data)
+    
+    @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
+    def get_trials_with_status(self, request):
+        """
+        This view returns a list of all the trials with the specified status
+        that was updated more than hoursSinceUpdate hours ago.
+        """
+        hours_since_update = request.query_params.get('hoursSinceUpdate', 0)
+        hours_since_update = float(hours_since_update) if hours_since_update else 0 
+
+        status = self.request.query_params.get('status')
+        # trials with given status and updated_at more than n hours ago
+        trials = Trial.objects.filter(status=status,
+                                     updated_at__lte=(datetime.now() - timedelta(hours=hours_since_update))).order_by("-created_at")
+        
+        serializer = TrialSerializer(trials, many=True)
+
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
