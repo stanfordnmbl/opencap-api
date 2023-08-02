@@ -920,18 +920,17 @@ class TrialViewSet(viewsets.ModelViewSet):
         This view returns a list of all the trials with the specified status
         that was updated more than hoursSinceUpdate hours ago.
         """
-        hours_since_update = request.query_params.get('hoursSinceUpdate', 0)  # Get the query parameter, default 0
-        hours_since_update = int(hours_since_update) if hours_since_update else 0
+        hours_since_update = request.query_params.get('hoursSinceUpdate', 0)
+        hours_since_update = float(hours_since_update) if hours_since_update else 0 
 
         status = self.request.query_params.get('status')
         # trials with given status and updated_at more than n hours ago
         trials = Trial.objects.filter(status=status,
-                                      updated_at__lte=timezone.make_aware(datetime.now()) - timedelta(hours=hours_since_update)).order_by("-created_at")
+                                     updated_at__lte=(datetime.now() - timedelta(hours=hours_since_update))).order_by("-created_at")
         
         serializer = TrialSerializer(trials, many=True)
 
         return Response(serializer.data)
-
 
     @action(detail=True, methods=['post'])
     def rename(self, request, pk):
