@@ -522,6 +522,13 @@ class SessionViewSet(viewsets.ModelViewSet):
     # - creates a new trial with "recording" state
     @action(detail=True)
     def record(self, request, pk):
+        def get_count_from_name(name, base_name):
+            try:
+                count = int(name[len(base_name) + 1:])
+                return count
+            except ValueError:
+                return 0
+        
         session = Session.objects.get(pk=pk)
 
         name = request.GET.get("name",None)
@@ -529,9 +536,10 @@ class SessionViewSet(viewsets.ModelViewSet):
         trial = Trial()
         trial.session = session
 
-        name_count = Trial.objects.filter(name__startswith=name, session=session).count()
-        if (name_count > 0) and (name not in ["calibration","neutral"]):
-            name = "{}_{}".format(name, name_count)
+        existing_names = Trial.objects.filter(name__startswith=name, session=session).values_list('name', flat=True)
+        if (len(existing_names) > 0) and (name not in ["calibration","neutral"]) and (name in existing_names):
+            highest_count = max([get_count_from_name(existing_name, name) for existing_name in existing_names])
+            name = "{}_{}".format(name, highest_count + 1)
         
         trial.name = name
         trial.save()
@@ -653,6 +661,11 @@ class SessionViewSet(viewsets.ModelViewSet):
             if not session.meta["settings"]:
                 session.meta["settings"] = {}
             session.meta["settings"]["openSimModel"] = request.GET.get("settings_openSimModel", "")
+
+        if "settings_augmenter_model" in request.GET:
+            if not session.meta["settings"]:
+                session.meta["settings"] = {}
+            session.meta["settings"]["augmentermodel"] = request.GET.get("settings_augmenter_model", "")
             
         if "cb_square" in request.GET:
             session.meta["checkerboard"] = {
@@ -714,6 +727,22 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         # If there is at least one trial, check it's status
         trial = trials[0]
+
+        # delete video instances if there are any redundant ones
+        # which happens when theres wifi latency in phone connection
+        videos = trial.video_set.all()
+        unique_device_ids = set()
+        videos_to_delete = []
+
+        for video in videos:
+            if video.device_id in unique_device_ids:
+                videos_to_delete.append(video)
+            else:
+                unique_device_ids.add(video.device_id)
+
+        for video in videos_to_delete:
+            video.delete()
+
         trial.status = "stopped"
         trial.save()
 
@@ -833,9 +862,11 @@ class TrialViewSet(viewsets.ModelViewSet):
     serializer_class = TrialSerializer
 
     permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
+
     
-    @action(detail=False)
+    @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
     def dequeue(self, request):
+
         ip = get_client_ip(request)
 
         workerType = self.request.query_params.get('workerType')
@@ -855,21 +886,37 @@ class TrialViewSet(viewsets.ModelViewSet):
                                       name__in=["calibration","neutral"],
                                       result=None)
             
+            trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                      name__in=["calibration","neutral"],
+                                      result=None)
+            
             if trials.count() == 0 and workerType != 'calibration':
                 trials = uploaded_trials.filter(status="stopped",
+                                          result=None)
+                
+            if trials.count()==0 and trialsReprocess.count() == 0 and workerType != 'calibration':
+                trialsReprocess = uploaded_trials.filter(status="reprocess",
                                           result=None)
             
         else:
             trials = uploaded_trials.filter(status="stopped",
                                             result=None).exclude(name__in=["calibration", "neutral"])
+            
+            trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                            result=None).exclude(name__in=["calibration", "neutral"])
+            
         
-        if trials.count() == 0:
+        if trials.count() == 0 and trialsReprocess.count() == 0:
             raise Http404
         
-        # prioritize admin group trials
-        trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","backend"])
+        # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
+        trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
+        # if not priority trials, go to normal trials
         if trialsPrioritized.count() == 0:
             trialsPrioritized = trials
+        # if no normal trials, go to reprocess trials
+        if trials.count() == 0:
+            trialsPrioritized = trialsReprocess
 
         trial = trialsPrioritized[0]
         trial.status = "processing"
@@ -884,6 +931,24 @@ class TrialViewSet(viewsets.ModelViewSet):
             
         serializer = TrialSerializer(trial, many=False)
         
+        return Response(serializer.data)
+    
+    @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
+    def get_trials_with_status(self, request):
+        """
+        This view returns a list of all the trials with the specified status
+        that was updated more than hoursSinceUpdate hours ago.
+        """
+        hours_since_update = request.query_params.get('hoursSinceUpdate', 0)
+        hours_since_update = float(hours_since_update) if hours_since_update else 0 
+
+        status = self.request.query_params.get('status')
+        # trials with given status and updated_at more than n hours ago
+        trials = Trial.objects.filter(status=status,
+                                     updated_at__lte=(datetime.now() - timedelta(hours=hours_since_update))).order_by("-created_at")
+        
+        serializer = TrialSerializer(trials, many=True)
+
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
@@ -913,7 +978,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.delete()
         return Response({})
 
@@ -921,7 +986,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def trash(self, request, pk):
         from django.utils.timezone import now
 
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.trashed = True
         trial.trashed_at = now()
         trial.save()
@@ -931,7 +996,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
+        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
         trial.trashed = False
         trial.trashed_at = None
         trial.save()

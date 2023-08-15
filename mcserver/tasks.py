@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from mcserver.models import (
     DownloadLog,
+    Session,
     AnalysisFunction,
     AnalysisResult,
     AnalysisResultState
@@ -73,6 +74,13 @@ def cleanup_archives():
     ):
         log.media.delete(save=False)
         log.delete()
+
+
+@shared_task
+def delete_pingdom_sessions():
+    """ This task deletes all Session's related to pingdom user
+    """
+    Session.objects.filter(user__username="pingdom").delete()
 
 
 @shared_task(bind=True)
