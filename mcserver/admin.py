@@ -172,7 +172,7 @@ class DownloadLogAdmin(admin.ModelAdmin):
 
 @admin.register(AnalysisFunction)
 class AnalysisFunctionAdmin(admin.ModelAdmin):
-    list_display = ['title', 'is_active', 'created_at']
+    list_display = ['id', 'title', 'is_active', 'created_at']
     search_fields = ['title', 'description']
 
 
