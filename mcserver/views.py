@@ -19,6 +19,32 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import csrf_exempt
 from django.template.loader import render_to_string
 from django.contrib.auth import authenticate, login
+from mcserver.models import (
+    Session,
+    User,
+    Trial,
+    Video,
+    Result,
+    ResetPassword,
+    Subject,
+    DownloadLog,
+    AnalysisFunction,
+    AnalysisResult,
+    AnalysisResultState
+)
+from mcserver.serializers import (
+    SessionSerializer,
+    TrialSerializer,
+    VideoSerializer,
+    ResultSerializer,
+    NewSubjectSerializer,
+    SubjectSerializer,
+    UserSerializer,
+    ResetPasswordSerializer,
+    NewPasswordSerializer,
+    AnalysisFunctionSerializer,
+    AnalysisResultSerializer
+)
 from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage
 from django.utils.timezone import now
@@ -52,6 +78,35 @@ from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, 
 from mcserver.tasks import download_session_archive, download_subject_archive
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 from mcserver.utils import send_otp_challenge
+from rest_framework.authtoken.models import Token
+from rest_framework import status
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import AllowAny
+from rest_framework.generics import RetrieveAPIView, ListAPIView
+
+import qrcode
+import json
+import time
+import platform
+
+from rest_framework import viewsets
+from decouple import config
+
+import os
+import zipfile
+import pathlib
+
+from django.http import FileResponse
+
+from django.db.models import Count
+
+from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
+from mcserver.tasks import (
+    download_session_archive,
+    download_subject_archive,
+    invoke_aws_lambda_function
+)
 
 sys.path.insert(0,'/code/mobilecap')
 
@@ -1181,7 +1236,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsPublic | (IsOwner | IsAdmin | IsBackend)]
     
-    @action(detail=False)
+    @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
     def dequeue(self, request):
         try:
             ip = get_client_ip(request)
@@ -1197,8 +1252,17 @@ class TrialViewSet(viewsets.ModelViewSet):
             uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
     #        uploaded_trials = Trial.objects.all()
 
-            if workerType != 'dynamic':
-                # Priority for 'calibration' and 'neutral'
+        if workerType != 'dynamic':
+            # Priority for 'calibration' and 'neutral'
+            trials = uploaded_trials.filter(status="stopped",
+                                      name__in=["calibration","neutral"],
+                                      result=None)
+            
+            trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                      name__in=["calibration","neutral"],
+                                      result=None)
+            
+            if trials.count() == 0 and workerType != 'calibration':
                 trials = uploaded_trials.filter(status="stopped",
                                           name__in=["calibration","neutral"],
                                           result=None)
@@ -1236,6 +1300,61 @@ class TrialViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_dequeue_error'))
+                
+            if trials.count()==0 and trialsReprocess.count() == 0 and workerType != 'calibration':
+                trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                          result=None)
+            
+        else:
+            trials = uploaded_trials.filter(status="stopped",
+                                            result=None).exclude(name__in=["calibration", "neutral"])
+            
+            trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                            result=None).exclude(name__in=["calibration", "neutral"])
+            
+        
+        if trials.count() == 0 and trialsReprocess.count() == 0:
+            raise Http404
+        
+        # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
+        trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
+        # if not priority trials, go to normal trials
+        if trialsPrioritized.count() == 0:
+            trialsPrioritized = trials
+        # if no normal trials, go to reprocess trials
+        if trials.count() == 0:
+            trialsPrioritized = trialsReprocess
+
+        trial = trialsPrioritized[0]
+        trial.status = "processing"
+        trial.save()
+
+        print(ip)
+        print(trial.session.server)
+        if (not trial.session.server) or len(trial.session.server) < 1:
+            session = Session.objects.get(id=trial.session.id)
+            session.server = ip
+            session.save()
+            
+        serializer = TrialSerializer(trial, many=False)
+        
+        return Response(serializer.data)
+    
+    @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
+    def get_trials_with_status(self, request):
+        """
+        This view returns a list of all the trials with the specified status
+        that was updated more than hoursSinceUpdate hours ago.
+        """
+        hours_since_update = request.query_params.get('hoursSinceUpdate', 0)
+        hours_since_update = float(hours_since_update) if hours_since_update else 0 
+
+        status = self.request.query_params.get('status')
+        # trials with given status and updated_at more than n hours ago
+        trials = Trial.objects.filter(status=status,
+                                     updated_at__lte=(datetime.now() - timedelta(hours=hours_since_update))).order_by("-created_at")
+        
+        serializer = TrialSerializer(trials, many=True)
 
         return Response(serializer.data)
 
@@ -1810,3 +1929,43 @@ def reset_otp_challenge(request):
 @csrf_exempt
 def check_otp_verified(request):
     return Response({'otp_verified': request.user.otp_verified})
+
+
+class AnalysisFunctionsListAPIView(ListAPIView):
+    """ Returns active AnalysisFunction's.
+    """
+    permission_classes = (IsAuthenticated, )
+    serializer_class = AnalysisFunctionSerializer
+    queryset = AnalysisFunction.objects.filter(is_active=True)
+
+
+class InvokeAnalysisFunctionAPIView(APIView):
+    """ Invokes AnalysisFunction asynchronously with Celery.
+    """
+    permission_classes = (IsAuthenticated, )
+
+    def post(self, request, *args, **kwargs):
+        function = get_object_or_404(
+            AnalysisFunction, pk=self.kwargs['pk'], is_active=True
+        )
+        task = invoke_aws_lambda_function.delay(function.id, request.user.id, request.data)
+        return Response({'task_id': task.id}, status=201)
+
+
+class AnalysisResultOnReadyAPIView(APIView):
+    """ Returns AnalysisResult if it has been proccessed,
+        otherwise responses with 202 status and makes FE
+        wait for completion.
+    """
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        result = AnalysisResult.objects.filter(
+            task_id=self.kwargs["task_id"], user=request.user
+        ).first()
+        if result and result.state in (
+            AnalysisResultState.SUCCESSFULL, AnalysisResultState.FAILED
+        ):
+            serializer = AnalysisResultSerializer(result)
+            return Response(serializer.data)
+        return Response(status=202)

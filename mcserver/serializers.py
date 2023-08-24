@@ -1,7 +1,17 @@
 from rest_framework import serializers
-from mcserver.models import Session, User, Video, Trial, Result, Subject
+from mcserver.models import (
+    Session,
+    User,
+    Video,
+    Trial,
+    Result,
+    Subject,
+    AnalysisFunction,
+    AnalysisResult
+)
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
+
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
@@ -132,13 +142,20 @@ class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
         fields = [
-            'id', 'name',
-            'weight', 'height', 'age',
-            'gender', 'sex_at_birth',
+            'id',
+            'name',
+            'weight',
+            'height',
+            'age',
+            'birth_year',
+            'gender',
+            'sex_at_birth',
             'characteristics',
             'sessions',
-            'created_at', 'updated_at',
-            'trashed', 'trashed_at',
+            'created_at',
+            'updated_at',
+            'trashed',
+            'trashed_at'
         ]
 
 
@@ -147,11 +164,28 @@ class NewSubjectSerializer(serializers.ModelSerializer):
         model = Subject
         fields = [
             'name',
-            'weight', 'height', 'age',
-            'gender', 'sex_at_birth',
+            'weight',
+            'height',
+            'birth_year',
+            'gender',
+            'sex_at_birth',
             'characteristics',
         ]
 
     def to_representation(self, instance):
         serializer = SubjectSerializer(instance)
         return serializer.data
+
+
+class AnalysisFunctionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnalysisFunction
+        fields = ('id', 'title', 'description')
+
+
+class AnalysisResultSerializer(serializers.ModelSerializer):
+    analysis_function = AnalysisFunctionSerializer(source="function")
+
+    class Meta:
+        model = AnalysisResult
+        fields = ('analysis_function', 'result', 'status', 'state')

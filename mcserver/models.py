@@ -1,15 +1,19 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import MinValueValidator, MaxValueValidator
 import os
 import uuid
 import base64
 import pathlib
+from http import HTTPStatus
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
 from django.utils.translation import gettext as _
+from rest_framework import status
 
 from django.conf import settings
 
@@ -21,8 +25,14 @@ def random_filename(instance, filename):
 def archives_dir_path(instance, filename):
     filename, ext = filename.split(".")
     return os.path.join("archives", f"{filename}_{uuid.uuid4()}.{ext}")
-                                            
 
+
+class AnalysisResultState(models.TextChoices):
+    PENDING = "pending", "Pending"
+    SUCCESSFULL = "successfull", "Successful"
+    FAILED = "failed", "Failed"
+
+                                            
 class User(AbstractUser):
     institution = models.CharField(max_length=128, blank=True, null=True)
     profession = models.CharField(max_length=128, blank=True, null=True)
@@ -263,6 +273,9 @@ class Subject(models.Model):
     weight = models.FloatField('Weight (kg)', default=0.0, blank=True, null=True)
     height = models.FloatField('Height (m)', default=0.0, blank=True, null=True)
     age = models.IntegerField('Age (y)', default=0.0, blank=True, null=True)
+    birth_year = models.PositiveIntegerField(
+        'Birth year', blank=True, null=True, help_text="Use the following format: <YYYY>"
+    )
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
     sex_at_birth = models.CharField(max_length=20, choices=SEX_AT_BIRTH_CHOICES, blank=True, null=True)
     characteristics = models.TextField(blank=True, default='')
@@ -289,3 +302,66 @@ class Subject(models.Model):
             'gender': self.get_gender_display() or '',
             'height': self.height,
         }
+    
+    def clean(self):
+        super().clean()
+        if self.birth_year is not None:
+            if self.birth_year < 1900 or self.birth_year > timezone.now().year:
+                raise ValidationError('Ensure this value is between 1900 and today\'s year.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        if not self.birth_year:
+            self.birth_year = timezone.now().year - self.age
+        return super().save(*args, **kwargs)
+
+class AnalysisFunction(models.Model):
+    """ This model describes AWS Lambda function object.
+    """
+    title = models.CharField('Title', max_length=255)
+    description = models.CharField('Description', max_length=255)
+    url = models.CharField('Url', max_length=255)
+    is_active = models.BooleanField('Active', default=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+
+class AnalysisResult(models.Model):
+    """ This model describes the result of AWS Lambda function.
+    """
+    task_id = models.CharField('Celery task id.', max_length=255)
+    user = models.ForeignKey(
+        to=User, on_delete=models.CASCADE, verbose_name='User'
+    )
+    function = models.ForeignKey(
+        to=AnalysisFunction,
+        on_delete=models.CASCADE,
+        verbose_name='Analysis function'
+    )
+    data = models.JSONField(
+        'Data', default=dict, help_text='Data function was called with.'
+    )
+    result = models.JSONField(
+        'Result', default=dict, help_text='Data function responsed with.'
+    )
+    status = models.IntegerField(
+        'Status',
+        choices=[(status.value, status.phrase) for status in list(HTTPStatus)],
+        default=HTTPStatus.OK.value,
+        help_text='Status code function responsed with.'
+    )
+    state = models.CharField(
+        'Invokation state',
+        max_length=20,
+        choices=AnalysisResultState.choices,
+        default=AnalysisResultState.PENDING,
+        help_text='The state of invokation request.'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.function.title}-{self.status}'
