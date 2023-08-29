@@ -9,7 +9,9 @@ from mcserver.models import (
     Result,
     ResetPassword,
     Subject,
-    DownloadLog
+    DownloadLog,
+    AnalysisFunction,
+    AnalysisResult
 )
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
@@ -166,3 +168,16 @@ class DownloadLogAdmin(admin.ModelAdmin):
     list_display = ["task_id", "user", "created_at", "updated_at"]
     list_filter = ["user"]
     search_fields = ["task_id"]
+
+
+@admin.register(AnalysisFunction)
+class AnalysisFunctionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'title', 'is_active', 'created_at']
+    search_fields = ['title', 'description']
+
+
+@admin.register(AnalysisResult)
+class AnalysisResultAdmin(admin.ModelAdmin):
+    list_display = ['task_id', 'user', 'function', 'status', 'state']
+    list_filter = ['user__email', 'function__title', 'status', 'state']
+    search_fields = ['task_id']

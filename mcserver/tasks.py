@@ -1,10 +1,18 @@
 import os
+import requests
+from http import HTTPStatus
 from django.conf import settings
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
 
-from mcserver.models import DownloadLog, Session
+from mcserver.models import (
+    DownloadLog,
+    Session,
+    AnalysisFunction,
+    AnalysisResult,
+    AnalysisResultState
+)
 from mcserver.zipsession_v2 import (
     SessionDirectoryConstructor,
     SubjectDirectoryConstructor,
@@ -73,3 +81,29 @@ def delete_pingdom_sessions():
     """ This task deletes all Session's related to pingdom user
     """
     Session.objects.filter(user__username="pingdom").delete()
+
+
+@shared_task(bind=True)
+def invoke_aws_lambda_function(self, user_id, function_id, data):
+    function = AnalysisFunction.objects.get(id=function_id)
+    result = AnalysisResult.objects.create(
+        task_id=str(self.request.id),
+        function=function,
+        user_id=user_id,
+        data=data,
+        state=AnalysisResultState.PENDING
+    )
+    try:
+        response = requests.post(
+            function.url, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}
+        )
+        result.result = response.json()
+        result.status = response.status_code
+        result.state = AnalysisResultState.SUCCESSFULL
+        if response.status_code >= HTTPStatus.BAD_REQUEST.value:
+            result.state = AnalysisResultState.FAILED
+    except (ValueError, requests.RequestException) as e:
+        result.result = {'error': str(e)}
+        result.status = HTTPStatus.INTERNAL_SERVER_ERROR.value
+        result.state = AnalysisResultState.FAILED
+    result.save(update_fields=['result', 'status', 'state'])

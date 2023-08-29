@@ -3,16 +3,31 @@ from django.http import Http404
 
 from django.shortcuts import get_object_or_404, render
 from mcserver.models import (
-    Session, User, Trial, Video, Result, ResetPassword, Subject, DownloadLog
+    Session,
+    User,
+    Trial,
+    Video,
+    Result,
+    ResetPassword,
+    Subject,
+    DownloadLog,
+    AnalysisFunction,
+    AnalysisResult,
+    AnalysisResultState
 )
 from mcserver.serializers import (
-    SessionSerializer, TrialSerializer,
-    VideoSerializer, ResultSerializer,
+    SessionSerializer,
+    TrialSerializer,
+    VideoSerializer,
+    ResultSerializer,
     NewSubjectSerializer,
     SubjectSerializer,
     UserSerializer,
     ResetPasswordSerializer,
-    NewPasswordSerializer)
+    NewPasswordSerializer,
+    AnalysisFunctionSerializer,
+    AnalysisResultSerializer
+)
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.db.models import Q
@@ -28,7 +43,7 @@ from rest_framework import status
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
-from rest_framework.generics import RetrieveAPIView
+from rest_framework.generics import RetrieveAPIView, ListAPIView
 
 import qrcode
 import json
@@ -47,7 +62,11 @@ from django.http import FileResponse
 from django.db.models import Count
 
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
-from mcserver.tasks import download_session_archive, download_subject_archive
+from mcserver.tasks import (
+    download_session_archive,
+    download_subject_archive,
+    invoke_aws_lambda_function
+)
 
 from datetime import datetime, timedelta
 
@@ -1327,3 +1346,42 @@ def reset_otp_challenge(request):
 @csrf_exempt
 def check_otp_verified(request):
     return Response({'otp_verified': request.user.otp_verified})
+
+
+class AnalysisFunctionsListAPIView(ListAPIView):
+    """ Returns active AnalysisFunction's.
+    """
+    permission_classes = (IsAuthenticated, )
+    serializer_class = AnalysisFunctionSerializer
+    queryset = AnalysisFunction.objects.filter(is_active=True)
+
+
+class InvokeAnalysisFunctionAPIView(APIView):
+    """ Invokes AnalysisFunction asynchronously with Celery.
+    """
+    permission_classes = (IsAuthenticated, )
+
+    def post(self, request, *args, **kwargs):
+        function = get_object_or_404(
+            AnalysisFunction, pk=self.kwargs['pk'], is_active=True
+        )
+        task = invoke_aws_lambda_function.delay(request.user.id, function.id, request.data)
+        return Response({'task_id': task.id}, status=201)
+
+class AnalysisResultOnReadyAPIView(APIView):
+    """ Returns AnalysisResult if it has been proccessed,
+        otherwise responses with 202 status and makes FE
+        wait for completion.
+    """
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        result = AnalysisResult.objects.filter(
+            task_id=self.kwargs["task_id"], user=request.user
+        ).first()
+        if result and result.state in (
+            AnalysisResultState.SUCCESSFULL, AnalysisResultState.FAILED
+        ):
+            serializer = AnalysisResultSerializer(result)
+            return Response(serializer.data)
+        return Response(status=202)
