@@ -258,9 +258,6 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_retrieve_error"))
 
-        # Serialize session.
-        serializer = SessionSerializer(session)
-
         # Return error message and data.
         return Response({
             'message': error_message,
