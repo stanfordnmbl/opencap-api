@@ -724,19 +724,20 @@ class SessionViewSet(viewsets.ModelViewSet):
     # - creates a new trial with "recording" state
     @action(detail=True)
     def record(self, request, pk):
+        def get_count_from_name(name, base_name):
+            try:
+                count = int(name[len(base_name) + 1:])
+                return count
+            except ValueError:
+                return 0
+
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
-            def get_count_from_name(name, base_name):
-                try:
-                    count = int(name[len(base_name) + 1:])
-                    return count
-                except ValueError:
-                    return 0
 
             session = get_object_or_404(Session, pk=pk, user=request.user)
 
-            name = request.GET.get("name",None)
+            name = request.GET.get("name", None)
 
             trial = Trial()
             trial.session = session
