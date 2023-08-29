@@ -1252,15 +1252,15 @@ class TrialViewSet(viewsets.ModelViewSet):
             uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
     #        uploaded_trials = Trial.objects.all()
 
-        if workerType != 'dynamic':
-            # Priority for 'calibration' and 'neutral'
-            trials = uploaded_trials.filter(status="stopped",
-                                      name__in=["calibration","neutral"],
-                                      result=None)
-            
-            trialsReprocess = uploaded_trials.filter(status="reprocess",
-                                      name__in=["calibration","neutral"],
-                                      result=None)
+            if workerType != 'dynamic':
+                # Priority for 'calibration' and 'neutral'
+                trials = uploaded_trials.filter(status="stopped",
+                                          name__in=["calibration","neutral"],
+                                          result=None)
+
+                trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                          name__in=["calibration","neutral"],
+                                          result=None)
             
             if trials.count() == 0 and workerType != 'calibration':
                 trials = uploaded_trials.filter(status="stopped",
