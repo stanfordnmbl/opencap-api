@@ -288,7 +288,7 @@ msgstr "Sorry, we couldn't find an account associated with that email."
 
 #: .\views.py:1462
 msgid "error_reset_password"
-msgstr "There was an error while resetting your password. Please, try again."
+msgstr "There was an error while resetting your password. Please try again."
 
 #: .\views.py:1497 .\views.py:1511
 msgid "reset_password_link_expired"
@@ -297,12 +297,12 @@ msgstr "The link to reset your password has expired or does not exist. Try reset
 
 #: .\views.py:1515
 msgid "new_password_creation_error"
-msgstr "There was an error while creating your new password. Please, try again."
+msgstr "There was an error while creating your new password. Please try again."
 
 
 #: .\views.py:1535
 msgid "verification_error"
-msgstr "There was an error during the verification process. Please, try again."
+msgstr "There was an error during the verification process. Please try again."
 
 #: .\views.py:1540
 msgid "verification_code_incorrect"
