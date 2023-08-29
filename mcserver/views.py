@@ -567,7 +567,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         except Exception:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise APIException(_("subject_create_error"))
+            raise APIException(_("session_create_error"))
 
         return Response(serializer.data)
 
