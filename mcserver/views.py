@@ -241,14 +241,18 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             # Update session name and save.
             session.meta["sessionName"] = request.data['sessionNewName']
+            self.check_object_permissions(self.request, session)
             session.save()
 
-            self.check_object_permissions(self.request, session)
             serializer = SessionSerializer(session)
         except Http404:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -277,6 +281,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -339,11 +347,16 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk, user=request.user)
+            self.check_object_permissions(self.request, session)
             session.delete()
         except Http404:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -642,9 +655,9 @@ class SessionViewSet(viewsets.ModelViewSet):
                 res["session"] = SessionSerializer(session, many=False).data
 
         except NotAuthenticated:
-                if settings.DEBUG:
-                    raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-                raise NotFound(_('login_needed'))
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -866,6 +879,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -1153,6 +1170,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -1211,6 +1232,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
