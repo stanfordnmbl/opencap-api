@@ -841,6 +841,8 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('session_get_settings_error'))
 
+        return Response(sessionPermission)
+
     @action(detail=True)
     def get_session_settings(self, request, pk):
         try:
