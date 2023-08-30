@@ -1326,7 +1326,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
 
         except Exception:
-            if Http404:
+            if Http404: # we use the 404 to tell app.py that there are no trials, so need to pass this thru
                 raise Http404
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
