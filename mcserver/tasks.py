@@ -95,7 +95,7 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
     )
     try:
         response = requests.post(
-            function.url, json=data, headers={'Content-Type': 'application/json'}
+            function.url, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}
         )
         result.result = response.json()
         result.status = response.status_code
