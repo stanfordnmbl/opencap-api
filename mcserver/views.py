@@ -559,106 +559,77 @@ class SessionViewSet(viewsets.ModelViewSet):
     
     def get_status(self, request, pk):
 
-        try:
-            if pk == 'undefined':
-                raise ValueError(_("undefined_uuid"))
+        session = Session.objects.get(pk=pk)
+        self.check_object_permissions(self.request, session)
+        serializer = SessionSerializer(session)
 
-            session = get_object_or_404(Session, pk=pk, user=request.user)
-            self.check_object_permissions(self.request, session)
-            serializer = SessionSerializer(session)
+        trials = session.trial_set.order_by("-created_at")
+        trial = None
 
+        status = "ready" # if no trials then "ready" (equivalent to trial_status = done)
 
-            trials = session.trial_set.order_by("-created_at")
-            trial = None
+        # If there is at least one trial, check it's status
+        if trials.count():
+            trial = trials[0]
 
-            status = "ready" # if no trials then "ready" (equivalent to trial_status = done)
-
-            # If there is at least one trial, check it's status
-            if trials.count():
-                trial = trials[0]
-
-            # if trial_status == 'done' then session ready again
-            if trial and trial.status == "done":
-                status = "ready"
+        # if trial_status == 'done' then session ready again
+        if trial and trial.status == "done":
+            status = "ready"
         
-            # if trial_status == 'recording' then just continue and return 'recording'
-            # otherwise recording is done and check processing
-            if trial and (trial.status in ["stopped","processing"]):
-                # if not all videos uploaded then the status is 'uploading'
-                # if results are not ready then processing
-                # otherwise it's ready again
-                if any([(not v.video) for v in trial.video_set.all()]):
-                    status = 'uploading'
-                elif trial.result_set.count() == 0:
-                    status = 'processing'
-                else:
-                    status = 'ready'
-
-            # If status 'recording' and 'device_id' provided
-            if trial and trial.status == "recording" and "device_id" in request.GET:
-                if trial.video_set.filter(device_id=request.GET["device_id"]).count() == 0:
-                    video = Video()
-                    video.device_id = request.GET["device_id"]
-                    video.trial = trial
-                    video.save()
-                status = "recording"
-
-            video_url = None
-            if trial and "device_id" in request.GET:
-                videos = trial.video_set.filter(device_id=request.GET["device_id"])
-                if videos.count() > 0:
-                    video_url = reverse('video-detail', kwargs={'pk': videos[0].id})
-            trial_url = reverse('trial-detail', kwargs={'pk': trial.id}) if trial else None
-        
-            # tell phones to pair with a new session
-            if session.meta and "startNewSession" in session.meta:
-                newSessionURL = "{}/sessions/{}/status/".format(settings.HOST_URL, session.meta['startNewSession']['id'])
+        # if trial_status == 'recording' then just continue and return 'recording'
+        # otherwise recording is done and check processing
+        if trial and (trial.status in ["stopped","processing"]):
+            # if not all videos uploaded then the status is 'uploading'
+            # if results are not ready then processing
+            # otherwise it's ready again
+            if any([(not v.video) for v in trial.video_set.all()]):
+                status = 'uploading'
+            elif trial.result_set.count() == 0:
+                status = 'processing'
             else:
-                newSessionURL = None
+                status = 'ready'
+
+        # If status 'recording' and 'device_id' provided
+        if trial and trial.status == "recording" and "device_id" in request.GET:
+            if trial.video_set.filter(device_id=request.GET["device_id"]).count() == 0:
+                video = Video()
+                video.device_id = request.GET["device_id"]
+                video.trial = trial
+                video.save()
+            status = "recording"
+
+        video_url = None
+        if trial and "device_id" in request.GET:
+            videos = trial.video_set.filter(device_id=request.GET["device_id"])
+            if videos.count() > 0:
+                video_url = reverse('video-detail', kwargs={'pk': videos[0].id})
+        trial_url = reverse('trial-detail', kwargs={'pk': trial.id}) if trial else None
+        
+        # tell phones to pair with a new session
+        if session.meta and "startNewSession" in session.meta:
+            newSessionURL = "{}/sessions/{}/status/".format(settings.HOST_URL, session.meta['startNewSession']['id'])
+        else:
+            newSessionURL = None
             
-            if session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
-                frameRate = int(session.meta['settings']['framerate'])
-            else:
-                frameRate = 60
-            if trial and (trial.name in {'calibration','neutral'}):
-                frameRate = 30
+        if session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
+            frameRate = int(session.meta['settings']['framerate'])
+        else:
+            frameRate = 60
+        if trial and (trial.name in {'calibration','neutral'}):
+            frameRate = 30
 
-            res = {
-                "status": status,
-                "trial": trial_url,
-                "video": video_url,
-                "framerate": frameRate,
-                "newSessionURL":newSessionURL,
-            }
 
-            if "ret_session" in request.GET:
-                res["session"] = SessionSerializer(session, many=False).data
+        res = {
+            "status": status,
+            "trial": trial_url,
+            "video": video_url,
+            "framerate": frameRate,
+            "newSessionURL":newSessionURL,
+        }
 
-        except NotAuthenticated:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_('login_needed'))
-        except PermissionDenied:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_('unauthorized_access_session'))
-        except PermissionDenied:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_('permission_denied'))
-        except Http404:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
-        except ValueError:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
-        except Exception:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise APIException(_('trial_record_error'))
-
+        if "ret_session" in request.GET:
+            res["session"] = SessionSerializer(session, many=False).data
+            
         return res
 
      
