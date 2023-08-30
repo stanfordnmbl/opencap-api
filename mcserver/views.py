@@ -1326,6 +1326,8 @@ class TrialViewSet(viewsets.ModelViewSet):
 
 
         except Exception:
+            if Http404:
+                raise Http404
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_dequeue_error'))
