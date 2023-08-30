@@ -221,6 +221,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -253,6 +257,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -325,6 +333,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -630,6 +642,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('unauthorized_access_session'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
         except Http404:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -854,6 +870,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -1145,6 +1165,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -1207,6 +1231,10 @@ class SessionViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
