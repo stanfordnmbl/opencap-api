@@ -12,6 +12,7 @@ from django.db.models.signals import post_save
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
+from django.utils.translation import gettext as _
 from rest_framework import status
 
 from django.conf import settings
@@ -228,6 +229,7 @@ def create_profile(sender, instance, created, **kwargs):
     if created:
         device = EmailDevice(user = instance, name = "default e-mail")
         device.save()
+
 
 # @receiver(user_logged_in)
 # def post_login(sender, user, request, **kwargs):

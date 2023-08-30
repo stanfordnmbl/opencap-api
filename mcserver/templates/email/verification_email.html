@@ -1,3 +1,5 @@
+{% load i18n %}
+
 <html>
     <head></head>
     <body>
@@ -6,8 +8,8 @@
         </br>
         </br>
         </br>
-        <h2>Hi,</h2>
-        <p>Your verification code is: </p>
+        <h2>{% translate 'verification_code_email_greeting' %}</h2>
+        <p>{% translate 'verification_code_email_your_code' %}</p>
         </br>
         </br>
         <b>
@@ -15,12 +17,12 @@
         </b>
         </br>
         </br>
-        <p>Please copy-paste it to the OpenCap webapp.</p>
+        <p>{% translate 'verification_code_email_copy_paste' %}</p>
         </br>
         </br>
-        <p>If you did not try to log in into OpenCap, you can ignore this email.</p>
+        <p>{% translate 'verification_code_email_ignore' %}</p>
         </br>
         </br>
-        <p>OpenCap Team.</p>
+        <p>{% translate 'verification_code_email_team' %}</p>
     </body>
 </html>
