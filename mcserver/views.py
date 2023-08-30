@@ -1263,71 +1263,77 @@ class TrialViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
     def dequeue(self, request):
+        try:
+            ip = get_client_ip(request)
 
-        ip = get_client_ip(request)
+            workerType = self.request.query_params.get('workerType')
 
-        workerType = self.request.query_params.get('workerType')
+            # find trials with some videos not uploaded
+            not_uploaded = Video.objects.filter(video='',
+                                                updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
 
-        # find trials with some videos not uploaded
-        not_uploaded = Video.objects.filter(video='',
-                                            updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
+            print(not_uploaded)
 
-        print(not_uploaded)
+            uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
+    #       uploaded_trials = Trial.objects.all()
 
-        uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
-#        uploaded_trials = Trial.objects.all()
-
-        if workerType != 'dynamic':
-            # Priority for 'calibration' and 'neutral'
-            trials = uploaded_trials.filter(status="stopped",
-                                      name__in=["calibration","neutral"],
-                                      result=None)
-            
-            trialsReprocess = uploaded_trials.filter(status="reprocess",
-                                      name__in=["calibration","neutral"],
-                                      result=None)
-            
-            if trials.count() == 0 and workerType != 'calibration':
+            if workerType != 'dynamic':
+                # Priority for 'calibration' and 'neutral'
                 trials = uploaded_trials.filter(status="stopped",
+                                          name__in=["calibration","neutral"],
                                           result=None)
-                
-            if trials.count()==0 and trialsReprocess.count() == 0 and workerType != 'calibration':
+
                 trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                          name__in=["calibration","neutral"],
                                           result=None)
-            
-        else:
-            trials = uploaded_trials.filter(status="stopped",
-                                            result=None).exclude(name__in=["calibration", "neutral"])
-            
-            trialsReprocess = uploaded_trials.filter(status="reprocess",
-                                            result=None).exclude(name__in=["calibration", "neutral"])
-            
-        
-        if trials.count() == 0 and trialsReprocess.count() == 0:
-            raise Http404
-        
-        # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
-        trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
-        # if not priority trials, go to normal trials
-        if trialsPrioritized.count() == 0:
-            trialsPrioritized = trials
-        # if no normal trials, go to reprocess trials
-        if trials.count() == 0:
-            trialsPrioritized = trialsReprocess
 
-        trial = trialsPrioritized[0]
-        trial.status = "processing"
-        trial.save()
+                if trials.count() == 0 and workerType != 'calibration':
+                    trials = uploaded_trials.filter(status="stopped",
+                                              result=None)
 
-        print(ip)
-        print(trial.session.server)
-        if (not trial.session.server) or len(trial.session.server) < 1:
-            session = Session.objects.get(id=trial.session.id)
-            session.server = ip
-            session.save()
-            
-        serializer = TrialSerializer(trial, many=False)
-        
+                if trials.count()==0 and trialsReprocess.count() == 0 and workerType != 'calibration':
+                    trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                              result=None)
+
+            else:
+                trials = uploaded_trials.filter(status="stopped",
+                                                result=None).exclude(name__in=["calibration", "neutral"])
+
+                trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                                result=None).exclude(name__in=["calibration", "neutral"])
+
+
+            if trials.count() == 0 and trialsReprocess.count() == 0:
+                raise Http404
+
+            # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
+            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
+            # if not priority trials, go to normal trials
+            if trialsPrioritized.count() == 0:
+                trialsPrioritized = trials
+            # if no normal trials, go to reprocess trials
+            if trials.count() == 0:
+                trialsPrioritized = trialsReprocess
+
+            trial = trialsPrioritized[0]
+            trial.status = "processing"
+            trial.save()
+
+            print(ip)
+            print(trial.session.server)
+            if (not trial.session.server) or len(trial.session.server) < 1:
+                session = Session.objects.get(id=trial.session.id)
+                session.server = ip
+                session.save()
+
+            serializer = TrialSerializer(trial, many=False)
+
+
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_dequeue_error'))
+
         return Response(serializer.data)
     
     @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
