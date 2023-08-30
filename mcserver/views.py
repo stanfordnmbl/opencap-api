@@ -1,24 +1,30 @@
-import traceback
-import platform
-import requests
-import pathlib
-import zipfile
-import logging
-import qrcode
 import boto3
 import uuid
-import time
-import json
 import sys
 import os
+import qrcode
+import json
+import time
+import platform
+import traceback
 
 from datetime import datetime, timedelta
-from decouple import config
 
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404
+from django.contrib.auth import login
+from django.core.files.base import ContentFile
+from django.utils.timezone import now
+from django.utils import timezone
+from django.http import Http404
+from django.db.models import Q
+from django.utils.translation import gettext as _
+from django.http import FileResponse
+from django.db.models import Count
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
-from django.contrib.auth import authenticate, login
+
 from mcserver.models import (
     Session,
     User,
@@ -45,62 +51,7 @@ from mcserver.serializers import (
     AnalysisFunctionSerializer,
     AnalysisResultSerializer
 )
-from django.core.files.base import ContentFile
-from django.core.mail import EmailMessage
-from django.utils.timezone import now
-from django.http import FileResponse
-from django.http import HttpResponse
-from django.db.models import Count
-from django.utils import timezone
-from django.conf import settings
-from django.http import Http404
-from django.db.models import Q
-
-from rest_framework.exceptions import ValidationError, NotAuthenticated, NotFound, PermissionDenied, APIException
-from rest_framework.permissions import IsAuthenticated, AllowAny, DjangoModelPermissions
-from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
-from rest_framework.decorators import api_view, renderer_classes
-from rest_framework.decorators import action, permission_classes
-from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework import viewsets, permissions, status
-from rest_framework.generics import RetrieveAPIView
-from rest_framework.authtoken.models import Token
-from django.utils.translation import gettext as _
-from rest_framework.response import Response
-from rest_framework.reverse import reverse
-from rest_framework.views import APIView
-from rest_framework import exceptions
-
-from mcserver.serializers import (
-    SessionSerializer, TrialSerializer, VideoSerializer, ResultSerializer, NewSubjectSerializer, SubjectSerializer,
-    UserSerializer, ResetPasswordSerializer, NewPasswordSerializer )
-from mcserver.models import Session, User, Trial, Video, Result, ResetPassword, Subject, DownloadLog
-from mcserver.tasks import download_session_archive, download_subject_archive
-from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 from mcserver.utils import send_otp_challenge
-from rest_framework.authtoken.models import Token
-from rest_framework import status
-from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework.authtoken.models import Token
-from rest_framework.permissions import AllowAny
-from rest_framework.generics import RetrieveAPIView, ListAPIView
-
-import qrcode
-import json
-import time
-import platform
-
-from rest_framework import viewsets
-from decouple import config
-
-import os
-import zipfile
-import pathlib
-
-from django.http import FileResponse
-
-from django.db.models import Count
-
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 from mcserver.tasks import (
     download_session_archive,
@@ -108,7 +59,24 @@ from mcserver.tasks import (
     invoke_aws_lambda_function
 )
 
-sys.path.insert(0,'/code/mobilecap')
+from rest_framework.exceptions import ValidationError, NotAuthenticated, NotFound, PermissionDenied, APIException
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from rest_framework import permissions
+from rest_framework.response import Response
+from rest_framework.reverse import reverse
+from rest_framework.views import APIView
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import AllowAny
+from rest_framework.generics import ListAPIView
+from rest_framework import viewsets
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
+from rest_framework import status
+
+
+sys.path.insert(0, '/code/mobilecap')
 
 class IsOwner(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -1751,12 +1719,6 @@ class CustomAuthToken(ObtainAuthToken):
             'otp_challenge_sent': otp_challenge_sent,
         })
 
-from django.core.mail import send_mail
-from django.conf import settings
-from django.core.mail import EmailMessage
-from django.template.loader import render_to_string
-import traceback
-
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -1861,22 +1823,6 @@ class NewPasswordView(APIView):
 
         # Return message. At this point no error have been thrown and this should return success.
         return Response({})
-
-
-
-
-from functools import partial
-from django_otp.forms import OTPTokenForm
-
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
-
-from rest_framework.authentication import TokenAuthentication
-
-from rest_framework.decorators import api_view, renderer_classes
-from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
-
-from rest_framework import status
 
 @api_view(('POST',))
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
