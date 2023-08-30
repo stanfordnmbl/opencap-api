@@ -1,7 +1,30 @@
-from django.http import HttpResponse
-from django.http import Http404
+import boto3
+import uuid
+import sys
+import os
+import qrcode
+import json
+import time
+import platform
+import traceback
 
-from django.shortcuts import get_object_or_404, render
+from datetime import datetime, timedelta
+
+from django.shortcuts import get_object_or_404
+from django.contrib.auth import login
+from django.core.files.base import ContentFile
+from django.utils.timezone import now
+from django.utils import timezone
+from django.http import Http404
+from django.db.models import Q
+from django.utils.translation import gettext as _
+from django.http import FileResponse
+from django.db.models import Count
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
+
 from mcserver.models import (
     Session,
     User,
@@ -28,39 +51,7 @@ from mcserver.serializers import (
     AnalysisFunctionSerializer,
     AnalysisResultSerializer
 )
-from django.core.files.base import ContentFile
-from django.conf import settings
-from django.db.models import Q
-from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-
-from rest_framework.decorators import action, permission_classes
-from rest_framework.response import Response
-from rest_framework.reverse import reverse
-from rest_framework.views import APIView
-from rest_framework.authtoken.models import Token
-from rest_framework import status
-from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework.authtoken.models import Token
-from rest_framework.permissions import AllowAny
-from rest_framework.generics import RetrieveAPIView, ListAPIView
-
-import qrcode
-import json
-import time
-import platform
-
-from rest_framework import viewsets
-from decouple import config
-
-import os
-import zipfile
-import pathlib
-
-from django.http import FileResponse
-
-from django.db.models import Count
-
+from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 from mcserver.tasks import (
     download_session_archive,
@@ -68,44 +59,45 @@ from mcserver.tasks import (
     invoke_aws_lambda_function
 )
 
-from datetime import datetime, timedelta
-
-import sys
-sys.path.insert(0,'/code/mobilecap')
-
-from rest_framework import exceptions
-from rest_framework.permissions import IsAuthenticated, AllowAny, DjangoModelPermissions
-
+from rest_framework.exceptions import ValidationError, NotAuthenticated, NotFound, PermissionDenied, APIException
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
 from rest_framework import permissions
+from rest_framework.response import Response
+from rest_framework.reverse import reverse
+from rest_framework.views import APIView
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.authtoken.models import Token
+from rest_framework.permissions import AllowAny
+from rest_framework.generics import ListAPIView
+from rest_framework import viewsets
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
+from rest_framework import status
 
-from django.contrib.auth import authenticate, login
-import logging
 
-import boto3
-import requests
-
-import uuid
+sys.path.insert(0, '/code/mobilecap')
 
 class IsOwner(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
             return False
         return request.user.otp_verified
-    
+
     def has_object_permission(self, request, view, obj):
         return obj.get_user() == request.user
 
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.groups.filter(name='admin').exists()
-        
+
     def has_object_permission(self, request, view, obj):
         return self.has_permission(request, view)
 
 class IsBackend(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.groups.filter(name='backend').exists()
-        
+
     def has_object_permission(self, request, view, obj):
         return self.has_permission(request, view)
 
@@ -132,7 +124,6 @@ def setup_eager_loading(get_queryset):
 
     return decorator
 
-
 #from utils import switchCalibrationForCamera
 
 def get_client_ip(request):
@@ -152,10 +143,8 @@ def zipdir(path, ziph):
                                        os.path.join(path, '..')))
 
 class SessionViewSet(viewsets.ModelViewSet):
-#    queryset = Session.objects.all().order_by("-created_at")
     serializer_class = SessionSerializer
     permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
-    # permission_classes = [IsOwner]
 
     @setup_eager_loading
     def get_queryset(self):
@@ -167,33 +156,46 @@ class SessionViewSet(viewsets.ModelViewSet):
         if user.is_authenticated and user.id == 1:
             return Session.objects.all().order_by("-created_at")
         return Session.objects.filter(Q(user__id=user.id) | Q(public=True)).order_by("-created_at")
-       
+
     @action(detail=False)
     def api_health_check(self, request):
-        
         return Response({"status": "True"})
-    
+
     @action(
         detail=True,
-        methods=["get","post"],
+        methods=["get", "post"],
     )
     def calibration(self, request, pk):
-        session_path = "/data/{}".format(pk)
-        session = Session.objects.get(pk=pk)
-        trial = session.trial_set.filter(name="calibration").order_by("-created_at")[0]
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        trial.meta = {
-            "calibration": {
-                cam: val for cam, val in request.data.items()
+            session = Session.objects.get(pk=pk)
+            trial = session.trial_set.filter(name="calibration").order_by("-created_at")[0]
+
+            trial.meta = {
+                "calibration": {
+                    cam: val for cam, val in request.data.items()
+                }
             }
-        }
-        trial.save()
+            trial.save()
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("calibration_error"))
 
         return Response({
             "status": "ok",
             "data": request.data,
         })
-
 
     @action(detail=True, methods=['post'])
     def rename(self, request, pk):
@@ -201,18 +203,36 @@ class SessionViewSet(viewsets.ModelViewSet):
         session = get_object_or_404(Session.objects.all(), pk=pk)
 
         try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
             error_message = ""
 
             # Update session name and save.
             session.meta["sessionName"] = request.data['sessionNewName']
+            self.check_object_permissions(self.request, session)
             session.save()
 
-        except Exception as e:
-            error_message = 'There was an error while renaming your session: ' + str(e)
-            print(error_message)
-
-        # Serialize session.
-        serializer = SessionSerializer(session)
+            serializer = SessionSerializer(session)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_retrieve_error"))
 
         # Return error message and data.
         return Response({
@@ -221,10 +241,34 @@ class SessionViewSet(viewsets.ModelViewSet):
         })
 
     def retrieve(self, request, pk=None):
-        session = get_object_or_404(Session.objects.all(), pk=pk)
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        self.check_object_permissions(self.request, session)
-        serializer = SessionSerializer(session)
+            session = get_object_or_404(Session.objects.all(), pk=pk)
+
+            self.check_object_permissions(self.request, session)
+            serializer = SessionSerializer(session)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_retrieve_error"))
 
         return Response(serializer.data)
 
@@ -233,61 +277,129 @@ class SessionViewSet(viewsets.ModelViewSet):
         methods=["get", "post"],
     )
     def valid(self, request):
-        # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
-        if 'quantity' not in request.data:
-            quantity = -1
-        else:
-            quantity = request.data['quantity']
+        try:
+            # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
+            if 'quantity' not in request.data:
+                quantity = -1
+            else:
+                quantity = request.data['quantity']
 
-        # Note the use of `get_queryset()` instead of `self.queryset`
-        sessions = self.get_queryset()\
-            .annotate(trial_count=Count('trial'))\
-            .filter(trial_count__gte=1, user=request.user)
-        if 'subject_id' in request.data:
-            subject = get_object_or_404(
-                Subject,
-                id=request.data['subject_id'], user=request.user)
-            sessions = sessions.filter(subject=subject)
+            # Note the use of `get_queryset()` instead of `self.queryset`
+            sessions = self.get_queryset() \
+                .annotate(trial_count=Count('trial'))\
+                .filter(trial_count__gte=1, user=request.user)
+            if 'subject_id' in request.data:
+                subject = get_object_or_404(
+                    Subject,
+                    id=request.data['subject_id'], user=request.user)
+                sessions = sessions.filter(subject=subject)
 
-        # A session is valid only if at least one trial is the "neutral" trial and its status is "done".
-        for session in sessions:
-            trials = Trial.objects.filter(session__exact=session, name__exact="neutral").filter(status__exact="done")
-            if trials.count() < 1:
-                sessions = sessions.exclude(id__exact=session.id)
+            # A session is valid only if at least one trial is the "neutral" trial and its status is "done".
+            for session in sessions:
+                trials = Trial.objects.filter(session__exact=session, name__exact="neutral").filter(status__exact="done")
+                if trials.count() < 1:
+                    sessions = sessions.exclude(id__exact=session.id)
 
-        # If quantity is not -1, retrieve only last n sessions.
-        if quantity != -1:
-            sessions = sessions[: request.data['quantity']]
+            # If quantity is not -1, retrieve only last n sessions.
+            if quantity != -1:
+                sessions = sessions[: request.data['quantity']]
 
-        serializer = SessionSerializer(sessions, many=True)
+            serializer = SessionSerializer(sessions, many=True)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("subject_uuid_not_found"))
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_not_valid"))
+
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
-        session = Session.objects.get(pk=pk, user=request.user)
-        session.delete()
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            session = get_object_or_404(Session, pk=pk, user=request.user)
+            self.check_object_permissions(self.request, session)
+            session.delete()
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_permanent_remove_error"))
+
         return Response({})
 
     @action(detail=True, methods=['post'])
     def trash(self, request, pk):
-        from django.utils.timezone import now
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        session = Session.objects.get(pk=pk, user=request.user)
-        session.trashed = True
-        session.trashed_at = now()
-        session.save()
+            session = get_object_or_404(Session, pk=pk, user=request.user)
+            session.trashed = True
+            session.trashed_at = now()
+            session.save()
 
-        serializer = SessionSerializer(session)
+            serializer = SessionSerializer(session)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_remove_error"))
+
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        session = Session.objects.get(pk=pk, user=request.user)
-        session.trashed = False
-        session.trashed_at = None
-        session.save()
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        serializer = SessionSerializer(session)
+            session = get_object_or_404(Session, pk=pk, user=request.user)
+            session.trashed = False
+            session.trashed_at = None
+            session.save()
+
+            serializer = SessionSerializer(session)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_restore_error"))
+
         return Response(serializer.data)
 
 
@@ -295,66 +407,82 @@ class SessionViewSet(viewsets.ModelViewSet):
     # Creates a new session, returns session id and the QR code
     @action(detail=False)
     def new(self, request):
-        session = Session()
+        try:
+            session = Session()
 
-        user = request.user
+            user = request.user
 
-        if not user.is_authenticated:
-            user = User.objects.get(id=1)
-        session.user = user
-        session.save()
+            if not user.is_authenticated:
+                user = User.objects.get(id=1)
+            session.user = user
+            session.save()
 
-        img = qrcode.make("{}/sessions/{}/status/".format(settings.HOST_URL, session.id))
-        print(session.id)
-        
-        # Hack for local builds on windows
-        if platform.system() == 'Windows':
-            cDir = os.path.dirname(os.path.abspath(__file__))
-            tmpDir = os.path.join(cDir, 'tmp')
-            os.makedirs(tmpDir, exist_ok=True)
-            path = os.path.join(tmpDir, "{}.png".format(session.id))
-        else:
-            path = "/tmp/{}.png".format(session.id)
-        img.save(path, "png")
+            img = qrcode.make("{}/sessions/{}/status/".format(settings.HOST_URL, session.id))
+            print(session.id)
 
-        with open(path, "rb") as fh:
-            with ContentFile(fh.read()) as file_content:
-                session.qrcode.save("{}.png".format(session.id), file_content)
-                session.save()
+            # Hack for local builds on windows
+            if platform.system() == 'Windows':
+                cDir = os.path.dirname(os.path.abspath(__file__))
+                tmpDir = os.path.join(cDir, 'tmp')
+                os.makedirs(tmpDir, exist_ok=True)
+                path = os.path.join(tmpDir, "{}.png".format(session.id))
+            else:
+                path = "/tmp/{}.png".format(session.id)
+            img.save(path, "png")
 
-        serializer = SessionSerializer(Session.objects.filter(id=session.id), many=True)
-                
+            with open(path, "rb") as fh:
+                with ContentFile(fh.read()) as file_content:
+                    session.qrcode.save("{}.png".format(session.id), file_content)
+                    session.save()
+
+            serializer = SessionSerializer(Session.objects.filter(id=session.id), many=True)
+
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_create_error"))
+
         return Response(serializer.data)
     
     ## Get and send QR code
     @action(detail=True)
     def get_qr(self, request, pk):
-        session = Session.objects.get(pk=pk)
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            session = get_object_or_404(Session, pk=pk, user=request.user)
        
-        # # get the QR code from the database
-        if session.qrcode:
-            qr = session.qrcode
-        elif session.meta and 'sessionWithCalibration' in session.meta:
-            sessionWithCalibration = Session.objects.get(pk = str(session.meta['sessionWithCalibration']['id']))
-            qr = sessionWithCalibration.qrcode
+            # get the QR code from the database
+            if session.qrcode:
+                qr = session.qrcode
+            elif session.meta and 'sessionWithCalibration' in session.meta:
+                sessionWithCalibration = Session.objects.get(pk = str(session.meta['sessionWithCalibration']['id']))
+                qr = sessionWithCalibration.qrcode
 
-        s3_client = boto3.client(
-            's3',
-            endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        )
+            s3_client = boto3.client(
+                's3',
+                endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            )
 
-        url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
-                'Key': str(qr)
-            },
-            ExpiresIn=12000
-        )
-    
-        res = {'qr': url}
+            url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': settings.AWS_STORAGE_BUCKET_NAME,
+                    'Key': str(qr)
+                },
+                ExpiresIn=12000
+            )
+
+            res = {'qr': url}
+
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("qr_retrieve_error"))
+
         return Response(res)
        
     ## New session GET '/new_subject/'
@@ -362,37 +490,65 @@ class SessionViewSet(viewsets.ModelViewSet):
     # re-connecting and re-calibrating cameras with every new subject.
     @action(detail=True)
     def new_subject(self, request, pk):
-        sessionNew = Session()
-        sessionOld = Session.objects.get(pk=pk)
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        user = request.user
+            sessionNew = Session()
+            sessionOld = get_object_or_404(Session, pk=pk, user=request.user)
 
-        if not user.is_authenticated:
-            user = User.objects.get(id=1)
-        sessionNew.user = user        
-        
-        # tell the new session where it can find a calibration trial
-        if sessionOld.meta and 'sessionWithCalibration' in sessionOld.meta:
-            sessionWithCalibration = str(sessionOld.meta['sessionWithCalibration']['id'])
-        else:
-            sessionWithCalibration = str(sessionOld.id)
+            user = request.user
 
-        sessionNew.meta = {}
-        sessionNew.meta["sessionWithCalibration"] = {
-                "id": sessionWithCalibration
-            }
-        sessionNew.save()
+            if not user.is_authenticated:
+                user = User.objects.get(id=1)
+            sessionNew.user = user
 
-        # tell the old session to go to the new session - phones will connect to this new session
-        if not sessionOld.meta:
-            sessionOld.meta = {}
-        sessionOld.meta["startNewSession"] = {
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+
+        try:
+            # tell the new session where it can find a calibration trial
+            if sessionOld.meta and 'sessionWithCalibration' in sessionOld.meta:
+                sessionWithCalibration = str(sessionOld.meta['sessionWithCalibration']['id'])
+            else:
+                sessionWithCalibration = str(sessionOld.id)
+
+            sessionNew.meta = {}
+            sessionNew.meta["sessionWithCalibration"] = {
+                    "id": sessionWithCalibration
+                }
+            sessionNew.save()
+
+            # tell the old session to go to the new session - phones will connect to this new session
+            if not sessionOld.meta:
+                sessionOld.meta = {}
+            sessionOld.meta["startNewSession"] = {
                 "id": str(sessionNew.id)
             }
-        sessionOld.save()
-        
-        serializer = SessionSerializer(Session.objects.filter(id=sessionNew.id), many=True)
-                
+
+            sessionOld.save()
+
+            serializer = SessionSerializer(Session.objects.filter(id=sessionNew.id), many=True)
+
+        except NotFound:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("user_not_found"))
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_create_error"))
+
         return Response(serializer.data)
 
 
@@ -402,6 +558,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         return super(SessionViewSet, self).get_permissions()
     
     def get_status(self, request, pk):
+
         session = Session.objects.get(pk=pk)
         self.check_object_permissions(self.request, session)
         serializer = SessionSerializer(session)
@@ -528,39 +685,66 @@ class SessionViewSet(viewsets.ModelViewSet):
                 return count
             except ValueError:
                 return 0
-        
-        session = Session.objects.get(pk=pk)
 
-        name = request.GET.get("name",None)
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        trial = Trial()
-        trial.session = session
+            session = get_object_or_404(Session, pk=pk, user=request.user)
 
-        existing_names = Trial.objects.filter(name__startswith=name, session=session).values_list('name', flat=True)
-        if (len(existing_names) > 0) and (name not in ["calibration","neutral"]) and (name in existing_names):
-            highest_count = max([get_count_from_name(existing_name, name) for existing_name in existing_names])
-            name = "{}_{}".format(name, highest_count + 1)
-        
-        trial.name = name
-        trial.save()
+            name = request.GET.get("name", None)
 
-        if name == "calibration" or name == "neutral":
-            time.sleep(2)
-            return self.stop(request, pk)
-        
-        serializer = TrialSerializer(trial, many=False)
-        
+            trial = Trial()
+            trial.session = session
+
+            name_count = Trial.objects.filter(name__startswith=name, session=session).count()
+            if (name_count > 0) and (name not in ["calibration", "neutral"]):
+                name = "{}_{}".format(name, name_count)
+
+            existing_names = Trial.objects.filter(name__startswith=name, session=session).values_list('name', flat=True)
+            if (len(existing_names) > 0) and (name not in ["calibration", "neutral"]) and (name in existing_names):
+                highest_count = max([get_count_from_name(existing_name, name) for existing_name in existing_names])
+                name = "{}_{}".format(name, highest_count + 1)
+
+            trial.name = name
+            trial.save()
+
+            if name == "calibration" or name == "neutral":
+                time.sleep(2)
+                return self.stop(request, pk)
+
+            serializer = TrialSerializer(trial, many=False)
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_record_error'))
+
         return Response(serializer.data)
 
     @action(detail=True)
     def download(self, request, pk):
-        # Extract protocol and host.
-        if request.is_secure():
-            host = "https://" + request.get_host()
-        else:
-            host = "http://" + request.get_host()
+        try:
+            # Extract protocol and host.
+            if request.is_secure():
+                host = "https://" + request.get_host()
+            else:
+                host = "http://" + request.get_host()
 
-        session_zip = downloadAndZipSession(pk, host=host)
+            session_zip = downloadAndZipSession(pk, host=host)
+
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('session_download_error'))
 
         return FileResponse(open(session_zip, "rb"))
     
@@ -570,130 +754,229 @@ class SessionViewSet(viewsets.ModelViewSet):
         url_name="async_session_download"
     )
     def async_download(self, request, pk):
-        if request.user.is_authenticated:
-            session = get_object_or_404(Session, pk=pk, user=request.user)
-            task = download_session_archive.delay(session.id, request.user.id)
-        else:
-            session = get_object_or_404(Session, pk=pk, public=True)
-            task = download_session_archive.delay(session.id)
+        try:
+            if request.user.is_authenticated:
+                session = get_object_or_404(Session, pk=pk, user=request.user)
+                task = download_session_archive.delay(session.id, request.user.id)
+            else:
+                session = get_object_or_404(Session, pk=pk, public=True)
+                task = download_session_archive.delay(session.id)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('session_download_error'))
+
         return Response({"task_id": task.id}, status=200)
     
     @action(detail=True)
-    def get_session_permission(self, request, pk): 
-        session = Session.objects.get(pk=pk)
+    def get_session_permission(self, request, pk):
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        isSessionOwner = session.user == request.user
-        isSessionPublic = session.public
-        isUserAdmin = request.user.groups.filter(name='admin').exists()
-        sessionPermission = {'isOwner':isSessionOwner,
-                             'isPublic':isSessionPublic,
-                             'isAdmin':isUserAdmin}
-        
+            session = get_object_or_404(Session, pk=pk)
+
+            isSessionOwner = session.user == request.user
+            isSessionPublic = session.public
+            isUserAdmin = request.user.groups.filter(name='admin').exists()
+            sessionPermission = {'isOwner': isSessionOwner,
+                                 'isPublic': isSessionPublic,
+                                 'isAdmin': isUserAdmin}
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('session_get_settings_error'))
+
         return Response(sessionPermission)
-    
+
     @action(detail=True)
     def get_session_settings(self, request, pk):
-        session = Session.objects.get(pk=pk)
-        
-        # Check if using same setup
-        if session.meta and 'sessionWithCalibration' in session.meta and 'id' in session.meta['sessionWithCalibration']:
-            session = Session.objects.get(pk=session.meta['sessionWithCalibration']['id'])
-        
-        self.check_object_permissions(self.request, session)
-        serializer = SessionSerializer(session)
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        trials = session.trial_set.order_by("-created_at")
-        trial = None
+            session = get_object_or_404(Session, pk=pk)
 
-        # If there is at least one trial, check it's status
-        if trials.count():
-            trial = trials[0]
-        
-        if trial and trial.video_set.count() > 0:
-            maxFramerates = []
-            for video in trial.video_set.all():
-                if 'max_framerate' in video.parameters:
-                    maxFramerates.append(video.parameters['max_framerate'])
-                else:
-                    maxFramerates = [60]
-                           
-        framerateOptions = [60,120,240]
-        frameratesAvailable = [f for f in framerateOptions if f<=min(maxFramerates)]
-        
-        settings_dict = {'framerates':frameratesAvailable}                          
-            
+            # Check if using same setup
+            if session.meta and 'sessionWithCalibration' in session.meta and 'id' in session.meta['sessionWithCalibration']:
+                session = Session.objects.get(pk=session.meta['sessionWithCalibration']['id'])
+
+            self.check_object_permissions(self.request, session)
+            serializer = SessionSerializer(session)
+
+            trials = session.trial_set.order_by("-created_at")
+            trial = None
+
+            # If there is at least one trial, check it's status
+            if trials.count():
+                trial = trials[0]
+
+            if trial and trial.video_set.count() > 0:
+                maxFramerates = []
+                for video in trial.video_set.all():
+                    if 'max_framerate' in video.parameters:
+                        maxFramerates.append(video.parameters['max_framerate'])
+                    else:
+                        maxFramerates = [60]
+
+            framerateOptions = [60, 120, 240]
+            frameratesAvailable = [f for f in framerateOptions if f <= min(maxFramerates)]
+
+            settings_dict = {'framerates': frameratesAvailable}
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('session_get_settings_error'))
+
         return Response(settings_dict)
 
     @action(detail=True)
     def set_metadata(self, request, pk):
-        session = Session.objects.get(pk=pk)
 
-        if not session.meta:
-            session.meta = {}
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            session = get_object_or_404(Session, pk=pk)
+
+
+            if not session.meta:
+                session.meta = {}
         
-        if "subject_id" in request.GET:
-            session.meta["subject"] = {
-                "id": request.GET.get("subject_id",""),
-                "mass": request.GET.get("subject_mass",""),
-                "height": request.GET.get("subject_height",""),
-                "sex": request.GET.get("subject_sex",""),
-                "gender": request.GET.get("subject_gender",""),
-                "datasharing": request.GET.get("subject_data_sharing",""),
-                "posemodel": request.GET.get("subject_pose_model",""),
-            }
+            if "subject_id" in request.GET:
+                session.meta["subject"] = {
+                    "id": request.GET.get("subject_id",""),
+                    "mass": request.GET.get("subject_mass",""),
+                    "height": request.GET.get("subject_height",""),
+                    "sex": request.GET.get("subject_sex",""),
+                    "gender": request.GET.get("subject_gender",""),
+                    "datasharing": request.GET.get("subject_data_sharing",""),
+                    "posemodel": request.GET.get("subject_pose_model",""),
+                }
 
-        if "settings_framerate" in request.GET:
-            session.meta["settings"] = {
-                "framerate": request.GET.get("settings_framerate",""),
-            }
+            if "settings_framerate" in request.GET:
+                session.meta["settings"] = {
+                    "framerate": request.GET.get("settings_framerate",""),
+                }
 
-        if "settings_data_sharing" in request.GET:
-            if not session.meta["settings"]:
-                session.meta["settings"] = {}
-            session.meta["settings"]["datasharing"] = request.GET.get("settings_data_sharing","")
+            if "settings_data_sharing" in request.GET:
+                if not session.meta["settings"]:
+                    session.meta["settings"] = {}
+                session.meta["settings"]["datasharing"] = request.GET.get("settings_data_sharing","")
 
-        if "settings_pose_model" in request.GET:
-            if not session.meta["settings"]:
-                session.meta["settings"] = {}
-            session.meta["settings"]["posemodel"] = request.GET.get("settings_pose_model","")
+            if "settings_pose_model" in request.GET:
+                if not session.meta["settings"]:
+                    session.meta["settings"] = {}
+                session.meta["settings"]["posemodel"] = request.GET.get("settings_pose_model","")
 
-        if "settings_openSimModel" in request.GET:
-            if not session.meta["settings"]:
-                session.meta["settings"] = {}
-            session.meta["settings"]["openSimModel"] = request.GET.get("settings_openSimModel", "")
+            if "settings_openSimModel" in request.GET:
+                if not session.meta["settings"]:
+                    session.meta["settings"] = {}
+                session.meta["settings"]["openSimModel"] = request.GET.get("settings_openSimModel", "")
 
-        if "settings_augmenter_model" in request.GET:
-            if not session.meta["settings"]:
-                session.meta["settings"] = {}
-            session.meta["settings"]["augmentermodel"] = request.GET.get("settings_augmenter_model", "")
+            if "settings_augmenter_model" in request.GET:
+                if not session.meta["settings"]:
+                    session.meta["settings"] = {}
+                session.meta["settings"]["augmentermodel"] = request.GET.get("settings_augmenter_model", "")
             
-        if "cb_square" in request.GET:
-            session.meta["checkerboard"] = {
-                "square_size": request.GET.get("cb_square",""),
-                "rows": request.GET.get("cb_rows",""),
-                "cols": request.GET.get("cb_cols",""),
-                "placement": request.GET.get("cb_placement",""),
-            }
+            if "cb_square" in request.GET:
+                session.meta["checkerboard"] = {
+                    "square_size": request.GET.get("cb_square",""),
+                    "rows": request.GET.get("cb_rows",""),
+                    "cols": request.GET.get("cb_cols",""),
+                    "placement": request.GET.get("cb_placement",""),
+                }
 
-        if "settings_session_name" in request.GET:
-            if "settings_session_name" not in session.meta:
-                session.meta["sessionName"] = request.GET.get("settings_session_name", "")
+            if "settings_session_name" in request.GET:
+                if "settings_session_name" not in session.meta:
+                    session.meta["sessionName"] = request.GET.get("settings_session_name", "")
 
-        session.save()
-    
-        serializer = SessionSerializer(session, many=False)
-        
+            session.save()
+
+            serializer = SessionSerializer(session, many=False)
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception("Error: " + traceback.format_exc())
+            raise APIException(_('session_set_metadata_error'))
+
         return Response(serializer.data)
 
     @action(detail=True)
     def set_subject(self, request, pk):
-        session = Session.objects.get(pk=pk)
-        subject_id = request.GET.get("subject_id", "")
-        subject = get_object_or_404(Subject, id=subject_id, user=request.user)
-        session.subject = subject
-        session.save()
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        serializer = SessionSerializer(session, many=False)
+            session = get_object_or_404(Session, pk=pk)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_assign_error'))
+
+        try:
+            subject_id = request.GET.get("subject_id", "")
+            subject = get_object_or_404(Subject, id=subject_id, user=request.user)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_assign_error'))
+
+        try:
+            session.subject = subject
+            session.save()
+            serializer = SessionSerializer(session, many=False)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_assign_error'))
+
         return Response(serializer.data)
 
 
@@ -703,50 +986,68 @@ class SessionViewSet(viewsets.ModelViewSet):
     # - session status changed so they start uploading videos
     @action(detail=True)
     def stop(self, request, pk):
-        session = Session.objects.get(pk=pk)
-        trials = session.trial_set.order_by("-created_at")
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        # name = request.GET.get("name",None)
+            session = get_object_or_404(Session, pk=pk)
+            trials = session.trial_set.order_by("-created_at")
 
-        # meta = {
-        #     "subject": {
-        #         "id": request.GET.get("subject_id",""),
-        #         "mass": request.GET.get("subject_mass",""),
-        #         "height": request.GET.get("subject_height",""),
-        #         "gender": request.GET.get("subject_gender",""),
-        #     },
-        #     "checkerboard": {
-        #         "square_size": request.GET.get("cb_square",""),
-        #         "rows": request.GET.get("cb_rows",""),
-        #         "cols": request.GET.get("cb_cols",""),
-        #         "placement": request.GET.get("cb_placement",""),
-        #     }
-        # }
-        # session.meta = meta
-        # session.save()
+            # name = request.GET.get("name",None)
 
-        # If there is at least one trial, check it's status
-        trial = trials[0]
+            # meta = {
+            #     "subject": {
+            #         "id": request.GET.get("subject_id",""),
+            #         "mass": request.GET.get("subject_mass",""),
+            #         "height": request.GET.get("subject_height",""),
+            #         "gender": request.GET.get("subject_gender",""),
+            #     },
+            #     "checkerboard": {
+            #         "square_size": request.GET.get("cb_square",""),
+            #         "rows": request.GET.get("cb_rows",""),
+            #         "cols": request.GET.get("cb_cols",""),
+            #         "placement": request.GET.get("cb_placement",""),
+            #     }
+            # }
+            # session.meta = meta
+            # session.save()
 
-        # delete video instances if there are any redundant ones
-        # which happens when theres wifi latency in phone connection
-        videos = trial.video_set.all()
-        unique_device_ids = set()
-        videos_to_delete = []
+            # If there is at least one trial, check it's status
+            trial = trials[0]
 
-        for video in videos:
-            if video.device_id in unique_device_ids:
-                videos_to_delete.append(video)
-            else:
-                unique_device_ids.add(video.device_id)
+            # delete video instances if there are any redundant ones
+            # which happens when theres wifi latency in phone connection
+            videos = trial.video_set.all()
+            unique_device_ids = set()
+            videos_to_delete = []
 
-        for video in videos_to_delete:
-            video.delete()
+            for video in videos:
+                if video.device_id in unique_device_ids:
+                    videos_to_delete.append(video)
+                else:
+                    unique_device_ids.add(video.device_id)
 
-        trial.status = "stopped"
-        trial.save()
+            for video in videos_to_delete:
+                video.delete()
 
-        serializer = TrialSerializer(trial, many=False)
+            trial.status = "stopped"
+            trial.save()
+
+            serializer = TrialSerializer(trial, many=False)
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception("Error: " + traceback.format_exc())
+            raise APIException(_('trial_cancel_error'))
+
         return Response(serializer.data)
     
     ## Cancel trial POST '<id>/stop/'
@@ -755,101 +1056,165 @@ class SessionViewSet(viewsets.ModelViewSet):
     # - session status changed when cancel is pressed
     @action(detail=True)
     def cancel_trial(self, request, pk):
-        session = Session.objects.get(pk=pk)
-        trials = session.trial_set.order_by("-created_at")
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        # If there is at least one trial, check it's status
-        if len(trials) >0:
-            trial = trials[0]
-            trial.status = "error"
-            trial.save()
-            data = {"status": "error"}
-        else:
-            data = {"status": "noTrials"}
+            session = get_object_or_404(Session, pk=pk)
+            trials = session.trial_set.order_by("-created_at")
+
+            # If there is at least one trial, check its status
+            if len(trials) > 0:
+                trial = trials[0]
+                trial.status = "error"
+                trial.save()
+                data = {"status": "error"}
+            else:
+                data = {"status": "noTrials"}
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception("Error: " + traceback.format_exc())
+            raise APIException(_('trial_cancel_error'))
 
         return Response(data)
 
     @action(detail=True)
     def calibration_img(self, request, pk):
-        session = Session.objects.get(pk=pk)
-        self.check_object_permissions(self.request, session)
-        
-        trials = session.trial_set.filter(name="calibration").order_by("-created_at")
-        print(trials)
-        if len(trials) == 0:
-            data = {
-                "status": "error",
-                "img": [
-                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
-                ],
-            }
-        elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
-            data = {
-                "status": "processing",
-                "img": [
-#                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
-                ],
-            }
-        else:
-            imgs = []
-            for result in trials[0].result_set.all():
-                if result.tag == "calibration-img":
-                    imgs.append(result.media.url)
-            print(imgs)
-            if len(imgs) > 0:
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            session = get_object_or_404(Session, pk=pk)
+            self.check_object_permissions(self.request, session)
+
+            trials = session.trial_set.filter(name="calibration").order_by("-created_at")
+            print(trials)
+            if len(trials) == 0:
                 data = {
-                    "status": "done",
-                    "img": list(sorted(imgs, key=lambda x: x.split("-")[-1])),
-                }
-            
-            else: 
-               data = {
                     "status": "error",
                     "img": [
+                        "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
                     ],
                 }
-        
+            elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
+                data = {
+                    "status": "processing",
+                    "img": [
+    #                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
+                    ],
+                }
+            else:
+                imgs = []
+                for result in trials[0].result_set.all():
+                    if result.tag == "calibration-img":
+                        imgs.append(result.media.url)
+                print(imgs)
+                if len(imgs) > 0:
+                    data = {
+                        "status": "done",
+                        "img": list(sorted(imgs, key=lambda x: x.split("-")[-1])),
+                    }
+
+                else:
+                   data = {
+                        "status": "error",
+                        "img": [],
+                    }
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('calibration_image_retrieve_error'))
+
         return Response(data)
     
     @action(detail=True)
     def neutral_img(self, request, pk):
-        session = Session.objects.get(pk=pk)
-        self.check_object_permissions(self.request, session)
-        trials = session.trial_set.filter(name="neutral").order_by("-created_at")
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        if len(trials) == 0:
-            data = {
-                "status": "error",
-                "img": [
-                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/neutral_pose.png",
-                ],
-            }
-        elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
-            data = {
-                "status": "processing",
-                "img": [
-#                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
-                ],
-            }
-        else:
-            imgs = []
-            for result in trials[0].result_set.all():
-                if result.tag == "neutral-img":
-                    imgs.append(result.media.url)
+            session = get_object_or_404(Session, pk=pk)
+            self.check_object_permissions(self.request, session)
+            trials = session.trial_set.filter(name="neutral").order_by("-created_at")
 
-            if len(imgs) > 0:
+
+            if len(trials) == 0:
                 data = {
-                    "status": "done",
-                    "img": imgs
-                }
-            else: 
-               data = {
                     "status": "error",
                     "img": [
+                        "https://main.d2stl78iuswh3t.amplifyapp.com/images/neutral_pose.png",
                     ],
                 }
-                
-        
+            elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
+                data = {
+                    "status": "processing",
+                    "img": [
+    #                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
+                    ],
+                }
+            else:
+                imgs = []
+                for result in trials[0].result_set.all():
+                    if result.tag == "neutral-img":
+                        imgs.append(result.media.url)
+
+                if len(imgs) > 0:
+                    data = {
+                        "status": "done",
+                        "img": imgs
+                    }
+                else:
+                   data = {
+                        "status": "error",
+                        "img": [
+                        ],
+                    }
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except NotAuthenticated:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('login_needed'))
+        except PermissionDenied:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('permission_denied'))
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("neutral_image_retrieve_error") % {"uuid": str(pk)})
+
         return Response(data)
     
 
@@ -861,76 +1226,83 @@ class TrialViewSet(viewsets.ModelViewSet):
     queryset = Trial.objects.all().order_by("created_at")
     serializer_class = TrialSerializer
 
-    permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
-
+    permission_classes = [IsPublic | (IsOwner | IsAdmin | IsBackend)]
     
     @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
     def dequeue(self, request):
+        try:
+            ip = get_client_ip(request)
 
-        ip = get_client_ip(request)
+            workerType = self.request.query_params.get('workerType')
 
-        workerType = self.request.query_params.get('workerType')
+            # find trials with some videos not uploaded
+            not_uploaded = Video.objects.filter(video='',
+                                                updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
 
-        # find trials with some videos not uploaded
-        not_uploaded = Video.objects.filter(video='',
-                                            updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
+            print(not_uploaded)
 
-        print(not_uploaded)
+            uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
+    #       uploaded_trials = Trial.objects.all()
 
-        uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
-#        uploaded_trials = Trial.objects.all()
-
-        if workerType != 'dynamic':
-            # Priority for 'calibration' and 'neutral'
-            trials = uploaded_trials.filter(status="stopped",
-                                      name__in=["calibration","neutral"],
-                                      result=None)
-            
-            trialsReprocess = uploaded_trials.filter(status="reprocess",
-                                      name__in=["calibration","neutral"],
-                                      result=None)
-            
-            if trials.count() == 0 and workerType != 'calibration':
+            if workerType != 'dynamic':
+                # Priority for 'calibration' and 'neutral'
                 trials = uploaded_trials.filter(status="stopped",
+                                          name__in=["calibration","neutral"],
                                           result=None)
-                
-            if trials.count()==0 and trialsReprocess.count() == 0 and workerType != 'calibration':
+
                 trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                          name__in=["calibration","neutral"],
                                           result=None)
-            
-        else:
-            trials = uploaded_trials.filter(status="stopped",
-                                            result=None).exclude(name__in=["calibration", "neutral"])
-            
-            trialsReprocess = uploaded_trials.filter(status="reprocess",
-                                            result=None).exclude(name__in=["calibration", "neutral"])
-            
-        
-        if trials.count() == 0 and trialsReprocess.count() == 0:
-            raise Http404
-        
-        # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
-        trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
-        # if not priority trials, go to normal trials
-        if trialsPrioritized.count() == 0:
-            trialsPrioritized = trials
-        # if no normal trials, go to reprocess trials
-        if trials.count() == 0:
-            trialsPrioritized = trialsReprocess
 
-        trial = trialsPrioritized[0]
-        trial.status = "processing"
-        trial.save()
+                if trials.count() == 0 and workerType != 'calibration':
+                    trials = uploaded_trials.filter(status="stopped",
+                                              result=None)
 
-        print(ip)
-        print(trial.session.server)
-        if (not trial.session.server) or len(trial.session.server) < 1:
-            session = Session.objects.get(id=trial.session.id)
-            session.server = ip
-            session.save()
-            
-        serializer = TrialSerializer(trial, many=False)
-        
+                if trials.count()==0 and trialsReprocess.count() == 0 and workerType != 'calibration':
+                    trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                              result=None)
+
+            else:
+                trials = uploaded_trials.filter(status="stopped",
+                                                result=None).exclude(name__in=["calibration", "neutral"])
+
+                trialsReprocess = uploaded_trials.filter(status="reprocess",
+                                                result=None).exclude(name__in=["calibration", "neutral"])
+
+
+            if trials.count() == 0 and trialsReprocess.count() == 0:
+                raise Http404
+
+            # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
+            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
+            # if not priority trials, go to normal trials
+            if trialsPrioritized.count() == 0:
+                trialsPrioritized = trials
+            # if no normal trials, go to reprocess trials
+            if trials.count() == 0:
+                trialsPrioritized = trialsReprocess
+
+            trial = trialsPrioritized[0]
+            trial.status = "processing"
+            trial.save()
+
+            print(ip)
+            print(trial.session.server)
+            if (not trial.session.server) or len(trial.session.server) < 1:
+                session = Session.objects.get(id=trial.session.id)
+                session.server = ip
+                session.save()
+
+            serializer = TrialSerializer(trial, many=False)
+
+
+        except Exception:
+            if Http404: # we use the 404 to tell app.py that there are no trials, so need to pass this thru
+                raise Http404
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_dequeue_error'))
+
         return Response(serializer.data)
     
     @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
@@ -953,55 +1325,116 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def rename(self, request, pk):
-        # Get trial.
-        trial = Trial.objects.get(pk=pk, session__user=request.user)
-
         try:
-            error_message = ""
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            # Get trial.
+            trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
 
             # Update trial name and save.
             trial.name = request.data['trialNewName']
             trial.save()
 
-        except Exception as e:
-            error_message = 'There was an error while renaming your trial: ' + str(e)
-            print(error_message)
+            # Serialize trial.
+            serializer = TrialSerializer(trial)
 
-        # Serialize trial.
-        serializer = TrialSerializer(trial)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_rename_error'))
 
         # Return error message and data.
         return Response({
-            'message': error_message,
             'data': serializer.data
         })
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
-        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
-        trial.delete()
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
+            trial.delete()
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_permanent_remove_error'))
+
         return Response({})
 
     @action(detail=True, methods=['post'])
     def trash(self, request, pk):
-        from django.utils.timezone import now
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
-        trial.trashed = True
-        trial.trashed_at = now()
-        trial.save()
+            trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
+            trial.trashed = True
+            trial.trashed_at = now()
+            trial.save()
 
-        serializer = TrialSerializer(trial)
+            serializer = TrialSerializer(trial)
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_remove_error'))
+
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
-        trial.trashed = False
-        trial.trashed_at = None
-        trial.save()
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        serializer = TrialSerializer(trial)
+            trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
+            trial.trashed = False
+            trial.trashed_at = None
+            trial.save()
+
+            serializer = TrialSerializer(trial)
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('trial_restore_error'))
+
         return Response(serializer.data)
 
 
@@ -1066,36 +1499,85 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def trash(self, request, pk):
-        from django.utils.timezone import now
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        subject = get_object_or_404(Subject, pk=pk, user=request.user)
-        subject.trashed = True
-        subject.trashed_at = now()
-        subject.save()
+            subject = get_object_or_404(Subject, pk=pk, user=request.user)
+            subject.trashed = True
+            subject.trashed_at = now()
+            subject.save()
 
-        serializer = SubjectSerializer(subject)
+            serializer = SubjectSerializer(subject)
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_remove_error'))
+
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
-        subject = get_object_or_404(Subject, pk=pk, user=request.user)
-        subject.trashed = False
-        subject.trashed_at = None
-        subject.save()
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        serializer = SubjectSerializer(subject)
+            subject = get_object_or_404(Subject, pk=pk, user=request.user)
+            subject.trashed = False
+            subject.trashed_at = None
+            subject.save()
+
+            serializer = SubjectSerializer(subject)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_restore_error'))
+
         return Response(serializer.data)
 
     @action(detail=True)
     def download(self, request, pk):
-        subject = get_object_or_404(Subject, pk=pk, user=request.user)
-        # Extract protocol and host.
-        if request.is_secure():
-            host = "https://" + request.get_host()
-        else:
-            host = "http://" + request.get_host()
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
 
-        subject_zip = downloadAndZipSubject(pk, host=host)
+            subject = get_object_or_404(Subject, pk=pk, user=request.user)
+            # Extract protocol and host.
+            if request.is_secure():
+                host = "https://" + request.get_host()
+            else:
+                host = "http://" + request.get_host()
+
+            subject_zip = downloadAndZipSubject(pk, host=host)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_create_error'))
 
         return FileResponse(open(subject_zip, "rb"))
     
@@ -1105,19 +1587,57 @@ class SubjectViewSet(viewsets.ModelViewSet):
         url_name="async_subject_download"
     )
     def async_download(self, request, pk):
-        subject = get_object_or_404(Subject, pk=pk, user=request.user)
-        task = download_subject_archive.delay(subject.id, request.user.id)
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            subject = get_object_or_404(Subject, pk=pk, user=request.user)
+            task = download_subject_archive.delay(subject.id, request.user.id)
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_create_error'))
+
         return Response({"task_id": task.id}, status=200)
 
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
-        subject = get_object_or_404(Subject, pk=pk, user=request.user)
-        subject.delete()
-        return Response({})
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            subject = get_object_or_404(Subject, pk=pk, user=request.user)
+            subject.delete()
+            return Response({})
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_permanent_remove_error'))
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
+        try:
+            serializer.save(user=self.request.user)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_create_error'))
 
 class DownloadFileOnReadyAPIView(APIView):
     permission_classes = (AllowAny,)
@@ -1143,91 +1663,111 @@ class UserCreate(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, format='json'):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            if user:
-                token = Token.objects.create(user=user)
-                json = serializer.data
-                json['token'] = token.key
-                return Response(json, status=status.HTTP_201_CREATED)
+        try:
+            serializer = UserSerializer(data=request.data)
+            if serializer.is_valid():
+                user = serializer.save()
+                if user:
+                    token = Token.objects.create(user=user)
+                    json = serializer.data
+                    json['token'] = token.key
+                    return Response(json, status=status.HTTP_201_CREATED)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_create_error'))
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomAuthToken(ObtainAuthToken):
 
     def post(self, request, *args, **kwargs):
-        from mcserver.utils import send_otp_challenge
-        serializer = self.serializer_class(data=request.data,
-                                           context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
+        try:
+            serializer = self.serializer_class(data=request.data,
+                                               context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            user = serializer.validated_data['user']
+            token, created = Token.objects.get_or_create(user=user)
 
-        print("LOGGED IN")
+            print("LOGGED IN")
 
-        # Skip OTP verification if specified
-        otp_challenge_sent = False
+            # Skip OTP verification if specified
+            otp_challenge_sent = False
 
-        if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
-            user.otp_verified = False
-        user.save()
-        login(request, user)
-        if not (user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
-            send_otp_challenge(user)
-            otp_challenge_sent = True
-        
+            if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+                user.otp_verified = False
+
+            user.save()
+            login(request, user)
+
+            if not (user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+                send_otp_challenge(user)
+                otp_challenge_sent = True
+
+        except ValidationError:
+            if settings.DEBUG:
+                print(str(traceback.format_exc()))
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('credentials_incorrect'))
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('login_error'))
+
         return Response({
             'token': token.key,
             'user_id': user.id,
             'otp_challenge_sent': otp_challenge_sent,
         })
 
-from django.core.mail import send_mail
-from django.conf import settings
-from django.core.mail import EmailMessage
-from django.template.loader import render_to_string
-import traceback
-
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
 
     def post(self, request, format='json'):
-        error_message = "success"
-        serializer = ResetPasswordSerializer(data=request.data,
-                                        context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data['email']
+        try:
+            error_message = "success"
+            serializer = ResetPasswordSerializer(data=request.data,
+                                            context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            email = serializer.validated_data['email']
 
-        host = request.data['host']
+            host = request.data['host']
 
-        # Check if there is already an existing token
-        # associated to this email and remove it.
-        objects = ResetPassword.objects.filter(email=email)
-        for object in objects:
-            object.delete()
+            # Check if there is already an existing token
+            # associated to this email and remove it.
+            objects = ResetPassword.objects.filter(email=email)
+            for object in objects:
+                object.delete()
 
-        # Generate a new token for this email.
-        ResetPassword.objects.create(
-            email=email
-        )
+            # Generate a new token for this email.
+            ResetPassword.objects.create(
+                email=email
+            )
 
-        token = get_object_or_404(ResetPassword, email__exact=email).id
-        username = get_object_or_404(User, email__exact=email).username
+            token = get_object_or_404(ResetPassword, email__exact=email).id
+            username = get_object_or_404(User, email__exact=email).username
 
-        reset_password_email_subject = 'Opencap - Forgot Username or Password'
+            reset_password_email_subject = _('reset_password_email_subject')
 
-        link = host + '/new-password/' + str(token)
+            link = host + '/new-password/' + str(token)
 
-        logo_link = settings.LOGO_LINK
-        
-        email_body_html = render_to_string('email/reset_password_email.html')
-        email_body_html = email_body_html % (logo_link, username, link, link, str(token))
-        
-        email = EmailMessage(reset_password_email_subject, email_body_html, to=[email])
-        email.content_subtype = "html"
-        email.send()
+            logo_link = settings.LOGO_LINK
+
+            email_body_html = render_to_string('email/reset_password_email.html')
+            email_body_html = email_body_html % (logo_link, username, link, link, str(token))
+
+            email = EmailMessage(reset_password_email_subject, email_body_html, to=[email])
+            email.content_subtype = "html"
+            email.send()
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('account_email_not_found'))
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('error_reset_password'))
 
         return Response({
             'message': error_message
@@ -1238,91 +1778,77 @@ class NewPasswordView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, format='json'):
-        error_message = "Success"
-
-        serializer = NewPasswordSerializer(data=request.data,
-                                        context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        new_password = serializer.validated_data['password']
-        token = serializer.validated_data['token']
-
-        # Try to retrieve email using token. If 404, the email does not exist and this link is not valid.
         try:
+            serializer = NewPasswordSerializer(data=request.data,
+                                               context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            new_password = serializer.validated_data['password']
+            token = serializer.validated_data['token']
+
+            # Try to retrieve email using token. If 404, the email does not exist and this link is not valid.
             email = get_object_or_404(ResetPassword, id__exact=token).email
-        except:
-            error_message = 'The link to reset your password has expired or does not exist.'
 
-            # Return error message.
-            return Response({
-                'message': error_message
-            })
+            user = get_object_or_404(User, email__exact=email)
 
-        user = get_object_or_404(User, email__exact=email)
+            # Check if token expired. First get date of creation.
+            date = get_object_or_404(ResetPassword, email__exact=email).datetime
+            # Check if today has passed more than 3 days since creation of token.
+            if timezone.now().date() >= date + timedelta(days=3):
 
-        # Check if token expired. First get date of creation.
-        date = get_object_or_404(ResetPassword, email__exact=email).datetime
-        # Check if today has passed more than 3 days since creation of token.
-        if timezone.now().date() >= date + timedelta(days=3):
-            error_message = 'The link to reset your password has expired or does not exist. Try reset your password again.'
+                # Remove the expired token.
+                objects = ResetPassword.objects.filter(email=email)
+                for object in objects:
+                    object.delete()
 
-            # Remove the expired token.
-            objects = ResetPassword.objects.filter(email=email)
-            for object in objects:
-                object.delete()
+                if settings.DEBUG:
+                    raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise NotFound(_('reset_password_link_expired'))
 
-            # Return error message.
-            return Response({
-                'message': error_message
-            })
+            else:
+                # If token exists, and it has not expired, set new password.
+                user.set_password(new_password)
+                user.save()
 
-        else:
-            # If token exists, and it has not expired, set new password.
-            user.set_password(new_password)
-            user.save()
-                
-            # Remove the token.
-            objects = ResetPassword.objects.filter(email=email)
-            for object in objects:
-                object.delete()
+                # Remove the token.
+                objects = ResetPassword.objects.filter(email=email)
+                for object in objects:
+                    object.delete()
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('reset_password_link_expired'))
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_('new_password_creation_error'))
 
         # Return message. At this point no error have been thrown and this should return success.
-        return Response({
-            'message': error_message
-        })
-
-
-
-
-from functools import partial
-from django_otp.forms import OTPTokenForm
-
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
-
-from rest_framework.authentication import TokenAuthentication
-
-from rest_framework.decorators import api_view, renderer_classes
-from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
-
-from rest_framework import status
+        return Response({})
 
 @api_view(('POST',))
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 @csrf_exempt
 def verify(request):
+    try:
+        device = request.user.emaildevice_set.all()[0]
+        data = json.loads(request.body.decode('utf-8'))
+        verified = device.verify_token(data["otp_token"])
+        print("VERIFICATION", verified)
+        request.user.otp_verified = verified
 
-    device = request.user.emaildevice_set.all()[0]
-    data = json.loads(request.body.decode('utf-8'))
-    verified = device.verify_token(data["otp_token"])
-    print("VERIFICATION", verified)
-    request.user.otp_verified = verified
-    if 'remember_device' in data and data['remember_device']:
-        request.user.otp_skip_till = timezone.now() + timedelta(days=90)
-    request.user.save()
+        if 'remember_device' in data and data['remember_device']:
+            request.user.otp_skip_till = timezone.now() + timedelta(days=90)
+        request.user.save()
+
+    except Exception:
+        if settings.DEBUG:
+            raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+        raise APIException(_('verification_error'))
 
     if not verified:
-        return Response({
-        }, status.HTTP_401_UNAUTHORIZED)
+        if settings.DEBUG:
+            raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+        raise NotAuthenticated(_('verification_code_incorrect'))
 
     return Response({})
 
