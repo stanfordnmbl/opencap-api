@@ -9,7 +9,10 @@ from mcserver.models import (
     Session,
     AnalysisFunction,
     AnalysisResult,
-    AnalysisResultState
+    AnalysisResultState,
+    Result,
+    Trial,
+    Session
 )
 from mcserver.tasks import (
     download_session_archive,
@@ -39,6 +42,9 @@ class TasksTests(TestCase):
             last_name="Dou",
             password="testpass"
         )
+        self.session = Session.objects.create(user=self.user)
+        self.trial_one = Trial.objects.create(session=self.session, name="testone")
+        self.trial_two = Trial.objects.create(session=self.session, name="testtwo")
 
     @mock.patch("mcserver.tasks.zipdir")
     @mock.patch.object(SessionDirectoryConstructor, "build")
@@ -138,17 +144,25 @@ class TasksTests(TestCase):
             description='desc 0',
             url='http://localhost:5000/functions/invokations'
         )
-        data = {'session_id': 'dummy-session-id', 'trial_names': ['test']}
-        before_results = AnalysisResult.objects.count()
+        data = {'session_id': self.session.id, 'specific_trial_names': [self.trial_one.name]}
+        before_analisys_results = AnalysisResult.objects.count()
+        before_results = Result.objects.count()
         task = invoke_aws_lambda_function.delay(self.user.id, function.id, data)
-        after_results = AnalysisResult.objects.count()
-        result = AnalysisResult.objects.last()
-        self.assertEqual(result.user, self.user)
-        self.assertEqual(result.function, function)
-        self.assertEqual(result.data, data)
-        self.assertEqual(result.status, status_code)
-        self.assertEqual(result.result, response_data)
-        self.assertEqual(result.state, AnalysisResultState.SUCCESSFULL)
+        after_analisys_results = AnalysisResult.objects.count()
+        after_results = Result.objects.count()
+        self.assertEqual(after_analysis_results, before_analysis_results)
+        self.assertEqual(after_results, before_results + 1)
+        result = Result.objects.last()
+        self.assertEqual(result.trial, self.trial_one)
+        self.assertEqual(result.meta, response_data)
+        self.assertEqual(result.tag, function.title)
+        analisys_result = AnalysisResult.objects.last()
+        self.assertEqual(analisys_result.user, self.user)
+        self.assertEqual(analisys_result.function, function)
+        self.assertEqual(analisys_result.data, data)
+        self.assertEqual(analisys_result.status, status_code)
+        self.assertEqual(analisys_result.result, result)
+        self.assertEqual(analisys_result.state, AnalysisResultState.SUCCESSFULL)
 
     @mock.patch("requests.post")
     def test_invoke_aws_lambda_function_commits_failed_analysis_result_if_aws_error(
@@ -162,36 +176,52 @@ class TasksTests(TestCase):
             description='desc 0',
             url='http://localhost:5000/functions/invokations'
         )
-        data = {'trial_names': ['test']}
-        before_results = AnalysisResult.objects.count()
+        data = {'specific_trial_names': [self.trial_one.name]}
+        before_analysis_results = AnalysisResult.objects.count()
+        before_results = Result.objects.count()
         task = invoke_aws_lambda_function.delay(self.user.id, function.id, data)
-        after_results = AnalysisResult.objects.count()
-        result = AnalysisResult.objects.last()
-        self.assertEqual(result.user, self.user)
-        self.assertEqual(result.function, function)
-        self.assertEqual(result.data, data)
-        self.assertEqual(result.status, status_code)
-        self.assertEqual(result.result, response_data)
-        self.assertEqual(result.state, AnalysisResultState.FAILED)
+        after_analysis_results = AnalysisResult.objects.count()
+        after_results = Result.objects.count()
+        self.assertEqual(after_analysis_results, before_analysis_results + 1)
+        self.assertEqual(after_results, before_results + 1)
+        result = Result.objects.last()
+        self.assertEqual(result.trial, self.trial_one)
+        self.assertEqual(result.meta, response_data)
+        self.assertEqual(result.tag, function.title)
+        analysis_result = AnalysisResult.objects.last()
+        self.assertEqual(analysis_result.user, self.user)
+        self.assertEqual(analysis_result.function, function)
+        self.assertEqual(analysis_result.data, data)
+        self.assertEqual(analysis_result.status, status_code)
+        self.assertEqual(analysis_result.result, result)
+        self.assertEqual(analysis_result.state, AnalysisResultState.FAILED)
     
     def test_invoke_aws_lambda_function_commits_failed_analysis_result_if_request_exception(
         self
     ):
         function = AnalysisFunction.objects.create(title='func 0', description='desc 0')
-        data = {'trial_names': ['test']}
-        before_results = AnalysisResult.objects.count()
+        data = {'specific_trial_names': [self.trial_two.name]}
+        before_analysis_results = AnalysisResult.objects.count()
+        before_results = Result.objects.count()
         task = invoke_aws_lambda_function.delay(self.user.id, function.id, data)
-        after_results = AnalysisResult.objects.count()
-        result = AnalysisResult.objects.last()
-        self.assertEqual(result.user, self.user)
-        self.assertEqual(result.function, function)
-        self.assertEqual(result.data, data)
-        self.assertEqual(result.status, 500)
+        after_analysis_results = AnalysisResult.objects.count()
+        after_results = Result.objects.count()
+        result = Result.objects.last()
+        self.assertEqual(after_analysis_results, before_analysis_results + 1)
+        self.assertEqual(after_results, before_results + 1)
+        self.assertEqual(result.trial, self.trial_one)
         self.assertEqual(
-            result.result,
+            result.meta,
             {'error': 'Invalid URL \'\': No scheme supplied. Perhaps you meant https://?'}
         )
-        self.assertEqual(result.state, AnalysisResultState.FAILED)
+        self.assertEqual(result.tag, function.title)
+        analysis_result = AnalysisResult.objects.last()
+        self.assertEqual(analysis_result.user, self.user)
+        self.assertEqual(analysis_result.function, function)
+        self.assertEqual(analysis_result.data, data)
+        self.assertEqual(analysis_result.status, 500)
+        self.assertEqual(analysis_result.result, result)
+        self.assertEqual(analysis_result.state, AnalysisResultState.FAILED)
     
     @mock.patch("requests.post")
     def test_invoke_aws_lambda_function_commits_failed_analysis_result_if_json_invalid(
@@ -203,14 +233,57 @@ class TasksTests(TestCase):
             description='desc 0',
             url='https://localhost:5000/functions/invokations'
         )
-        data = {'trial_names': ['test', {'name': 'test'}]}
+        data = {'specific_trial_names': ['test', {'name': 'test'}]}
         before_results = AnalysisResult.objects.count()
         task = invoke_aws_lambda_function.delay(self.user.id, function.id, data)
-        after_results = AnalysisResult.objects.count()
-        result = AnalysisResult.objects.last()
+        after_analysis_results = AnalysisResult.objects.count()
+        after_results = Result.objects.count()
+        result = Result.objects.last()
+        self.assertEqual(result.trial, self.trial_one)
+        self.assertEqual(result.meta, {'error': 'Invalid JSON.'})
+        self.assertEqual(result.tag, function.title)
+        analysis_result = AnalysisResult.objects.last()
         self.assertEqual(result.user, self.user)
         self.assertEqual(result.function, function)
         self.assertEqual(result.data, data)
         self.assertEqual(result.status, 500)
-        self.assertEqual(result.result, {'error': 'Invalid JSON.'})
+        self.assertEqual(result.result, result)
         self.assertEqual(result.state, AnalysisResultState.FAILED)
+    
+    @mock.patch("requests.post")
+    def test_invoke_aws_lambda_function_re_run_analysis_function_in_the_same_result_instance(
+        self, mock_post_request
+    ):
+        response_data, status_code = {
+            'message': 'Maximal center of mass vertical position: 1.07 m'
+        }, 200
+        mock_post_request.return_value.status_code = status_code
+        mock_post_request.return_value.json.return_value = response_data
+        function = AnalysisFunction.objects.create(
+            title='func 0',
+            description='desc 0',
+            url='http://localhost:5000/functions/invokations'
+        )
+        result = Result.objects.create(
+            trial=self.trial_one, tag=function.title, meta={'error': 'Invalid JSON'}
+        )
+        other_result = Result.objects.create(trial=self.trial_two, tag=function.title)
+        data = {'session_id': self.session.id, 'specific_trial_names': [self.trial_one.name]}
+        before_analisys_results = AnalysisResult.objects.count()
+        before_results = Result.objects.count()
+        task = invoke_aws_lambda_function.delay(self.user.id, function.id, data)
+        after_analisys_results = AnalysisResult.objects.count()
+        after_results = Result.objects.count()
+        self.assertEqual(after_analysis_results, before_analysis_results + 1)
+        self.assertEqual(after_results, before_results)
+        result.refresh_from_db()
+        self.assertEqual(result.trial, self.trial_one)
+        self.assertEqual(result.meta, response_data)
+        self.assertEqual(result.tag, function.title)
+        analisys_result = AnalysisResult.objects.last()
+        self.assertEqual(analisys_result.user, self.user)
+        self.assertEqual(analisys_result.function, function)
+        self.assertEqual(analisys_result.data, data)
+        self.assertEqual(analisys_result.status, status_code)
+        self.assertEqual(analisys_result.result, result)
+        self.assertEqual(analisys_result.state, AnalysisResultState.SUCCESSFULL)
