@@ -23,7 +23,7 @@ class SerializersTests(TestCase):
     def test_analysis_result_serializer_represents_correct_fields(self):
         self.assertEqual(
             set(AnalysisResultSerializer.Meta.fields),
-            {'analysis_function', 'result', 'status', 'state'}
+            {'analysis_function', 'result', 'status', 'state', 'response'}
         )
 
 
