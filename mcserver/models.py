@@ -344,8 +344,15 @@ class AnalysisResult(models.Model):
     data = models.JSONField(
         'Data', default=dict, help_text='Data function was called with.'
     )
-    result = models.JSONField(
-        'Result', default=dict, help_text='Data function responsed with.'
+    response = models.JSONField(
+        'Response', default=dict, help_text='Data function responsed with.'
+    )
+    result = models.ForeignKey(
+        to=Result,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        help_text='Keeps analysis function result details.'
     )
     status = models.IntegerField(
         'Status',

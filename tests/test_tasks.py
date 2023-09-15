@@ -144,13 +144,13 @@ class TasksTests(TestCase):
             description='desc 0',
             url='http://localhost:5000/functions/invokations'
         )
-        data = {'session_id': self.session.id, 'specific_trial_names': [self.trial_one.name]}
-        before_analisys_results = AnalysisResult.objects.count()
+        data = {'session_id': str(self.session.id), 'specific_trial_names': [self.trial_one.name]}
+        before_analysis_results = AnalysisResult.objects.count()
         before_results = Result.objects.count()
         task = invoke_aws_lambda_function.delay(self.user.id, function.id, data)
-        after_analisys_results = AnalysisResult.objects.count()
+        after_analysis_results = AnalysisResult.objects.count()
         after_results = Result.objects.count()
-        self.assertEqual(after_analysis_results, before_analysis_results)
+        self.assertEqual(after_analysis_results, before_analysis_results + 1)
         self.assertEqual(after_results, before_results + 1)
         result = Result.objects.last()
         self.assertEqual(result.trial, self.trial_one)
@@ -183,17 +183,14 @@ class TasksTests(TestCase):
         after_analysis_results = AnalysisResult.objects.count()
         after_results = Result.objects.count()
         self.assertEqual(after_analysis_results, before_analysis_results + 1)
-        self.assertEqual(after_results, before_results + 1)
-        result = Result.objects.last()
-        self.assertEqual(result.trial, self.trial_one)
-        self.assertEqual(result.meta, response_data)
-        self.assertEqual(result.tag, function.title)
+        self.assertEqual(after_results, before_results)
         analysis_result = AnalysisResult.objects.last()
         self.assertEqual(analysis_result.user, self.user)
         self.assertEqual(analysis_result.function, function)
         self.assertEqual(analysis_result.data, data)
         self.assertEqual(analysis_result.status, status_code)
-        self.assertEqual(analysis_result.result, result)
+        self.assertIsNone(analysis_result.result)
+        self.assertEqual(analysis_result.response, {'error': 'session_id is required.'})
         self.assertEqual(analysis_result.state, AnalysisResultState.FAILED)
     
     def test_invoke_aws_lambda_function_commits_failed_analysis_result_if_request_exception(
@@ -206,21 +203,18 @@ class TasksTests(TestCase):
         task = invoke_aws_lambda_function.delay(self.user.id, function.id, data)
         after_analysis_results = AnalysisResult.objects.count()
         after_results = Result.objects.count()
-        result = Result.objects.last()
         self.assertEqual(after_analysis_results, before_analysis_results + 1)
-        self.assertEqual(after_results, before_results + 1)
-        self.assertEqual(result.trial, self.trial_one)
-        self.assertEqual(
-            result.meta,
-            {'error': 'Invalid URL \'\': No scheme supplied. Perhaps you meant https://?'}
-        )
-        self.assertEqual(result.tag, function.title)
+        self.assertEqual(after_results, before_results)
         analysis_result = AnalysisResult.objects.last()
         self.assertEqual(analysis_result.user, self.user)
         self.assertEqual(analysis_result.function, function)
         self.assertEqual(analysis_result.data, data)
         self.assertEqual(analysis_result.status, 500)
-        self.assertEqual(analysis_result.result, result)
+        self.assertEqual(
+            analysis_result.response,
+            {'error': 'Invalid URL \'\': No scheme supplied. Perhaps you meant https://?'}
+        )
+        self.assertIsNone(analysis_result.result)
         self.assertEqual(analysis_result.state, AnalysisResultState.FAILED)
     
     @mock.patch("requests.post")
@@ -234,21 +228,21 @@ class TasksTests(TestCase):
             url='https://localhost:5000/functions/invokations'
         )
         data = {'specific_trial_names': ['test', {'name': 'test'}]}
-        before_results = AnalysisResult.objects.count()
+        before_analysis_results = AnalysisResult.objects.count()
+        before_results = Result.objects.count()
         task = invoke_aws_lambda_function.delay(self.user.id, function.id, data)
         after_analysis_results = AnalysisResult.objects.count()
         after_results = Result.objects.count()
-        result = Result.objects.last()
-        self.assertEqual(result.trial, self.trial_one)
-        self.assertEqual(result.meta, {'error': 'Invalid JSON.'})
-        self.assertEqual(result.tag, function.title)
+        self.assertEqual(after_analysis_results, before_analysis_results + 1)
+        self.assertEqual(after_results, before_results)
         analysis_result = AnalysisResult.objects.last()
-        self.assertEqual(result.user, self.user)
-        self.assertEqual(result.function, function)
-        self.assertEqual(result.data, data)
-        self.assertEqual(result.status, 500)
-        self.assertEqual(result.result, result)
-        self.assertEqual(result.state, AnalysisResultState.FAILED)
+        self.assertEqual(analysis_result.user, self.user)
+        self.assertEqual(analysis_result.function, function)
+        self.assertEqual(analysis_result.data, data)
+        self.assertEqual(analysis_result.status, 500)
+        self.assertIsNone(analysis_result.result)
+        self.assertEqual(analysis_result.response, {'error': 'Invalid JSON.'})
+        self.assertEqual(analysis_result.state, AnalysisResultState.FAILED)
     
     @mock.patch("requests.post")
     def test_invoke_aws_lambda_function_re_run_analysis_function_in_the_same_result_instance(
@@ -268,18 +262,14 @@ class TasksTests(TestCase):
             trial=self.trial_one, tag=function.title, meta={'error': 'Invalid JSON'}
         )
         other_result = Result.objects.create(trial=self.trial_two, tag=function.title)
-        data = {'session_id': self.session.id, 'specific_trial_names': [self.trial_one.name]}
-        before_analisys_results = AnalysisResult.objects.count()
+        data = {'session_id': str(self.session.id), 'specific_trial_names': [self.trial_one.name]}
+        before_analysis_results = AnalysisResult.objects.count()
         before_results = Result.objects.count()
         task = invoke_aws_lambda_function.delay(self.user.id, function.id, data)
-        after_analisys_results = AnalysisResult.objects.count()
+        after_analysis_results = AnalysisResult.objects.count()
         after_results = Result.objects.count()
         self.assertEqual(after_analysis_results, before_analysis_results + 1)
         self.assertEqual(after_results, before_results)
-        result.refresh_from_db()
-        self.assertEqual(result.trial, self.trial_one)
-        self.assertEqual(result.meta, response_data)
-        self.assertEqual(result.tag, function.title)
         analisys_result = AnalysisResult.objects.last()
         self.assertEqual(analisys_result.user, self.user)
         self.assertEqual(analisys_result.function, function)

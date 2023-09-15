@@ -9,6 +9,8 @@ from datetime import timedelta
 from mcserver.models import (
     DownloadLog,
     Session,
+    Result,
+    Trial,
     AnalysisFunction,
     AnalysisResult,
     AnalysisResultState
@@ -86,7 +88,7 @@ def delete_pingdom_sessions():
 @shared_task(bind=True)
 def invoke_aws_lambda_function(self, user_id, function_id, data):
     function = AnalysisFunction.objects.get(id=function_id)
-    result = AnalysisResult.objects.create(
+    analysis_result = AnalysisResult.objects.create(
         task_id=str(self.request.id),
         function=function,
         user_id=user_id,
@@ -97,13 +99,24 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
         response = requests.post(
             function.url, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}
         )
-        result.result = response.json()
-        result.status = response.status_code
-        result.state = AnalysisResultState.SUCCESSFULL
+        function_response = response.json()
+        analysis_result.status = response.status_code
+        analysis_result.state = AnalysisResultState.SUCCESSFULL
         if response.status_code >= HTTPStatus.BAD_REQUEST.value:
-            result.state = AnalysisResultState.FAILED
+            analysis_result.state = AnalysisResultState.FAILED
     except (ValueError, requests.RequestException) as e:
-        result.result = {'error': str(e)}
-        result.status = HTTPStatus.INTERNAL_SERVER_ERROR.value
-        result.state = AnalysisResultState.FAILED
-    result.save(update_fields=['result', 'status', 'state'])
+        function_response = {'error': str(e)}
+        analysis_result.status = HTTPStatus.INTERNAL_SERVER_ERROR.value
+        analysis_result.state = AnalysisResultState.FAILED
+
+    if analysis_result.state == AnalysisResultState.SUCCESSFULL:
+        trial = Trial.objects.get(
+            name=data['specific_trial_names'][0], session_id=data['session_id']
+        )
+        result = Result.objects.update_or_create(
+            trial=trial, tag=function.title, defaults={"meta": function_response}
+        )[0]
+        analysis_result.result = result
+    else:
+        analysis_result.response = function_response
+    analysis_result.save(update_fields=['result', 'status', 'state', 'response'])
