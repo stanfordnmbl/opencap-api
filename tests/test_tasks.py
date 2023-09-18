@@ -1,4 +1,6 @@
 import os
+import json
+import tempfile
 from unittest import mock
 
 from django.test import TestCase, override_settings
@@ -24,8 +26,14 @@ from mcserver.zipsession_v2 import (
     SessionDirectoryConstructor, SubjectDirectoryConstructor
 )
 
+_temp_media = tempfile.mkdtemp()
 
-@override_settings(task_always_eager=True)
+
+@override_settings(
+    MEDIA_ROOT=_temp_media,
+    DEFAULT_FILE_STORAGE="django.core.files.storage.FileSystemStorage",
+    task_always_eager=True
+)
 class TasksTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -154,8 +162,9 @@ class TasksTests(TestCase):
         self.assertEqual(after_results, before_results + 1)
         result = Result.objects.last()
         self.assertEqual(result.trial, self.trial_one)
-        self.assertEqual(result.meta, response_data)
         self.assertEqual(result.tag, function.title)
+        with open(result.media.path, 'r') as json_file:
+            self.assertEqual(json.loads(json_file.read()), response_data)
         analisys_result = AnalysisResult.objects.last()
         self.assertEqual(analisys_result.user, self.user)
         self.assertEqual(analisys_result.function, function)
