@@ -1894,6 +1894,22 @@ class InvokeAnalysisFunctionAPIView(APIView):
         task = invoke_aws_lambda_function.delay(request.user.id, function.id, request.data)
         return Response({'task_id': task.id}, status=201)
 
+
+class AnalysisFunctionTaskIdAPIView(APIView):
+    """ Returns the Celery task id for the analysis function for given trial id.
+    """
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        function = get_object_or_404(
+            AnalysisFunction, pk=self.kwargs['pk'], is_active=True
+        )
+        analysis_result = get_object_or_404(
+            AnalysisResult,
+            function=function, trial_id=self.kwargs['trial_id'])
+        return Response({'task_id': analysis_result.task_id}, status=201)
+
+
 class AnalysisResultOnReadyAPIView(APIView):
     """ Returns AnalysisResult if it has been proccessed,
         otherwise responses with 202 status and makes FE
@@ -1911,3 +1927,21 @@ class AnalysisResultOnReadyAPIView(APIView):
             serializer = AnalysisResultSerializer(result)
             return Response(serializer.data)
         return Response(status=202)
+
+class AnalysisFunctionsPendingForTrialsAPIView(APIView):
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        from collections import defaultdict
+        results = AnalysisResult.objects.filter(
+            user=request.user,
+            state=AnalysisResultState.PENDING,
+        )
+        data = defaultdict(list)
+        for result in results:
+            trial_ids = Trial.objects.filter(
+                session_id=result.data['session_id'],
+                name__in=result.data['specific_trial_names']).values_list('id', flat=True)
+            data[result.function_id] += list(trial_ids)
+
+        return Response(data)
