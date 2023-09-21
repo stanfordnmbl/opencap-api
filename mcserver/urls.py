@@ -35,6 +35,7 @@ from mcserver.views import (
     AnalysisResultOnReadyAPIView,
     AnalysisFunctionTaskIdAPIView,
     AnalysisFunctionsPendingForTrialsAPIView,
+    AnalysisFunctionsStatesForTrialsAPIView,
 )
 from rest_framework import routers, serializers, viewsets
 from rest_framework.authtoken.views import obtain_auth_token
@@ -93,6 +94,11 @@ urlpatterns = [
         'analysis-results/pending/',
         AnalysisFunctionsPendingForTrialsAPIView.as_view(),
         name='analysis-results-pending-for-trials'
+    ),
+    path(
+        'analysis-results/states/',
+        AnalysisFunctionsStatesForTrialsAPIView.as_view(),
+        name='analysis-results-statuses-for-trials'
     ),
 #    path('accounts/login/', OTPAuthenticationForm.as_view(authentication_form=OTPAuthenticationForm)),
 ]

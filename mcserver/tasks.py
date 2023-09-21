@@ -90,13 +90,15 @@ def delete_pingdom_sessions():
 @shared_task(bind=True)
 def invoke_aws_lambda_function(self, user_id, function_id, data):
     function = AnalysisFunction.objects.get(id=function_id)
-    analysis_result = AnalysisResult.objects.create(
+    analysis_result = AnalysisResult(
         task_id=str(self.request.id),
         function=function,
         user_id=user_id,
         data=data,
         state=AnalysisResultState.PENDING
     )
+    analysis_result.save()
+
     try:
         response = requests.post(
             function.url, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}
