@@ -179,5 +179,6 @@ class AnalysisFunctionAdmin(admin.ModelAdmin):
 @admin.register(AnalysisResult)
 class AnalysisResultAdmin(admin.ModelAdmin):
     list_display = ['task_id', 'user', 'function', 'status', 'state']
-    list_filter = ['user__email', 'function__title', 'status', 'state']
+    list_filter = ['user__email', 'function__title', 'state']
+    raw_id_fields = ['user', 'trial', 'result']
     search_fields = ['task_id']

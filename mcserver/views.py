@@ -1894,6 +1894,23 @@ class InvokeAnalysisFunctionAPIView(APIView):
         task = invoke_aws_lambda_function.delay(request.user.id, function.id, request.data)
         return Response({'task_id': task.id}, status=201)
 
+
+class AnalysisFunctionTaskIdAPIView(APIView):
+    """ Returns the Celery task id for the analysis function for given trial id.
+    """
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        function = get_object_or_404(
+            AnalysisFunction, pk=self.kwargs['pk'], is_active=True
+        )
+        analysis_result = AnalysisResult.objects.filter(
+            function=function, trial_id=kwargs['trial_id']).order_by('-id').first()
+        if analysis_result:
+            return Response({'task_id': analysis_result.task_id}, status=201)
+        return Http404()
+
+
 class AnalysisResultOnReadyAPIView(APIView):
     """ Returns AnalysisResult if it has been proccessed,
         otherwise responses with 202 status and makes FE
@@ -1909,5 +1926,53 @@ class AnalysisResultOnReadyAPIView(APIView):
             AnalysisResultState.SUCCESSFULL, AnalysisResultState.FAILED
         ):
             serializer = AnalysisResultSerializer(result)
-            return Response(serializer.data)
+            data = serializer.data
+            if result.state == AnalysisResultState.FAILED:
+                # A fix with partial Result emulation to avoid errors on frontend
+                if result.trial:
+                    data['result'] = {
+                        'trial': TrialSerializer(result.trial).data,
+                    }
+            return Response(data)
         return Response(status=202)
+
+class AnalysisFunctionsPendingForTrialsAPIView(APIView):
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        from collections import defaultdict
+        results = AnalysisResult.objects.filter(
+            user=request.user,
+            state=AnalysisResultState.PENDING,
+        )
+        data = defaultdict(list)
+        for result in results:
+            trial_ids = Trial.objects.filter(
+                session_id=result.data['session_id'],
+                name__in=result.data['specific_trial_names']).values_list('id', flat=True)
+            data[result.function_id] += list(trial_ids)
+
+        return Response(data)
+
+
+class AnalysisFunctionsStatesForTrialsAPIView(APIView):
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        from collections import defaultdict
+        results = AnalysisResult.objects.filter(user=request.user).order_by('-id')
+        data = defaultdict(dict)
+        skip_lines = set()
+
+        for result in results:
+            # Skip duplicated results. Fetch only newest.
+            if (result.function_id, str(result.data)) in skip_lines:
+                continue
+            trial_ids = Trial.objects.filter(
+                session_id=result.data['session_id'],
+                name__in=result.data['specific_trial_names']).values_list('id', flat=True)
+            for t_id in trial_ids:
+                data[result.function_id][str(t_id)] =  {'state': result.state, 'task_id': result.task_id}
+                skip_lines.add((result.function_id, str(result.data)))
+
+        return Response(data)
