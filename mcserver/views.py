@@ -36,7 +36,9 @@ from mcserver.models import (
     DownloadLog,
     AnalysisFunction,
     AnalysisResult,
-    AnalysisResultState
+    AnalysisResultState,
+    AnalysisDashboardTemplate,
+    AnalysisDashboard,
 )
 from mcserver.serializers import (
     SessionSerializer,
@@ -49,7 +51,9 @@ from mcserver.serializers import (
     ResetPasswordSerializer,
     NewPasswordSerializer,
     AnalysisFunctionSerializer,
-    AnalysisResultSerializer
+    AnalysisResultSerializer,
+    AnalysisDashboardTemplateSerializer,
+    AnalysisDashboardSerializer,
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -1976,3 +1980,22 @@ class AnalysisFunctionsStatesForTrialsAPIView(APIView):
                 skip_lines.add((result.function_id, str(result.data)))
 
         return Response(data)
+
+
+class AnalysisDashboardViewSet(viewsets.ModelViewSet):
+    serializer_class = AnalysisDashboardSerializer
+    permission_classes = [IsOwner]
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the sessions
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        return AnalysisDashboard.objects.filter(user=user)
+
+    @action(detail=True)
+    def data(self, request, pk):
+        dashboard = get_object_or_404(AnalysisDashboard, user=request.user, pk=pk)
+        return Response(dashboard.get_available_data())
+

@@ -95,6 +95,9 @@ class Trial(models.Model):
     trashed = models.BooleanField(default=False)
     trashed_at = models.DateTimeField(blank=True, null=True)
 
+    def __str__(self):
+        return f'{self.id} : {self.name}'
+
     @property
     def formated_name(self):
         return self.name.replace(" ", "") if self.name else ""
@@ -167,7 +170,10 @@ class Result(models.Model):
     meta = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
+    def __str__(self):
+        return f'{self.id} : tag={self.tag} trial={self.trial_id}'
+
     def is_public(self):
         return self.trial.is_public()
 
@@ -322,6 +328,11 @@ class AnalysisFunction(models.Model):
     description = models.CharField('Description', max_length=255)
     url = models.CharField('Url', max_length=255)
     is_active = models.BooleanField('Active', default=True)
+    local_run = models.BooleanField(
+        'Local run', default=False,
+        help_text='Use this option if you debug the function locally with AWS RIE, due the different way of '
+                  'passing data to the function.'
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -345,7 +356,9 @@ class AnalysisResult(models.Model):
         'Data', default=dict, help_text='Data function was called with.'
     )
     trial = models.ForeignKey(
-        Trial, on_delete=models.SET_NULL, verbose_name='Trial', null=True, blank=True,
+        Trial, on_delete=models.SET_NULL,
+        verbose_name='Trial', null=True, blank=True,
+        related_name='analysis_results',
         help_text='Trial function was called with. Set automatically.',
     )
     response = models.JSONField(
@@ -384,3 +397,92 @@ class AnalysisResult(models.Model):
                 name=self.data['specific_trial_names'][0],
             ).first()
         return super().save(*args, **kwargs)
+
+
+class AnalysisDashboardTemplate(models.Model):
+    title = models.CharField('Title', max_length=255)
+    function = models.ForeignKey(
+        to=AnalysisFunction,
+        related_name='dashboard_templates',
+        on_delete=models.CASCADE,
+        verbose_name='Analysis function'
+    )
+    layout = models.JSONField('Layout', default=dict)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['title', 'id']
+        verbose_name = 'Analysis dashboard template'
+        verbose_name_plural = 'Analysis dashboard templates'
+
+    def __str__(self):
+        return self.title
+
+
+class AnalysisDashboard(models.Model):
+    title = models.CharField('Title', max_length=255)
+    user = models.ForeignKey(User, related_name='dashboards', on_delete=models.CASCADE)
+    template = models.ForeignKey(
+        AnalysisDashboardTemplate, related_name='dashboards',
+        null=True, blank=True,
+        on_delete=models.SET_NULL)
+    function = models.ForeignKey(
+        to=AnalysisFunction,
+        related_name='dashboards',
+        on_delete=models.CASCADE,
+        verbose_name='Analysis function'
+    )
+    layout = models.JSONField('Layout', default=dict)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['title', 'id']
+        verbose_name = 'Analysis dashboard'
+        verbose_name_plural = 'Analysis dashboards'
+
+    def __str__(self):
+        return self.title
+
+    def get_user(self):
+        return self.user
+
+    def get_available_data(self):
+        from .serializers import ResultSerializer
+
+        results = Result.objects.filter(
+            trial__session__user=self.user,
+            tag=f'analysis_function_result:{self.function_id}',
+        )
+        data = {
+            'subjects': [],
+            'sessions': [],
+            'trials': [],
+            'results': [],
+        }
+
+        trial_ids = []
+        session_ids = []
+        subject_ids = []
+        for result in results:
+            data['results'].append({'id': result.id, 'trial_id': result.trial_id, 'media': result.media.url})
+            trial = result.trial
+            if trial.id not in trial_ids:
+                data['trials'].append(
+                    {'id': trial.id, 'session_id': trial.session_id, 'name': trial.name})
+                trial_ids.append(trial.id)
+            session = trial.session
+            if session.id not in session_ids:
+                data['sessions'].append(
+                    {
+                        'id': session.id,
+                        'subject_id': session.subject_id,
+                        'subject_name': session.subject.name if session.subject else None})
+                session_ids.append(session.id)
+            subject = session.subject
+            if subject and subject.id not in subject_ids:
+                data['subjects'].append({'id': subject.id, 'name': subject.name})
+                subject_ids.append(subject.id)
+
+        return data

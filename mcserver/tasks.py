@@ -101,9 +101,17 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
 
     try:
         response = requests.post(
-            function.url, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}
+            function.url,
+            json={'body': json.dumps(data)} if function.local_run else data,  # AWS RIE works different with passing parameters
+            headers={'Content-Type': 'application/json; charset=utf-8'}
         )
         function_response = response.json()
+        # print(f'function_response={function_response}')
+
+        if function.local_run:
+            # AWS RIE support
+            function_response = function_response['body']
+
         analysis_result.status = response.status_code
         analysis_result.state = AnalysisResultState.SUCCESSFULL
         if response.status_code >= HTTPStatus.BAD_REQUEST.value:
@@ -115,14 +123,15 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
 
     if analysis_result.state == AnalysisResultState.SUCCESSFULL:
         trial = Trial.objects.get(
-            name=data['specific_trial_names'][0], session_id=data['session_id']
+            name=data['specific_trial_names'][0],
+            session_id=data['session_id']
         )
 
         json_path = os.path.join(settings.MEDIA_ROOT, 'analysis_result.json')
         with open(json_path, 'w') as json_file:
             json_file.write(json.dumps(function_response))
     
-        result = Result.objects.get_or_create(trial=trial, tag=function.title)[0]
+        result = Result.objects.get_or_create(trial=trial, tag=f'analysis_function_result:{function.id}')[0]
         with open(json_path, 'rb') as json_file:
             result.media.save(os.path.basename(json_path), File(json_file))
             os.remove(json_path)

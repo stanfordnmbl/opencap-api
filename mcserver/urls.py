@@ -36,6 +36,7 @@ from mcserver.views import (
     AnalysisFunctionTaskIdAPIView,
     AnalysisFunctionsPendingForTrialsAPIView,
     AnalysisFunctionsStatesForTrialsAPIView,
+    AnalysisDashboardViewSet,
 )
 from rest_framework import routers, serializers, viewsets
 from rest_framework.authtoken.views import obtain_auth_token
@@ -51,6 +52,7 @@ router.register(r'trials', TrialViewSet)
 router.register(r'results', ResultViewSet)
 router.register(r'subjects', SubjectViewSet, "subject")
 router.register(r'users', UserViewSet)
+router.register(r'analysis-dashboards', AnalysisDashboardViewSet, "analysis-dashboard")
 
 urlpatterns = [
 #    path('session/', new_session),
