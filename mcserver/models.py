@@ -344,8 +344,19 @@ class AnalysisResult(models.Model):
     data = models.JSONField(
         'Data', default=dict, help_text='Data function was called with.'
     )
-    result = models.JSONField(
-        'Result', default=dict, help_text='Data function responsed with.'
+    trial = models.ForeignKey(
+        Trial, on_delete=models.SET_NULL, verbose_name='Trial', null=True, blank=True,
+        help_text='Trial function was called with. Set automatically.',
+    )
+    response = models.JSONField(
+        'Response', default=dict, help_text='Data function responsed with.'
+    )
+    result = models.ForeignKey(
+        to=Result,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        help_text='Keeps analysis function result details.'
     )
     status = models.IntegerField(
         'Status',
@@ -365,3 +376,11 @@ class AnalysisResult(models.Model):
 
     def __str__(self):
         return f'{self.function.title}-{self.status}'
+
+    def save(self, *args, **kwargs):
+        if 'session_id' in self.data and 'specific_trial_names' in self.data:
+            self.trial = Trial.objects.filter(
+                session_id=self.data['session_id'],
+                name=self.data['specific_trial_names'][0],
+            ).first()
+        return super().save(*args, **kwargs)

@@ -1,7 +1,9 @@
 import os
+import json
 import requests
 from http import HTTPStatus
 from django.conf import settings
+from django.core.files import File
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
@@ -9,6 +11,8 @@ from datetime import timedelta
 from mcserver.models import (
     DownloadLog,
     Session,
+    Result,
+    Trial,
     AnalysisFunction,
     AnalysisResult,
     AnalysisResultState
@@ -86,24 +90,44 @@ def delete_pingdom_sessions():
 @shared_task(bind=True)
 def invoke_aws_lambda_function(self, user_id, function_id, data):
     function = AnalysisFunction.objects.get(id=function_id)
-    result = AnalysisResult.objects.create(
+    analysis_result = AnalysisResult(
         task_id=str(self.request.id),
         function=function,
         user_id=user_id,
         data=data,
         state=AnalysisResultState.PENDING
     )
+    analysis_result.save()
+
     try:
         response = requests.post(
             function.url, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}
         )
-        result.result = response.json()
-        result.status = response.status_code
-        result.state = AnalysisResultState.SUCCESSFULL
+        function_response = response.json()
+        analysis_result.status = response.status_code
+        analysis_result.state = AnalysisResultState.SUCCESSFULL
         if response.status_code >= HTTPStatus.BAD_REQUEST.value:
-            result.state = AnalysisResultState.FAILED
+            analysis_result.state = AnalysisResultState.FAILED
     except (ValueError, requests.RequestException) as e:
-        result.result = {'error': str(e)}
-        result.status = HTTPStatus.INTERNAL_SERVER_ERROR.value
-        result.state = AnalysisResultState.FAILED
-    result.save(update_fields=['result', 'status', 'state'])
+        function_response = {'error': str(e)}
+        analysis_result.status = HTTPStatus.INTERNAL_SERVER_ERROR.value
+        analysis_result.state = AnalysisResultState.FAILED
+
+    if analysis_result.state == AnalysisResultState.SUCCESSFULL:
+        trial = Trial.objects.get(
+            name=data['specific_trial_names'][0], session_id=data['session_id']
+        )
+
+        json_path = os.path.join(settings.MEDIA_ROOT, 'analysis_result.json')
+        with open(json_path, 'w') as json_file:
+            json_file.write(json.dumps(function_response))
+    
+        result = Result.objects.get_or_create(trial=trial, tag=function.title)[0]
+        with open(json_path, 'rb') as json_file:
+            result.media.save(os.path.basename(json_path), File(json_file))
+            os.remove(json_path)
+
+        analysis_result.result = result
+    else:
+        analysis_result.response = function_response
+    analysis_result.save(update_fields=['result', 'status', 'state', 'response'])

@@ -1,3 +1,4 @@
+import json
 from rest_framework import serializers
 from mcserver.models import (
     Session,
@@ -185,7 +186,17 @@ class AnalysisFunctionSerializer(serializers.ModelSerializer):
 
 class AnalysisResultSerializer(serializers.ModelSerializer):
     analysis_function = AnalysisFunctionSerializer(source="function")
+    result = ResultSerializer()
+    response = serializers.SerializerMethodField()
 
     class Meta:
         model = AnalysisResult
-        fields = ('analysis_function', 'result', 'status', 'state')
+        fields = ('analysis_function', 'result', 'status', 'state', 'response')
+    
+    def get_response(self, obj):
+        """ Returns Result.media content if analysis was successful,
+            otherwise returns the original response with error details.
+        """
+        if obj.result:
+            return json.loads(obj.result.media.read())
+        return obj.response
