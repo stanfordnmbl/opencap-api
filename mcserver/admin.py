@@ -90,7 +90,7 @@ class ResultInline(admin.TabularInline):
 
 @admin.register(Trial)
 class TrialAdmin(admin.ModelAdmin):
-    search_fields = ['session']
+    search_fields = ['id', 'session_id']
     list_display = (
         'id',
         'name',
