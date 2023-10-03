@@ -4,6 +4,7 @@ import requests
 from http import HTTPStatus
 from django.conf import settings
 from django.core.files import File
+from django.core.files.base import ContentFile
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
@@ -127,14 +128,20 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
             session_id=data['session_id']
         )
 
-        json_path = os.path.join(settings.MEDIA_ROOT, 'analysis_result.json')
-        with open(json_path, 'w') as json_file:
-            json_file.write(json.dumps(function_response))
+        # json_path = os.path.join(settings.MEDIA_ROOT, 'analysis_result.json')
+        # with open(json_path, 'w') as json_file:
+        #     json_file.write(json.dumps(function_response))
     
-        result = Result.objects.get_or_create(trial=trial, tag=f'analysis_function_result:{function.id}')[0]
-        with open(json_path, 'rb') as json_file:
-            result.media.save(os.path.basename(json_path), File(json_file))
-            os.remove(json_path)
+        json_path = f'{trial.id}-{function_id}-analysis_result.json'
+        result = Result.objects.get_or_create(trial=trial, tag=function.title)[0]
+        result.media.save(
+            json_path,
+            ContentFile(json.dumps(function_response).encode('utf-8'))
+        )
+
+        # with open(json_path, 'rb') as json_file:
+        #     result.media.save(os.path.basename(json_path), File(json_file))
+        #     os.remove(json_path)
 
         analysis_result.result = result
     else:
