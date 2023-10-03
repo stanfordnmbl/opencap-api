@@ -1,3 +1,5 @@
+import json
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -449,8 +451,6 @@ class AnalysisDashboard(models.Model):
         return self.user
 
     def get_available_data(self):
-        from .serializers import ResultSerializer
-
         results = Result.objects.filter(
             trial__session__user=self.user,
             tag=f'analysis_function_result:{self.function_id}',
@@ -466,7 +466,9 @@ class AnalysisDashboard(models.Model):
         session_ids = []
         subject_ids = []
         for result in results:
-            data['results'].append({'id': result.id, 'trial_id': result.trial_id, 'media': result.media.url})
+            row = {'id': result.id, 'trial_id': result.trial_id, 'media': result.media.url}
+            data['results'].append(row)
+
             trial = result.trial
             if trial.id not in trial_ids:
                 data['trials'].append(
