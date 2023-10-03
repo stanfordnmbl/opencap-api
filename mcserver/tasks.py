@@ -127,7 +127,7 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
         result = Result.objects.get_or_create(trial=trial, tag=function.title)[0]
         result.media.save(
             json_path,
-            ContentFile(json.dumps(function_response))
+            ContentFile(json.dumps(function_response).encode('utf-8'))
         )
 
         # with open(json_path, 'rb') as json_file:
