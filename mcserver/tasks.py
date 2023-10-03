@@ -3,7 +3,8 @@ import json
 import requests
 from http import HTTPStatus
 from django.conf import settings
-from django.core.files import File, ContentFile
+from django.core.files import File
+from django.core.files.base import ContentFile
 from celery import shared_task
 from django.utils import timezone
 from datetime import timedelta
