@@ -181,8 +181,15 @@ class DownloadLogAdmin(admin.ModelAdmin):
 
 @admin.register(AnalysisFunction)
 class AnalysisFunctionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'title', 'is_active', 'local_run', 'created_at']
+    list_display = [
+        'id', 'title', 'is_active',
+        'only_for_users_display',
+        'local_run', 'created_at']
     search_fields = ['title', 'description']
+    raw_id_fields = ['only_for_users']
+
+    def only_for_users_display(self, obj):
+        return ", ".join([str(u) for u in obj.only_for_users.all()])
 
 
 @admin.register(AnalysisResult)

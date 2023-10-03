@@ -1883,7 +1883,14 @@ class AnalysisFunctionsListAPIView(ListAPIView):
     """
     permission_classes = (IsAuthenticated, )
     serializer_class = AnalysisFunctionSerializer
-    queryset = AnalysisFunction.objects.filter(is_active=True)
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = AnalysisFunction.objects.filter(
+            Q(is_active=True) & (
+                Q(only_for_users__isnull=True) | Q(only_for_users=user)
+            ))
+        return queryset
 
 
 class InvokeAnalysisFunctionAPIView(APIView):
@@ -1972,11 +1979,19 @@ class AnalysisFunctionsStatesForTrialsAPIView(APIView):
             # Skip duplicated results. Fetch only newest.
             if (result.function_id, str(result.data)) in skip_lines:
                 continue
+            dashboard_id = AnalysisDashboard.objects.filter(
+                user=request.user,
+                function_id=result.function_id,
+            ).values_list('id', flat=True).first()
             trial_ids = Trial.objects.filter(
                 session_id=result.data['session_id'],
                 name__in=result.data['specific_trial_names']).values_list('id', flat=True)
             for t_id in trial_ids:
-                data[result.function_id][str(t_id)] =  {'state': result.state, 'task_id': result.task_id}
+                data[result.function_id][str(t_id)] =  {
+                    'state': result.state,
+                    'task_id': result.task_id,
+                    'dashboard_id': dashboard_id,
+                }
                 skip_lines.add((result.function_id, str(result.data)))
 
         return Response(data)

@@ -329,7 +329,14 @@ class AnalysisFunction(models.Model):
     title = models.CharField('Title', max_length=255)
     description = models.CharField('Description', max_length=255)
     url = models.CharField('Url', max_length=255)
+
     is_active = models.BooleanField('Active', default=True)
+    only_for_users = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='analysis_functions',
+    )
+
     local_run = models.BooleanField(
         'Local run', default=False,
         help_text='Use this option if you debug the function locally with AWS RIE, due the different way of '
