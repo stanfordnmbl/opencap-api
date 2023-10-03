@@ -16,7 +16,9 @@ from mcserver.models import (
     Trial,
     AnalysisFunction,
     AnalysisResult,
-    AnalysisResultState
+    AnalysisResultState,
+    AnalysisDashboardTemplate,
+    AnalysisDashboard,
 )
 from mcserver.zipsession_v2 import (
     SessionDirectoryConstructor,
@@ -128,10 +130,6 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
             session_id=data['session_id']
         )
 
-        # json_path = os.path.join(settings.MEDIA_ROOT, 'analysis_result.json')
-        # with open(json_path, 'w') as json_file:
-        #     json_file.write(json.dumps(function_response))
-    
         json_path = f'{trial.id}-{function_id}-analysis_result.json'
         result = Result.objects.get_or_create(trial=trial, tag=function.title)[0]
         result.media.save(
@@ -139,11 +137,22 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
             ContentFile(json.dumps(function_response).encode('utf-8'))
         )
 
-        # with open(json_path, 'rb') as json_file:
-        #     result.media.save(os.path.basename(json_path), File(json_file))
-        #     os.remove(json_path)
-
         analysis_result.result = result
     else:
         analysis_result.response = function_response
     analysis_result.save(update_fields=['result', 'status', 'state', 'response'])
+
+    # Crreate analysis dashboard if available
+    try:
+        AnalysisDashboard.objects.get(user_id=user_id, function_id=function_id)
+    except AnalysisDashboard.DoesNotExist:
+        dashboard_template = AnalysisDashboardTemplate.objects.filter(function_id=function_id).first()
+        if dashboard_template:
+            AnalysisDashboard.objects.create(
+                title=dashboard_template.title,
+                layout=dashboard_template.layout,
+                user_id=user_id,
+                function_id=function_id,
+                template=dashboard_template
+            )
+

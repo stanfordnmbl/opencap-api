@@ -1937,7 +1937,12 @@ class AnalysisResultOnReadyAPIView(APIView):
             AnalysisResultState.SUCCESSFULL, AnalysisResultState.FAILED
         ):
             serializer = AnalysisResultSerializer(result)
+            dashboard = AnalysisDashboard.objects.filter(
+                user=request.user, function_id=result.function_id
+            ).first()
             data = serializer.data
+            if dashboard:
+                data['dashboard_id'] = dashboard.id
             if result.state == AnalysisResultState.FAILED:
                 # A fix with partial Result emulation to avoid errors on frontend
                 if result.trial:
