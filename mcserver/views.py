@@ -36,7 +36,9 @@ from mcserver.models import (
     DownloadLog,
     AnalysisFunction,
     AnalysisResult,
-    AnalysisResultState
+    AnalysisResultState,
+    AnalysisDashboardTemplate,
+    AnalysisDashboard,
 )
 from mcserver.serializers import (
     SessionSerializer,
@@ -49,7 +51,9 @@ from mcserver.serializers import (
     ResetPasswordSerializer,
     NewPasswordSerializer,
     AnalysisFunctionSerializer,
-    AnalysisResultSerializer
+    AnalysisResultSerializer,
+    AnalysisDashboardTemplateSerializer,
+    AnalysisDashboardSerializer,
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -1879,7 +1883,14 @@ class AnalysisFunctionsListAPIView(ListAPIView):
     """
     permission_classes = (IsAuthenticated, )
     serializer_class = AnalysisFunctionSerializer
-    queryset = AnalysisFunction.objects.filter(is_active=True)
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = AnalysisFunction.objects.filter(
+            Q(is_active=True) & (
+                Q(only_for_users__isnull=True) | Q(only_for_users=user)
+            ))
+        return queryset
 
 
 class InvokeAnalysisFunctionAPIView(APIView):
@@ -1926,7 +1937,12 @@ class AnalysisResultOnReadyAPIView(APIView):
             AnalysisResultState.SUCCESSFULL, AnalysisResultState.FAILED
         ):
             serializer = AnalysisResultSerializer(result)
+            dashboard = AnalysisDashboard.objects.filter(
+                user=request.user, function_id=result.function_id
+            ).first()
             data = serializer.data
+            if dashboard:
+                data['dashboard_id'] = dashboard.id
             if result.state == AnalysisResultState.FAILED:
                 # A fix with partial Result emulation to avoid errors on frontend
                 if result.trial:
@@ -1968,11 +1984,38 @@ class AnalysisFunctionsStatesForTrialsAPIView(APIView):
             # Skip duplicated results. Fetch only newest.
             if (result.function_id, str(result.data)) in skip_lines:
                 continue
+            dashboard_id = AnalysisDashboard.objects.filter(
+                user=request.user,
+                function_id=result.function_id,
+            ).values_list('id', flat=True).first()
             trial_ids = Trial.objects.filter(
                 session_id=result.data['session_id'],
                 name__in=result.data['specific_trial_names']).values_list('id', flat=True)
             for t_id in trial_ids:
-                data[result.function_id][str(t_id)] =  {'state': result.state, 'task_id': result.task_id}
+                data[result.function_id][str(t_id)] =  {
+                    'state': result.state,
+                    'task_id': result.task_id,
+                    'dashboard_id': dashboard_id,
+                }
                 skip_lines.add((result.function_id, str(result.data)))
 
         return Response(data)
+
+
+class AnalysisDashboardViewSet(viewsets.ModelViewSet):
+    serializer_class = AnalysisDashboardSerializer
+    permission_classes = [IsOwner]
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the sessions
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        return AnalysisDashboard.objects.filter(user=user)
+
+    @action(detail=True)
+    def data(self, request, pk):
+        dashboard = get_object_or_404(AnalysisDashboard, user=request.user, pk=pk)
+        return Response(dashboard.get_available_data())
+

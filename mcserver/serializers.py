@@ -8,7 +8,9 @@ from mcserver.models import (
     Result,
     Subject,
     AnalysisFunction,
-    AnalysisResult
+    AnalysisResult,
+    AnalysisDashboardTemplate,
+    AnalysisDashboard,
 )
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
@@ -200,3 +202,16 @@ class AnalysisResultSerializer(serializers.ModelSerializer):
         if obj.result:
             return json.loads(obj.result.media.read())
         return obj.response
+
+
+class AnalysisDashboardTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnalysisDashboardTemplate
+        fields = ('id', 'title', 'function', 'layout')
+
+
+class AnalysisDashboardSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = AnalysisDashboard
+        fields = ('id', 'title', 'function', 'template', 'layout')
