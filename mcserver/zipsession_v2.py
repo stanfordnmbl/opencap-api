@@ -231,23 +231,32 @@ class SessionDirectoryConstructor:
         
         calibration_trial = Trial.get_calibration_obj_or_none(object_id)
         if calibration_trial:
-            self.collect_camera_calibration_files(calibration_trial)
-            self.collect_calibration_images_files(calibration_trial)
+            try:
+                self.collect_camera_calibration_files(calibration_trial)
+                self.collect_calibration_images_files(calibration_trial)
+            except:
+                pass
 
         neutral_and_dynamic_trials = Trial.objects.filter(
             session_id=object_id
         ).exclude(name="calibration")
         for trial in neutral_and_dynamic_trials:
-            self.collect_video_files(trial)
-            self.collect_sync_video_files(trial)
-            self.collect_marker_data_files(trial)
-            self.collect_pose_pickle_files(trial)
-            self.collect_kinematics_files(trial)
+            try:
+                self.collect_video_files(trial)
+                self.collect_sync_video_files(trial)
+                self.collect_marker_data_files(trial)
+                self.collect_pose_pickle_files(trial)
+                self.collect_kinematics_files(trial)
+            except Exception:
+                continue  # Move on to the next trial            
         
         neutral_trial = Trial.get_neutral_obj_or_none(object_id)
         if neutral_trial:
-            self.collect_opensim_model_files(neutral_trial)
-            self.collect_docs(neutral_trial)
+            try:
+                self.collect_opensim_model_files(neutral_trial)
+                self.collect_docs(neutral_trial)
+            except:
+                pass
 
         return session_dir_path
 
