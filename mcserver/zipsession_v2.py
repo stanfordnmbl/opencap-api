@@ -233,6 +233,9 @@ class SessionDirectoryConstructor:
         if calibration_trial:
             try:
                 self.collect_camera_calibration_files(calibration_trial)
+            except:
+                pass
+            try:
                 self.collect_calibration_images_files(calibration_trial)
             except:
                 pass
@@ -243,17 +246,32 @@ class SessionDirectoryConstructor:
         for trial in neutral_and_dynamic_trials:
             try:
                 self.collect_video_files(trial)
+            except Exception:
+                pass
+            try:
                 self.collect_sync_video_files(trial)
+            except Exception:
+                pass
+            try:
                 self.collect_marker_data_files(trial)
+            except Exception:
+                pass
+            try:
                 self.collect_pose_pickle_files(trial)
+            except Exception:
+                pass
+            try:
                 self.collect_kinematics_files(trial)
             except Exception:
-                continue  # Move on to the next trial            
+                pass        
         
         neutral_trial = Trial.get_neutral_obj_or_none(object_id)
         if neutral_trial:
             try:
                 self.collect_opensim_model_files(neutral_trial)
+            except:
+                pass
+            try:
                 self.collect_docs(neutral_trial)
             except:
                 pass
