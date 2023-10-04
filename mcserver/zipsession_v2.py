@@ -78,9 +78,16 @@ class SessionDirectoryConstructor:
                 videos_dir, f"Cam{idx}", "InputMedia", trial.formated_name
             )
             os.makedirs(video_root, exist_ok=True)
-            self.download_file_from_s3(
-                video.video, os.path.join(video_root, f"{trial.formated_name}.mov")
-            )
+            try:
+                self.download_file_from_s3(
+                    video.video, os.path.join(video_root, f"{trial.formated_name}.mov")
+                )
+            except:
+                if os.path.exists(os.path.join(video_root, f"{trial.formated_name}.mov")):
+                    os.remove(os.path.join(video_root, f"{trial.formated_name}.mov"))
+                if not os.listdir(video_root):
+                    os.rmdir(video_root)
+                pass
             mapping_cam_device[str(video.device_id).replace('-', '').upper()] = idx
 
         mapping_cam_device_path = os.path.join(videos_dir, 'mappingCamDevice.pickle')
@@ -231,23 +238,50 @@ class SessionDirectoryConstructor:
         
         calibration_trial = Trial.get_calibration_obj_or_none(object_id)
         if calibration_trial:
-            self.collect_camera_calibration_files(calibration_trial)
-            self.collect_calibration_images_files(calibration_trial)
+            try:
+                self.collect_camera_calibration_files(calibration_trial)
+            except:
+                pass
+            try:
+                self.collect_calibration_images_files(calibration_trial)
+            except:
+                pass
 
         neutral_and_dynamic_trials = Trial.objects.filter(
             session_id=object_id
         ).exclude(name="calibration")
         for trial in neutral_and_dynamic_trials:
-            self.collect_video_files(trial)
-            self.collect_sync_video_files(trial)
-            self.collect_marker_data_files(trial)
-            self.collect_pose_pickle_files(trial)
-            self.collect_kinematics_files(trial)
+            try:
+                self.collect_video_files(trial)
+            except Exception:
+                pass
+            try:
+                self.collect_sync_video_files(trial)
+            except Exception:
+                pass
+            try:
+                self.collect_marker_data_files(trial)
+            except Exception:
+                pass
+            try:
+                self.collect_pose_pickle_files(trial)
+            except Exception:
+                pass
+            try:
+                self.collect_kinematics_files(trial)
+            except Exception:
+                pass        
         
         neutral_trial = Trial.get_neutral_obj_or_none(object_id)
         if neutral_trial:
-            self.collect_opensim_model_files(neutral_trial)
-            self.collect_docs(neutral_trial)
+            try:
+                self.collect_opensim_model_files(neutral_trial)
+            except:
+                pass
+            try:
+                self.collect_docs(neutral_trial)
+            except:
+                pass
 
         return session_dir_path
 
