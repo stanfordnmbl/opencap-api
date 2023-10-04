@@ -78,9 +78,16 @@ class SessionDirectoryConstructor:
                 videos_dir, f"Cam{idx}", "InputMedia", trial.formated_name
             )
             os.makedirs(video_root, exist_ok=True)
-            self.download_file_from_s3(
-                video.video, os.path.join(video_root, f"{trial.formated_name}.mov")
-            )
+            try:
+                self.download_file_from_s3(
+                    video.video, os.path.join(video_root, f"{trial.formated_name}.mov")
+                )
+            except:
+                if os.path.exists(os.path.join(video_root, f"{trial.formated_name}.mov")):
+                    os.remove(os.path.join(video_root, f"{trial.formated_name}.mov"))
+                if not os.listdir(video_root):
+                    os.rmdir(video_root)
+                pass
             mapping_cam_device[str(video.device_id).replace('-', '').upper()] = idx
 
         mapping_cam_device_path = os.path.join(videos_dir, 'mappingCamDevice.pickle')
