@@ -201,6 +201,60 @@ class SessionViewSet(viewsets.ModelViewSet):
             "data": request.data,
         })
 
+    @action(detail=True)
+    def get_n_calibrated_cameras(self, request, pk):
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            error_message = ''
+            session = get_object_or_404(Session, pk=pk)
+            calibration_trials = session.trial_set.filter(name="calibration")
+            last_calibration_trial_num_videos = 0
+
+            # Check if there is a calibration trial. If not, it must be in a parent session.
+            while not calibration_trials and session.meta['sessionWithCalibration']:
+                id_session_with_calibration = session.meta['sessionWithCalibration']
+                # If parent does not exist, capture the exception, and continue.
+                try:
+                    session_with_calibration = Session.objects.filter(pk=id_session_with_calibration)
+                except Exception:
+                    break
+                # If parent exist, extract calibration trials.
+                if session_with_calibration:
+                    try:
+                        calibration_trials = session_with_calibration.trial_set.filter(name="calibration")
+                    except Exception:
+                        break
+
+            # If there are calibration trials, check if the number of cameras is the same as in the
+            # current trial being stopped.
+            if calibration_trials:
+                last_calibration_trial = calibration_trials.order_by("-created_at")[0]
+
+                last_calibration_trial_num_videos = Video.objects.filter(trial=last_calibration_trial).count()
+            else:
+                error_message = 'Sorry, there is no calibration trial for this session.' \
+                                                 'Maybe it was created from a session that was remove.'
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("calibration_error"))
+
+        return Response({
+            'error_message': error_message,
+            'data': last_calibration_trial_num_videos
+        })
+
     @action(detail=True, methods=['post'])
     def rename(self, request, pk):
         # Get session.
@@ -594,7 +648,9 @@ class SessionViewSet(viewsets.ModelViewSet):
                 status = 'ready'
 
         # If status 'recording' and 'device_id' provided
+        n_cameras_connected = None
         if trial and trial.status == "recording" and "device_id" in request.GET:
+            n_cameras_connected = Video.objects.filter(trial=trial).count()
             if trial.video_set.filter(device_id=request.GET["device_id"]).count() == 0:
                 video = Video()
                 video.device_id = request.GET["device_id"]
@@ -602,8 +658,16 @@ class SessionViewSet(viewsets.ModelViewSet):
                 video.save()
             status = "recording"
 
+        # If status 'uploading' and 'device_id' provided
+        n_videos_uploaded = 0
+        for video in Video.objects.filter(trial=trial).all():
+            if video.video.url:
+                n_videos_uploaded = n_videos_uploaded + 1
+
+        n_cameras_connected = None
         video_url = None
-        if trial and "device_id" in request.GET:
+        if trial and trial.status == "recording" and "device_id" in request.GET:
+            n_cameras_connected = Video.objects.filter(trial=trial).count()
             videos = trial.video_set.filter(device_id=request.GET["device_id"])
             if videos.count() > 0:
                 video_url = reverse('video-detail', kwargs={'pk': videos[0].id})
@@ -628,7 +692,9 @@ class SessionViewSet(viewsets.ModelViewSet):
             "trial": trial_url,
             "video": video_url,
             "framerate": frameRate,
-            "newSessionURL":newSessionURL,
+            "newSessionURL": newSessionURL,
+            "n_cameras_connected": n_cameras_connected,
+            "n_videos_uploaded": n_videos_uploaded
         }
 
         if "ret_session" in request.GET:
@@ -1101,19 +1167,25 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             trials = session.trial_set.filter(name="calibration").order_by("-created_at")
             print(trials)
+            status_session = self.get_status(request, pk)
+
             if len(trials) == 0:
                 data = {
                     "status": "error",
                     "img": [
                         "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
                     ],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
             elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
                 data = {
                     "status": "processing",
                     "img": [
-    #                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
+                        # "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
                     ],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
             else:
                 imgs = []
@@ -1125,12 +1197,16 @@ class SessionViewSet(viewsets.ModelViewSet):
                     data = {
                         "status": "done",
                         "img": list(sorted(imgs, key=lambda x: x.split("-")[-1])),
+                        "n_cameras_connected": status_session["n_cameras_connected"],
+                        "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
 
                 else:
-                   data = {
+                    data = {
                         "status": "error",
                         "img": [],
+                        "n_cameras_connected": status_session["n_cameras_connected"],
+                        "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
         except Http404:
             if settings.DEBUG:
@@ -1165,6 +1241,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             self.check_object_permissions(self.request, session)
             trials = session.trial_set.filter(name="neutral").order_by("-created_at")
 
+            status_session = self.get_status(request, pk)
 
             if len(trials) == 0:
                 data = {
@@ -1172,13 +1249,17 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "img": [
                         "https://main.d2stl78iuswh3t.amplifyapp.com/images/neutral_pose.png",
                     ],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
             elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
                 data = {
                     "status": "processing",
                     "img": [
-    #                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
+                        # "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
                     ],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
             else:
                 imgs = []
@@ -1189,13 +1270,17 @@ class SessionViewSet(viewsets.ModelViewSet):
                 if len(imgs) > 0:
                     data = {
                         "status": "done",
-                        "img": imgs
+                        "img": imgs,
+                        "n_cameras_connected": status_session["n_cameras_connected"],
+                        "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
                 else:
                    data = {
                         "status": "error",
                         "img": [
                         ],
+                       "n_cameras_connected": status_session["n_cameras_connected"],
+                       "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
 
         except Http404:
