@@ -11,7 +11,9 @@ from mcserver.models import (
     Subject,
     DownloadLog,
     AnalysisFunction,
-    AnalysisResult
+    AnalysisResult,
+    AnalysisDashboardTemplate,
+    AnalysisDashboard,
 )
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
@@ -88,10 +90,11 @@ class ResultInline(admin.TabularInline):
 
 @admin.register(Trial)
 class TrialAdmin(admin.ModelAdmin):
-    search_fields = ['session']
+    search_fields = ['id', 'session_id']
     list_display = (
         'id',
-        'session', 'name',
+        'name',
+        'session',
         'status',
         'created_at', 'updated_at',
         'trashed', 'trashed_at',
@@ -102,14 +105,19 @@ class TrialAdmin(admin.ModelAdmin):
 
 @admin.register(Result)
 class ResultAdmin(admin.ModelAdmin):
-    list_display = ('trial', 'tag', 'media', 'created_at', 'updated_at')
+    list_display = (
+        'id', 'trial', 'tag', 'media',
+        'device_id',
+        'created_at', 'updated_at')
     search_fields = ['trial']
+    raw_id_fields = ('trial',)
 
 
 @admin.register(Video)
 class VideoAdmin(admin.ModelAdmin):
     search_fields = ['trial']
     list_display = ('trial', 'video', 'created_at', 'updated_at')
+    raw_id_fields = ('trial',)
 
 
 @admin.register(Subject)
@@ -129,6 +137,7 @@ class SubjectAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at',
     )
+    raw_id_fields = ('user',)
 
 
 @admin.register(ResetPassword)
@@ -165,19 +174,40 @@ class LogEntryAdmin(admin.ModelAdmin):
 
 @admin.register(DownloadLog)
 class DownloadLogAdmin(admin.ModelAdmin):
-    list_display = ["task_id", "user", "created_at", "updated_at"]
-    list_filter = ["user"]
+    list_display = ['id', "task_id", "user", "created_at", "updated_at"]
     search_fields = ["task_id"]
+    raw_id_fields = ["user"]
 
 
 @admin.register(AnalysisFunction)
 class AnalysisFunctionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'title', 'is_active', 'created_at']
+    list_display = [
+        'id', 'title', 'is_active',
+        'only_for_users_display',
+        'local_run', 'created_at']
     search_fields = ['title', 'description']
+    raw_id_fields = ['only_for_users']
+
+    def only_for_users_display(self, obj):
+        return ", ".join([str(u) for u in obj.only_for_users.all()])
 
 
 @admin.register(AnalysisResult)
 class AnalysisResultAdmin(admin.ModelAdmin):
-    list_display = ['task_id', 'user', 'function', 'status', 'state']
-    list_filter = ['user__email', 'function__title', 'status', 'state']
-    search_fields = ['task_id']
+    list_display = ['id', 'task_id', 'user', 'function', 'status', 'state', "created_at", "updated_at"]
+    list_filter = ['function', 'state']
+    raw_id_fields = ['user', 'trial', 'result']
+    search_fields = ['id', 'task_id']
+
+
+@admin.register(AnalysisDashboardTemplate)
+class AnalysisDashboardTemplateAdmin(admin.ModelAdmin):
+    list_display = ['id', 'title', 'function', 'created_at', 'updated_at']
+    search_fields = ['title']
+
+
+@admin.register(AnalysisDashboard)
+class AnalysisDashboardAdmin(admin.ModelAdmin):
+    list_display = ['id', 'title', 'function', 'user', 'template', 'created_at', 'updated_at']
+    search_fields = ['title']
+    raw_id_fields = ['user', 'template']
