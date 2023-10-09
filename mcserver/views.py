@@ -657,7 +657,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         # If status 'uploading' and 'device_id' provided
         n_videos_uploaded = 0
         for video in Video.objects.filter(trial=trial).all():
-            if video.video.url:
+            if video.video and video.video.url:
                 n_videos_uploaded = n_videos_uploaded + 1
 
         n_cameras_connected = None
