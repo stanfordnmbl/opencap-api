@@ -648,9 +648,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 status = 'ready'
 
         # If status 'recording' and 'device_id' provided
-        n_cameras_connected = None
         if trial and trial.status == "recording" and "device_id" in request.GET:
-            n_cameras_connected = Video.objects.filter(trial=trial).count()
             if trial.video_set.filter(device_id=request.GET["device_id"]).count() == 0:
                 video = Video()
                 video.device_id = request.GET["device_id"]
@@ -660,14 +658,13 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         # If status 'uploading' and 'device_id' provided
         n_videos_uploaded = 0
+        n_cameras_connected = Video.objects.filter(trial=trial).count()
         for video in Video.objects.filter(trial=trial).all():
             if video.video and video.video.url:
                 n_videos_uploaded = n_videos_uploaded + 1
 
-        n_cameras_connected = None
         video_url = None
         if trial and trial.status == "recording" and "device_id" in request.GET:
-            n_cameras_connected = Video.objects.filter(trial=trial).count()
             videos = trial.video_set.filter(device_id=request.GET["device_id"])
             if videos.count() > 0:
                 video_url = reverse('video-detail', kwargs={'pk': videos[0].id})
