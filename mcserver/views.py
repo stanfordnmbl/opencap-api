@@ -354,7 +354,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             # A session is valid only if at least one trial is the "neutral" trial and its status is "done".
             for session in sessions:
-                trials = Trial.objects.filter(session__exact=session, name__exact="neutral").filter(status__exact="done")
+                trials = Trial.objects.filter(session__exact=session, name__exact="neutral")
                 if trials.count() < 1:
                     sessions = sessions.exclude(id__exact=session.id)
 
