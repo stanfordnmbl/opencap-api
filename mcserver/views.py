@@ -312,9 +312,10 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_('login_needed'))
+            # if settings.DEBUG:
+            #     raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            return Response(_('login_needed'), status=status.HTTP_401_UNAUTHORIZED)
+            # raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -329,6 +330,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_("session_retrieve_error"))
 
         return Response(serializer.data)
+
+
 
     @action(
         detail=False,
