@@ -382,7 +382,16 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             session = get_object_or_404(Session, pk=pk, user=request.user)
             self.check_object_permissions(self.request, session)
-            session.delete()
+
+            meta = session.meta
+            # There is a possible issue if you try to delete the parent session (you have other sessions created from)
+            # that contains calibration trials. That affects the child sessions.
+            # In such case we do not actually delete the session, but we remove the
+            # all trials excluding the calibration trials.
+            if 'startNewSession' in meta and meta['startNewSession']:
+                session.trial_set.exclude(name="calibration").delete()
+            else:
+                session.delete()
         except Http404:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -581,10 +590,28 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             # tell the old session to go to the new session - phones will connect to this new session
             if not sessionOld.meta:
+                # prevent to remove the information about previously connected sessions
+                new_session_block = None
+                if "startNewSession" in sessionOld.meta:
+                    new_session_block = sessionOld.meta["startNewSession"]
                 sessionOld.meta = {}
-            sessionOld.meta["startNewSession"] = {
-                "id": str(sessionNew.id)
-            }
+                if new_session_block:
+                    sessionOld.meta["startNewSession"] = new_session_block
+
+
+            if "startNewSession" in sessionOld.meta:
+                # Transform dict to list if more than one child session has been created
+                if type(sessionOld.meta["startNewSession"]) == list:
+                    sessionOld.meta["startNewSession"].append({"id": str(sessionNew.id)})
+                elif type(sessionOld.meta["startNewSession"]) == dict:
+                    sessionOld.meta["startNewSession"] = [
+                        sessionOld.meta["startNewSession"],
+                        {"id": str(sessionNew.id)}
+                    ]
+            else:
+                sessionOld.meta["startNewSession"] = {
+                    "id": str(sessionNew.id)
+                }
 
             sessionOld.save()
 
