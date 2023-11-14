@@ -217,13 +217,13 @@ class SessionViewSet(viewsets.ModelViewSet):
                 id_session_with_calibration = session.meta['sessionWithCalibration']
                 # If parent does not exist, capture the exception, and continue.
                 try:
-                    session_with_calibration = Session.objects.filter(pk=id_session_with_calibration)
+                    session_with_calibration = Session.objects.filter(pk=id_session_with_calibration['id'])
                 except Exception:
                     break
                 # If parent exist, extract calibration trials.
                 if session_with_calibration:
                     try:
-                        calibration_trials = session_with_calibration.trial_set.filter(name="calibration")
+                        calibration_trials = session_with_calibration[0].trial_set.filter(name="calibration")
                     except Exception:
                         break
 
