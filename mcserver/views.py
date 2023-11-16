@@ -1552,6 +1552,10 @@ class ResultViewSet(viewsets.ModelViewSet):
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        if serializer.validated_data["trial"].get_user() != request.user:
+            raise PermissionDenied(_('permission_denied'))
+
         if request.data.get('media_url'):
             serializer.validated_data["media"] = serializer.validated_data["media_url"]
             del serializer.validated_data["media_url"]
