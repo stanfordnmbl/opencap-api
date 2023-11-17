@@ -1553,7 +1553,10 @@ class ResultViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        if serializer.validated_data["trial"].get_user() != request.user:
+        # We use [0] here because all our permissions is the single list element
+        has_perms = self.permission_classes[0]().has_object_permission(
+            request, self, serializer.validated_data["trial"])
+        if not has_perms:
             raise PermissionDenied(_('permission_denied'))
 
         if request.data.get('media_url'):
