@@ -1193,27 +1193,21 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "n_cameras_connected": status_session["n_cameras_connected"],
                     "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
-            else:
-                imgs = []
-                for result in trials[0].result_set.all():
-                    if result.tag == "calibration-img":
-                        imgs.append(result.media.url)
-                print(imgs)
-                if len(imgs) > 0:
-                    data = {
-                        "status": "done",
-                        "img": list(sorted(imgs, key=lambda x: x.split("-")[-1])),
-                        "n_cameras_connected": status_session["n_cameras_connected"],
-                        "n_videos_uploaded": status_session["n_videos_uploaded"]
+            elif trials[0].status == 'done':
+                data = {
+                    "status": "done",
+                    "img": "None",
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
 
-                else:
-                    data = {
-                        "status": "error",
-                        "img": [],
-                        "n_cameras_connected": status_session["n_cameras_connected"],
-                        "n_videos_uploaded": status_session["n_videos_uploaded"]
-                    }
+            else:
+                data = {
+                    "status": "error",
+                    "img": [],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
+                }
         except Http404:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
