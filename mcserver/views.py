@@ -312,9 +312,10 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_('login_needed'))
+            # if settings.DEBUG:
+            #     raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            return Response(_('login_needed'), status=status.HTTP_401_UNAUTHORIZED)
+            # raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -329,6 +330,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_("session_retrieve_error"))
 
         return Response(serializer.data)
+
+
 
     @action(
         detail=False,
@@ -814,7 +817,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_('session_download_error'))
 
         return FileResponse(open(session_zip, "rb"))
-    
+
     @action(
         detail=True,
         url_path="async-download",
@@ -822,11 +825,17 @@ class SessionViewSet(viewsets.ModelViewSet):
     )
     def async_download(self, request, pk):
         try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            # Check if the session is public or belongs to the logged-in user
+            session = get_object_or_404(Session, pk=pk)
+            if not session.public and session.user != request.user:
+                raise PermissionDenied(_('permission_denied'))
+
             if request.user.is_authenticated:
-                session = get_object_or_404(Session, pk=pk, user=request.user)
                 task = download_session_archive.delay(session.id, request.user.id)
             else:
-                session = get_object_or_404(Session, pk=pk, public=True)
                 task = download_session_archive.delay(session.id)
         except Exception:
             if settings.DEBUG:
