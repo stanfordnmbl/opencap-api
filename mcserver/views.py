@@ -555,13 +555,13 @@ class SessionViewSet(viewsets.ModelViewSet):
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
 
-            sessionNew = Session()
-            sessionOld = get_object_or_404(Session, pk=pk, user=request.user)
-
             user = request.user
 
             if not user.is_authenticated:
                 user = User.objects.get(id=1)
+
+            sessionNew = Session()
+            sessionOld = get_object_or_404(Session, pk=pk, user=user)
             sessionNew.user = user
 
         except Http404:
@@ -620,7 +620,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     
     def get_status(self, request, pk):
 
-        session = Session.objects.get(pk=pk)
+        session = get_object_or_404(Session, pk=pk)
         self.check_object_permissions(self.request, session)
         serializer = SessionSerializer(session)
 
