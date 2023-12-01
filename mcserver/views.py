@@ -619,8 +619,10 @@ class SessionViewSet(viewsets.ModelViewSet):
         return super(SessionViewSet, self).get_permissions()
     
     def get_status(self, request, pk):
+        if pk == 'undefined':
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
 
-        session = Session.objects.get(pk=pk)
+        session = get_object_or_404(Session, pk=pk)
         self.check_object_permissions(self.request, session)
         serializer = SessionSerializer(session)
 
