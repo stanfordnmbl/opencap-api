@@ -52,6 +52,13 @@ class UserSerializer(serializers.ModelSerializer):
             'institutional_use',
         )
 
+
+class UserInstitutionalUseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('institutional_use',)
+
+
 class ResetPasswordSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
             required=True,

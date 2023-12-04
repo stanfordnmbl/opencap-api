@@ -28,6 +28,7 @@ from mcserver.views import (
     reset_otp_challenge,
     check_otp_verified,
     UserViewSet,
+    UserInstitutionalUseView,
     ResetPasswordView,
     NewPasswordView,
     AnalysisFunctionsListAPIView,
@@ -67,6 +68,7 @@ urlpatterns = [
     path('register/', UserCreate.as_view(), name='account-create'),
     path('reset-password/', ResetPasswordView.as_view()),
     path('new-password/', NewPasswordView.as_view()),
+    path('user-institutional-use/', UserInstitutionalUseView.as_view()),
     path(
         'logs/<str:task_id>/on-ready/',
         DownloadFileOnReadyAPIView.as_view(),

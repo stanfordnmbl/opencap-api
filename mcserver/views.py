@@ -54,6 +54,7 @@ from mcserver.serializers import (
     AnalysisResultSerializer,
     AnalysisDashboardTemplateSerializer,
     AnalysisDashboardSerializer,
+    UserInstitutionalUseSerializer,
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -1970,6 +1971,36 @@ def reset_otp_challenge(request):
 @csrf_exempt
 def check_otp_verified(request):
     return Response({'otp_verified': request.user.otp_verified})
+
+
+class UserInstitutionalUseView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserInstitutionalUseSerializer
+
+
+    def get(self, request, format='json'):
+        try:
+            user = request.user
+            serializer = UserInstitutionalUseSerializer(user)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_institutional_use_error'))
+
+        return Response(serializer.data)
+
+    def post(self, request, format='json'):
+        try:
+            user = request.user
+            serializer = UserInstitutionalUseSerializer(user, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_institutional_use_error'))
+
+        return Response(serializer.data)
 
 
 class AnalysisFunctionsListAPIView(ListAPIView):
