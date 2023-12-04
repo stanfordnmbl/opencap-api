@@ -44,8 +44,13 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'password', 'institution', 'reason', 'website',
-                  'newsletter', 'profession', 'country')
+        fields = (
+            'id', 'username', 'first_name', 'last_name',
+            'email', 'password', 'institution',
+            'reason', 'website',
+            'newsletter', 'profession', 'country',
+            'institutional_use',
+        )
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(

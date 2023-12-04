@@ -34,8 +34,18 @@ class AnalysisResultState(models.TextChoices):
     SUCCESSFULL = "successfull", "Successful"
     FAILED = "failed", "Failed"
 
-                                            
+
 class User(AbstractUser):
+    INSTITUTIONAL_USE_CHOICES = (
+        ('', _('Not specified')),
+        ('patient_care', _('Patient care')),
+        ('sports_performance_assessment', _('Sports performance assessment')),
+        ('use_in_company', _('Use in a company or in collaboration with a company')),
+        ('research_at_academic', _('Research at an academic institution')),
+        ('teaching_at_academic', _('Teaching at an academic institution')),
+        ('other_non_commercial', _('Other non-commercial activity')),
+    )
+
     institution = models.CharField(max_length=128, blank=True, null=True)
     profession = models.CharField(max_length=128, blank=True, null=True)
     country = models.CharField(max_length=128, blank=True, null=True)
@@ -44,6 +54,7 @@ class User(AbstractUser):
     otp_verified = models.BooleanField(default=False)
     otp_skip_till = models.DateTimeField(blank=True, null=True)
     newsletter = models.BooleanField(default=True)
+    institutional_use = models.CharField(max_length=100, choices=INSTITUTIONAL_USE_CHOICES, blank=True, default='')
 
 
 class Session(models.Model):
