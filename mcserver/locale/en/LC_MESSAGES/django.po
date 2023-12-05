@@ -3,10 +3,9 @@
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
+"Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-12-05 11:10-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -17,6 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.4\n"
 
 #: .\mcserver\serializers.py:23
 msgid "email-already_exists"
@@ -136,7 +136,7 @@ msgstr "Undefined UUID."
 #: .\mcserver\views.py:1890 .\mcserver\views.py:1904 .\mcserver\views.py:1908
 #: .\mcserver\views.py:1931 .\mcserver\views.py:1936
 msgid "error"
-msgstr "Error: %(error_message)"
+msgstr "Error: %(error_message)s"
 
 #: .\mcserver\views.py:189 .\mcserver\views.py:243 .\mcserver\views.py:277
 #: .\mcserver\views.py:313 .\mcserver\views.py:389 .\mcserver\views.py:424
@@ -145,7 +145,7 @@ msgstr "Error: %(error_message)"
 #: .\mcserver\views.py:994 .\mcserver\views.py:1016 .\mcserver\views.py:1108
 #: .\mcserver\views.py:1144 .\mcserver\views.py:1211 .\mcserver\views.py:1286
 msgid "session_uuid_not_found"
-msgstr "Sorry, we couldn't find a session with UUID: %(uuid)"
+msgstr "Sorry, we couldn't find a session with UUID: %(uuid)s"
 
 #: .\mcserver\views.py:193 .\mcserver\views.py:247 .\mcserver\views.py:289
 #: .\mcserver\views.py:325 .\mcserver\views.py:401 .\mcserver\views.py:428
@@ -154,7 +154,7 @@ msgstr "Sorry, we couldn't find a session with UUID: %(uuid)"
 #: .\mcserver\views.py:1020 .\mcserver\views.py:1112 .\mcserver\views.py:1148
 #: .\mcserver\views.py:1223 .\mcserver\views.py:1298
 msgid "session_uuid_not_valid"
-msgstr "Sorry, the session UUID: %(uuid) is not valid"
+msgstr "Sorry, the session UUID: %(uuid)s is not valid"
 
 #: .\mcserver\views.py:197 .\mcserver\views.py:251
 msgid "calibration_error"
@@ -178,7 +178,7 @@ msgstr "There was an error while retrieving the session. Please try again."
 #: .\mcserver\views.py:1629 .\mcserver\views.py:1658 .\mcserver\views.py:1686
 #: .\mcserver\views.py:1710
 msgid "subject_uuid_not_found"
-msgstr "Sorry, we couldn't find a subject with UUID: %(uuid)"
+msgstr "Sorry, we couldn't find a subject with UUID: %(uuid)s"
 
 #: .\mcserver\views.py:373
 msgid "session_not_valid"
@@ -249,12 +249,12 @@ msgstr "There was an error while dequeuing the trials. Please try again."
 #: .\mcserver\views.py:1431 .\mcserver\views.py:1458 .\mcserver\views.py:1486
 #: .\mcserver\views.py:1514
 msgid "trial_uuid_not_found"
-msgstr "Sorry, we couldn't find a trial with UUID: %(uuid)."
+msgstr "Sorry, we couldn't find a trial with UUID: %(uuid)s."
 
 #: .\mcserver\views.py:1435 .\mcserver\views.py:1462 .\mcserver\views.py:1490
 #: .\mcserver\views.py:1518
 msgid "trial_uuid_not_valid"
-msgstr "Sorry, the trial UUID: %(uuid) is not valid."
+msgstr "Sorry, the trial UUID: %(uuid)s is not valid."
 
 #: .\mcserver\views.py:1439
 msgid "trial_rename_error"
@@ -275,7 +275,7 @@ msgstr "There was an error while removing the trial. Please try again."
 #: .\mcserver\views.py:1606 .\mcserver\views.py:1633 .\mcserver\views.py:1662
 #: .\mcserver\views.py:1690 .\mcserver\views.py:1714
 msgid "subject_uuid_not_valid"
-msgstr "Sorry, the subject UUID: %(uuid) is not valid"
+msgstr "Sorry, the subject UUID: %(uuid)s is not valid"
 
 #: .\mcserver\views.py:1610
 msgid "subject_remove_error"

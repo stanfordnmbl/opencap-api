@@ -312,9 +312,10 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_('login_needed'))
+            # if settings.DEBUG:
+            #     raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            return Response(_('login_needed'), status=status.HTTP_401_UNAUTHORIZED)
+            # raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -329,6 +330,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_("session_retrieve_error"))
 
         return Response(serializer.data)
+
+
 
     @action(
         detail=False,
@@ -616,8 +619,10 @@ class SessionViewSet(viewsets.ModelViewSet):
         return super(SessionViewSet, self).get_permissions()
     
     def get_status(self, request, pk):
+        if pk == 'undefined':
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
 
-        session = Session.objects.get(pk=pk)
+        session = get_object_or_404(Session, pk=pk)
         self.check_object_permissions(self.request, session)
         serializer = SessionSerializer(session)
 
@@ -814,7 +819,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_('session_download_error'))
 
         return FileResponse(open(session_zip, "rb"))
-    
+
     @action(
         detail=True,
         url_path="async-download",
@@ -822,11 +827,17 @@ class SessionViewSet(viewsets.ModelViewSet):
     )
     def async_download(self, request, pk):
         try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            # Check if the session is public or belongs to the logged-in user
+            session = get_object_or_404(Session, pk=pk)
+            if not session.public and session.user != request.user:
+                raise PermissionDenied(_('permission_denied'))
+
             if request.user.is_authenticated:
-                session = get_object_or_404(Session, pk=pk, user=request.user)
                 task = download_session_archive.delay(session.id, request.user.id)
             else:
-                session = get_object_or_404(Session, pk=pk, public=True)
                 task = download_session_archive.delay(session.id)
         except Exception:
             if settings.DEBUG:
@@ -1184,27 +1195,21 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "n_cameras_connected": status_session["n_cameras_connected"],
                     "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
-            else:
-                imgs = []
-                for result in trials[0].result_set.all():
-                    if result.tag == "calibration-img":
-                        imgs.append(result.media.url)
-                print(imgs)
-                if len(imgs) > 0:
-                    data = {
-                        "status": "done",
-                        "img": list(sorted(imgs, key=lambda x: x.split("-")[-1])),
-                        "n_cameras_connected": status_session["n_cameras_connected"],
-                        "n_videos_uploaded": status_session["n_videos_uploaded"]
+            elif trials[0].status == 'done':
+                data = {
+                    "status": "done",
+                    "img": "None",
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
 
-                else:
-                    data = {
-                        "status": "error",
-                        "img": [],
-                        "n_cameras_connected": status_session["n_cameras_connected"],
-                        "n_videos_uploaded": status_session["n_videos_uploaded"]
-                    }
+            else:
+                data = {
+                    "status": "error",
+                    "img": [],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
+                }
         except Http404:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -1552,6 +1557,13 @@ class ResultViewSet(viewsets.ModelViewSet):
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # We use [0] here because all our permissions is the single list element
+        has_perms = self.permission_classes[0]().has_object_permission(
+            request, self, serializer.validated_data["trial"])
+        if not has_perms:
+            raise PermissionDenied(_('permission_denied'))
+
         if request.data.get('media_url'):
             serializer.validated_data["media"] = serializer.validated_data["media_url"]
             del serializer.validated_data["media_url"]
