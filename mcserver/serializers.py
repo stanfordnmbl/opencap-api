@@ -14,15 +14,16 @@ from mcserver.models import (
 )
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
+from django.utils.translation import gettext as _
 
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
             required=True,
-            validators=[UniqueValidator(queryset=User.objects.all())]
+            validators=[UniqueValidator(queryset=User.objects.all(), message=_("email-already_exists"))]
             )
     username = serializers.CharField(
-            validators=[UniqueValidator(queryset=User.objects.all())]
+            validators=[UniqueValidator(queryset=User.objects.all(), message=_("username-already_exists"))]
             )
     password = serializers.CharField(min_length=8)
 

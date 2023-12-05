@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-30 15:03-0700\n"
+"POT-Creation-Date: 2023-12-05 11:10-0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,6 +17,14 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: .\mcserver\serializers.py:23
+msgid "email-already_exists"
+msgstr "The e-mail already exists. "
+
+#: .\mcserver\serializers.py:26
+msgid "username-already_exists"
+msgstr "The username already exists. "
 
 #: .\mcserver\templates\admin\set_subject.html:6
 msgid "home"
@@ -78,260 +86,256 @@ msgstr "If you did not try to log in into OpenCap, you can ignore this email."
 msgid "verification_code_email_team"
 msgstr "OpenCap Team."
 
-#: .\mcserver\views.py:171 .\mcserver\views.py:207 .\mcserver\views.py:246
-#: .\mcserver\views.py:323 .\mcserver\views.py:355 .\mcserver\views.py:382
-#: .\mcserver\views.py:452 .\mcserver\views.py:495 .\mcserver\views.py:564
-#: .\mcserver\views.py:720 .\mcserver\views.py:804 .\mcserver\views.py:834
-#: .\mcserver\views.py:893 .\mcserver\views.py:972 .\mcserver\views.py:1020
-#: .\mcserver\views.py:1090 .\mcserver\views.py:1122 .\mcserver\views.py:1187
-#: .\mcserver\views.py:1357 .\mcserver\views.py:1391 .\mcserver\views.py:1415
-#: .\mcserver\views.py:1443 .\mcserver\views.py:1531 .\mcserver\views.py:1559
-#: .\mcserver\views.py:1586 .\mcserver\views.py:1619 .\mcserver\views.py:1643
+#: .\mcserver\views.py:175 .\mcserver\views.py:208 .\mcserver\views.py:265
+#: .\mcserver\views.py:304 .\mcserver\views.py:381 .\mcserver\views.py:413
+#: .\mcserver\views.py:440 .\mcserver\views.py:510 .\mcserver\views.py:553
+#: .\mcserver\views.py:758 .\mcserver\views.py:842 .\mcserver\views.py:872
+#: .\mcserver\views.py:931 .\mcserver\views.py:1010 .\mcserver\views.py:1058
+#: .\mcserver\views.py:1128 .\mcserver\views.py:1160 .\mcserver\views.py:1235
+#: .\mcserver\views.py:1416 .\mcserver\views.py:1450 .\mcserver\views.py:1474
+#: .\mcserver\views.py:1502 .\mcserver\views.py:1590 .\mcserver\views.py:1618
+#: .\mcserver\views.py:1645 .\mcserver\views.py:1678 .\mcserver\views.py:1702
 msgid "undefined_uuid"
 msgstr "Undefined UUID."
 
-#: .\mcserver\views.py:184 .\mcserver\views.py:188 .\mcserver\views.py:192
-#: .\mcserver\views.py:218 .\mcserver\views.py:222 .\mcserver\views.py:226
-#: .\mcserver\views.py:230 .\mcserver\views.py:234 .\mcserver\views.py:254
-#: .\mcserver\views.py:258 .\mcserver\views.py:262 .\mcserver\views.py:266
-#: .\mcserver\views.py:270 .\mcserver\views.py:310 .\mcserver\views.py:314
-#: .\mcserver\views.py:330 .\mcserver\views.py:334 .\mcserver\views.py:338
-#: .\mcserver\views.py:342 .\mcserver\views.py:346 .\mcserver\views.py:365
-#: .\mcserver\views.py:369 .\mcserver\views.py:373 .\mcserver\views.py:392
-#: .\mcserver\views.py:396 .\mcserver\views.py:400 .\mcserver\views.py:442
-#: .\mcserver\views.py:483 .\mcserver\views.py:508 .\mcserver\views.py:537
-#: .\mcserver\views.py:541 .\mcserver\views.py:545 .\mcserver\views.py:549
-#: .\mcserver\views.py:639 .\mcserver\views.py:643 .\mcserver\views.py:647
-#: .\mcserver\views.py:651 .\mcserver\views.py:655 .\mcserver\views.py:659
-#: .\mcserver\views.py:749 .\mcserver\views.py:753 .\mcserver\views.py:757
-#: .\mcserver\views.py:775 .\mcserver\views.py:795 .\mcserver\views.py:817
-#: .\mcserver\views.py:821 .\mcserver\views.py:825 .\mcserver\views.py:867
-#: .\mcserver\views.py:871 .\mcserver\views.py:875 .\mcserver\views.py:879
-#: .\mcserver\views.py:883 .\mcserver\views.py:955 .\mcserver\views.py:959
-#: .\mcserver\views.py:977 .\mcserver\views.py:981 .\mcserver\views.py:985
-#: .\mcserver\views.py:993 .\mcserver\views.py:997 .\mcserver\views.py:1006
-#: .\mcserver\views.py:1069 .\mcserver\views.py:1073 .\mcserver\views.py:1105
-#: .\mcserver\views.py:1109 .\mcserver\views.py:1162 .\mcserver\views.py:1166
-#: .\mcserver\views.py:1170 .\mcserver\views.py:1174 .\mcserver\views.py:1178
-#: .\mcserver\views.py:1228 .\mcserver\views.py:1232 .\mcserver\views.py:1236
-#: .\mcserver\views.py:1240 .\mcserver\views.py:1244 .\mcserver\views.py:1330
-#: .\mcserver\views.py:1371 .\mcserver\views.py:1375 .\mcserver\views.py:1379
-#: .\mcserver\views.py:1398 .\mcserver\views.py:1402 .\mcserver\views.py:1406
-#: .\mcserver\views.py:1426 .\mcserver\views.py:1430 .\mcserver\views.py:1434
-#: .\mcserver\views.py:1454 .\mcserver\views.py:1458 .\mcserver\views.py:1462
-#: .\mcserver\views.py:1542 .\mcserver\views.py:1546 .\mcserver\views.py:1550
-#: .\mcserver\views.py:1569 .\mcserver\views.py:1573 .\mcserver\views.py:1577
-#: .\mcserver\views.py:1598 .\mcserver\views.py:1602 .\mcserver\views.py:1606
-#: .\mcserver\views.py:1626 .\mcserver\views.py:1630 .\mcserver\views.py:1634
-#: .\mcserver\views.py:1650 .\mcserver\views.py:1654 .\mcserver\views.py:1658
-#: .\mcserver\views.py:1666 .\mcserver\views.py:1704 .\mcserver\views.py:1737
-#: .\mcserver\views.py:1741 .\mcserver\views.py:1792 .\mcserver\views.py:1796
-#: .\mcserver\views.py:1831 .\mcserver\views.py:1845 .\mcserver\views.py:1849
-#: .\mcserver\views.py:1872 .\mcserver\views.py:1877
+#: .\mcserver\views.py:188 .\mcserver\views.py:192 .\mcserver\views.py:196
+#: .\mcserver\views.py:242 .\mcserver\views.py:246 .\mcserver\views.py:250
+#: .\mcserver\views.py:276 .\mcserver\views.py:280 .\mcserver\views.py:284
+#: .\mcserver\views.py:288 .\mcserver\views.py:292 .\mcserver\views.py:312
+#: .\mcserver\views.py:316 .\mcserver\views.py:320 .\mcserver\views.py:324
+#: .\mcserver\views.py:328 .\mcserver\views.py:368 .\mcserver\views.py:372
+#: .\mcserver\views.py:388 .\mcserver\views.py:392 .\mcserver\views.py:396
+#: .\mcserver\views.py:400 .\mcserver\views.py:404 .\mcserver\views.py:423
+#: .\mcserver\views.py:427 .\mcserver\views.py:431 .\mcserver\views.py:450
+#: .\mcserver\views.py:454 .\mcserver\views.py:458 .\mcserver\views.py:500
+#: .\mcserver\views.py:541 .\mcserver\views.py:566 .\mcserver\views.py:595
+#: .\mcserver\views.py:599 .\mcserver\views.py:603 .\mcserver\views.py:607
+#: .\mcserver\views.py:787 .\mcserver\views.py:791 .\mcserver\views.py:795
+#: .\mcserver\views.py:813 .\mcserver\views.py:833 .\mcserver\views.py:855
+#: .\mcserver\views.py:859 .\mcserver\views.py:863 .\mcserver\views.py:905
+#: .\mcserver\views.py:909 .\mcserver\views.py:913 .\mcserver\views.py:917
+#: .\mcserver\views.py:921 .\mcserver\views.py:993 .\mcserver\views.py:997
+#: .\mcserver\views.py:1015 .\mcserver\views.py:1019 .\mcserver\views.py:1023
+#: .\mcserver\views.py:1031 .\mcserver\views.py:1035 .\mcserver\views.py:1044
+#: .\mcserver\views.py:1107 .\mcserver\views.py:1111 .\mcserver\views.py:1143
+#: .\mcserver\views.py:1147 .\mcserver\views.py:1210 .\mcserver\views.py:1214
+#: .\mcserver\views.py:1218 .\mcserver\views.py:1222 .\mcserver\views.py:1226
+#: .\mcserver\views.py:1285 .\mcserver\views.py:1289 .\mcserver\views.py:1293
+#: .\mcserver\views.py:1297 .\mcserver\views.py:1301 .\mcserver\views.py:1389
+#: .\mcserver\views.py:1430 .\mcserver\views.py:1434 .\mcserver\views.py:1438
+#: .\mcserver\views.py:1457 .\mcserver\views.py:1461 .\mcserver\views.py:1465
+#: .\mcserver\views.py:1485 .\mcserver\views.py:1489 .\mcserver\views.py:1493
+#: .\mcserver\views.py:1513 .\mcserver\views.py:1517 .\mcserver\views.py:1521
+#: .\mcserver\views.py:1601 .\mcserver\views.py:1605 .\mcserver\views.py:1609
+#: .\mcserver\views.py:1628 .\mcserver\views.py:1632 .\mcserver\views.py:1636
+#: .\mcserver\views.py:1657 .\mcserver\views.py:1661 .\mcserver\views.py:1665
+#: .\mcserver\views.py:1685 .\mcserver\views.py:1689 .\mcserver\views.py:1693
+#: .\mcserver\views.py:1709 .\mcserver\views.py:1713 .\mcserver\views.py:1717
+#: .\mcserver\views.py:1725 .\mcserver\views.py:1763 .\mcserver\views.py:1796
+#: .\mcserver\views.py:1800 .\mcserver\views.py:1851 .\mcserver\views.py:1855
+#: .\mcserver\views.py:1890 .\mcserver\views.py:1904 .\mcserver\views.py:1908
+#: .\mcserver\views.py:1931 .\mcserver\views.py:1936
 msgid "error"
 msgstr "Error: %(error_message)"
 
-#: .\mcserver\views.py:185 .\mcserver\views.py:219 .\mcserver\views.py:255
-#: .\mcserver\views.py:331 .\mcserver\views.py:366 .\mcserver\views.py:393
-#: .\mcserver\views.py:509 .\mcserver\views.py:542 .\mcserver\views.py:652
-#: .\mcserver\views.py:750 .\mcserver\views.py:818 .\mcserver\views.py:868
-#: .\mcserver\views.py:956 .\mcserver\views.py:978 .\mcserver\views.py:1070
-#: .\mcserver\views.py:1106 .\mcserver\views.py:1163 .\mcserver\views.py:1229
+#: .\mcserver\views.py:189 .\mcserver\views.py:243 .\mcserver\views.py:277
+#: .\mcserver\views.py:313 .\mcserver\views.py:389 .\mcserver\views.py:424
+#: .\mcserver\views.py:451 .\mcserver\views.py:567 .\mcserver\views.py:600
+#: .\mcserver\views.py:788 .\mcserver\views.py:856 .\mcserver\views.py:906
+#: .\mcserver\views.py:994 .\mcserver\views.py:1016 .\mcserver\views.py:1108
+#: .\mcserver\views.py:1144 .\mcserver\views.py:1211 .\mcserver\views.py:1286
 msgid "session_uuid_not_found"
 msgstr "Sorry, we couldn't find a session with UUID: %(uuid)"
 
-#: .\mcserver\views.py:189 .\mcserver\views.py:231 .\mcserver\views.py:267
-#: .\mcserver\views.py:343 .\mcserver\views.py:370 .\mcserver\views.py:397
-#: .\mcserver\views.py:546 .\mcserver\views.py:656 .\mcserver\views.py:754
-#: .\mcserver\views.py:822 .\mcserver\views.py:880 .\mcserver\views.py:960
-#: .\mcserver\views.py:982 .\mcserver\views.py:1074 .\mcserver\views.py:1110
-#: .\mcserver\views.py:1175 .\mcserver\views.py:1241
+#: .\mcserver\views.py:193 .\mcserver\views.py:247 .\mcserver\views.py:289
+#: .\mcserver\views.py:325 .\mcserver\views.py:401 .\mcserver\views.py:428
+#: .\mcserver\views.py:455 .\mcserver\views.py:604 .\mcserver\views.py:792
+#: .\mcserver\views.py:860 .\mcserver\views.py:918 .\mcserver\views.py:998
+#: .\mcserver\views.py:1020 .\mcserver\views.py:1112 .\mcserver\views.py:1148
+#: .\mcserver\views.py:1223 .\mcserver\views.py:1298
 msgid "session_uuid_not_valid"
 msgstr "Sorry, the session UUID: %(uuid) is not valid"
 
-#: .\mcserver\views.py:193
+#: .\mcserver\views.py:197 .\mcserver\views.py:251
 msgid "calibration_error"
 msgstr "There was an error during the calibration step. Please try again."
 
-#: .\mcserver\views.py:223 .\mcserver\views.py:259 .\mcserver\views.py:335
-#: .\mcserver\views.py:640 .\mcserver\views.py:872 .\mcserver\views.py:1167
-#: .\mcserver\views.py:1233
+#: .\mcserver\views.py:281 .\mcserver\views.py:317 .\mcserver\views.py:393
+#: .\mcserver\views.py:910 .\mcserver\views.py:1215 .\mcserver\views.py:1290
 msgid "login_needed"
 msgstr "Sorry, you have to log in to access to this session."
 
-#: .\mcserver\views.py:227 .\mcserver\views.py:263 .\mcserver\views.py:339
-#: .\mcserver\views.py:648 .\mcserver\views.py:876 .\mcserver\views.py:1171
-#: .\mcserver\views.py:1237
+#: .\mcserver\views.py:285 .\mcserver\views.py:321 .\mcserver\views.py:397
+#: .\mcserver\views.py:914 .\mcserver\views.py:1219 .\mcserver\views.py:1294
 msgid "permission_denied"
 msgstr "You do not have permissions to access this data."
 
-#: .\mcserver\views.py:235 .\mcserver\views.py:271
+#: .\mcserver\views.py:293 .\mcserver\views.py:329
 msgid "session_retrieve_error"
 msgstr "There was an error while retrieving the session. Please try again."
 
-#: .\mcserver\views.py:311 .\mcserver\views.py:994 .\mcserver\views.py:1543
-#: .\mcserver\views.py:1570 .\mcserver\views.py:1599 .\mcserver\views.py:1627
-#: .\mcserver\views.py:1651
+#: .\mcserver\views.py:369 .\mcserver\views.py:1032 .\mcserver\views.py:1602
+#: .\mcserver\views.py:1629 .\mcserver\views.py:1658 .\mcserver\views.py:1686
+#: .\mcserver\views.py:1710
 msgid "subject_uuid_not_found"
 msgstr "Sorry, we couldn't find a subject with UUID: %(uuid)"
 
-#: .\mcserver\views.py:315
+#: .\mcserver\views.py:373
 msgid "session_not_valid"
 msgstr "There was an error while checking the validity of the session. Please try again."
 
-#: .\mcserver\views.py:347
+#: .\mcserver\views.py:405
 msgid "session_permanent_remove_error"
 msgstr "There was an error while permanently removing the session. Please try again."
 
-#: .\mcserver\views.py:374
+#: .\mcserver\views.py:432
 msgid "session_remove_error"
 msgstr "There was an error while removing the session. Please try again."
 
-#: .\mcserver\views.py:401
+#: .\mcserver\views.py:459
 msgid "session_restore_error"
 msgstr "There was an error while restoring the session. Please try again."
 
-#: .\mcserver\views.py:443 .\mcserver\views.py:550
+#: .\mcserver\views.py:501 .\mcserver\views.py:608
 msgid "session_create_error"
 msgstr "There was an error while creating the session. Please try again."
 
-#: .\mcserver\views.py:484
+#: .\mcserver\views.py:542
 #, fuzzy
 #| msgid "session_retrieve_error"
 msgid "qr_retrieve_error"
 msgstr "There was an error while retrieving the session. Please try again."
 
-#: .\mcserver\views.py:538
+#: .\mcserver\views.py:596
 msgid "user_not_found"
 msgstr "Sorry, we couldn't find the user."
 
-#: .\mcserver\views.py:644
-msgid "unauthorized_access_session"
-msgstr "Sorry, you don't have the permissions required to access this session."
-
-#: .\mcserver\views.py:660 .\mcserver\views.py:758
+#: .\mcserver\views.py:796
 msgid "trial_record_error"
 msgstr "There was an error while recording the trial. Please try again."
 
-#: .\mcserver\views.py:776 .\mcserver\views.py:796
+#: .\mcserver\views.py:814 .\mcserver\views.py:834
 msgid "session_download_error"
 msgstr "There was an error while downloading the session. Please try again."
 
-#: .\mcserver\views.py:826 .\mcserver\views.py:884
+#: .\mcserver\views.py:864 .\mcserver\views.py:922
 msgid "session_get_settings_error"
 msgstr "There was an error while getting the settings of the session. Please try again."
 
-#: .\mcserver\views.py:964
+#: .\mcserver\views.py:1002
 msgid "session_set_metadata_error"
 msgstr "There was an error while setting the metadata of the session. Please try again."
 
-#: .\mcserver\views.py:986 .\mcserver\views.py:998 .\mcserver\views.py:1007
+#: .\mcserver\views.py:1024 .\mcserver\views.py:1036 .\mcserver\views.py:1045
 msgid "subject_assign_error"
 msgstr "There was an error while assigning this subject to the session. Please try again."
 
-#: .\mcserver\views.py:1078 .\mcserver\views.py:1114
+#: .\mcserver\views.py:1116 .\mcserver\views.py:1152
 msgid "trial_cancel_error"
 msgstr "There was an error while canceling the trial. Please try again."
 
-#: .\mcserver\views.py:1179
+#: .\mcserver\views.py:1227
 msgid "calibration_image_retrieve_error"
 msgstr "There was an error while retrieving the calibration image. Please try again."
 
-#: .\mcserver\views.py:1245
+#: .\mcserver\views.py:1302
 msgid "neutral_image_retrieve_error"
-msgstr ""
-"There was an error while retrieving the neutral image. Please try again."
+msgstr "There was an error while retrieving the neutral image. Please try again."
 
-#: .\mcserver\views.py:1331
+#: .\mcserver\views.py:1390
 msgid "trial_dequeue_error"
 msgstr "There was an error while dequeuing the trials. Please try again."
 
-#: .\mcserver\views.py:1372 .\mcserver\views.py:1399 .\mcserver\views.py:1427
-#: .\mcserver\views.py:1455
+#: .\mcserver\views.py:1431 .\mcserver\views.py:1458 .\mcserver\views.py:1486
+#: .\mcserver\views.py:1514
 msgid "trial_uuid_not_found"
 msgstr "Sorry, we couldn't find a trial with UUID: %(uuid)."
 
-#: .\mcserver\views.py:1376 .\mcserver\views.py:1403 .\mcserver\views.py:1431
-#: .\mcserver\views.py:1459
+#: .\mcserver\views.py:1435 .\mcserver\views.py:1462 .\mcserver\views.py:1490
+#: .\mcserver\views.py:1518
 msgid "trial_uuid_not_valid"
 msgstr "Sorry, the trial UUID: %(uuid) is not valid."
 
-#: .\mcserver\views.py:1380
+#: .\mcserver\views.py:1439
 msgid "trial_rename_error"
 msgstr "There was an error while renaming the trial. Please try again."
 
-#: .\mcserver\views.py:1407
+#: .\mcserver\views.py:1466
 msgid "trial_permanent_remove_error"
 msgstr "There was an error while permanently removing the trial. Please try again."
 
-#: .\mcserver\views.py:1435
+#: .\mcserver\views.py:1494
 msgid "trial_remove_error"
 msgstr "There was an error while removing the trial. Please try again."
 
-#: .\mcserver\views.py:1463
+#: .\mcserver\views.py:1522
 msgid "trial_restore_error"
 msgstr "There was an error while removing the trial. Please try again."
 
-#: .\mcserver\views.py:1547 .\mcserver\views.py:1574 .\mcserver\views.py:1603
-#: .\mcserver\views.py:1631 .\mcserver\views.py:1655
+#: .\mcserver\views.py:1606 .\mcserver\views.py:1633 .\mcserver\views.py:1662
+#: .\mcserver\views.py:1690 .\mcserver\views.py:1714
 msgid "subject_uuid_not_valid"
 msgstr "Sorry, the subject UUID: %(uuid) is not valid"
 
-#: .\mcserver\views.py:1551
+#: .\mcserver\views.py:1610
 msgid "subject_remove_error"
 msgstr "There was an error while removing the subject. Please try again."
 
-#: .\mcserver\views.py:1578
+#: .\mcserver\views.py:1637
 msgid "subject_restore_error"
 msgstr "There was an error while removing the subject. Please try again."
 
-#: .\mcserver\views.py:1607 .\mcserver\views.py:1635 .\mcserver\views.py:1667
+#: .\mcserver\views.py:1666 .\mcserver\views.py:1694 .\mcserver\views.py:1726
 msgid "subject_create_error"
 msgstr "There was an error while creating a new subject. Please try again."
 
-#: .\mcserver\views.py:1659
+#: .\mcserver\views.py:1718
 msgid "subject_permanent_remove_error"
 msgstr "There was an error while permanently removing the subject. Please try again."
 
-#: .\mcserver\views.py:1705
+#: .\mcserver\views.py:1764
 msgid "user_create_error"
 msgstr "There was an error while creating your user. Please try again."
 
-#: .\mcserver\views.py:1738
+#: .\mcserver\views.py:1797
 msgid "credentials_incorrect"
 msgstr "Looks like the username or password you entered is incorrect. Please double check and try again."
 
-#: .\mcserver\views.py:1742
+#: .\mcserver\views.py:1801
 msgid "login_error"
 msgstr "There was an error while logging in. Please try again."
 
-#: .\mcserver\views.py:1778
+#: .\mcserver\views.py:1837
 msgid "reset_password_email_subject"
 msgstr "Opencap - Forgot Username or Password"
 
-#: .\mcserver\views.py:1793
+#: .\mcserver\views.py:1852
 msgid "account_email_not_found"
 msgstr "Sorry, we couldn't find an account associated with that email."
 
-#: .\mcserver\views.py:1797
+#: .\mcserver\views.py:1856
 msgid "error_reset_password"
 msgstr "There was an error while resetting your password. Please try again."
 
-#: .\mcserver\views.py:1832 .\mcserver\views.py:1846
+#: .\mcserver\views.py:1891 .\mcserver\views.py:1905
 msgid "reset_password_link_expired"
 msgstr "The link to reset your password has expired or does not exist. Try resetting your password again."
 
-#: .\mcserver\views.py:1850
+#: .\mcserver\views.py:1909
 msgid "new_password_creation_error"
 msgstr "There was an error while creating your new password. Please try again."
 
-#: .\mcserver\views.py:1873
+#: .\mcserver\views.py:1932
 msgid "verification_error"
 msgstr "There was an error during the verification process. Please try again."
 
-#: .\mcserver\views.py:1878
+#: .\mcserver\views.py:1937
 msgid "verification_code_incorrect"
 msgstr "Looks like the verification code is incorrect. Please double check and try again."
+
+#~ msgid "unauthorized_access_session"
+#~ msgstr ""
+#~ "Sorry, you don't have the permissions required to access this session."
 
 #~ msgid "verification_code_email_subject"
 #~ msgstr "Opencap - Verification Code"
