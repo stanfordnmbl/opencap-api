@@ -156,3 +156,33 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
                 template=dashboard_template
             )
 
+@shared_task
+def cleanup_unused_sessions():
+    """ This task deletes all Session's that are not used.
+    """
+    from .models import Session
+
+    if settings.CLEANUP_UNUSED_DATA:
+        now = timezone.now()
+        # Limit to 50 sessions to avoid long running queries
+        old_sessions = Session.objects.filter(updated_at__lt=now-timedelta(days=7))[:100]
+        for session in old_sessions:
+            neutrals = session.trial_set.filter(name__exact='neutral')
+            if not neutrals.exists():
+                session.delete()
+
+
+@shared_task
+def cleanup_stuck_trials():
+    """ This task deletes all Trial's that are not used.
+    """
+    from .models import Trial
+
+    if settings.CLEANUP_UNUSED_DATA:
+        now = timezone.now()
+        # Limit to 50 trials to avoid long running queries
+        stuck_trials = Trial.objects.filter(
+            created_at__lt=now-timedelta(days=1),
+            status='recording',
+        )
+        stuck_trials.delete()
