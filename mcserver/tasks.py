@@ -165,7 +165,7 @@ def cleanup_unused_sessions():
     if settings.CLEANUP_UNUSED_DATA:
         now = timezone.now()
         # Limit to 50 sessions to avoid long running queries
-        old_sessions = Session.objects.filter(updated_at__lt=now-timedelta(days=7))[:100]
+        old_sessions = Session.objects.filter(updated_at__lt=now-timedelta(days=7))[:500]
         for session in old_sessions:
             neutrals = session.trial_set.filter(name__exact='neutral')
             if not neutrals.exists():
