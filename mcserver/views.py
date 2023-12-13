@@ -1817,6 +1817,7 @@ class CustomAuthToken(ObtainAuthToken):
             'token': token.key,
             'user_id': user.id,
             'otp_challenge_sent': otp_challenge_sent,
+            'institutional_use': user.institutional_use,
         })
 
 class ResetPasswordView(APIView):
@@ -1948,6 +1949,22 @@ def verify(request):
         if settings.DEBUG:
             raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
         raise NotAuthenticated(_('verification_code_incorrect'))
+
+    return Response({})
+
+
+@api_view(('POST',))
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
+def set_institutional_use(request):
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        request.user.institutional_use = data['institutional_use']
+        request.user.save()
+    except Exception:
+        if settings.DEBUG:
+            raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+        raise APIException(_('set_institutional_use_error'))
 
     return Response({})
 
