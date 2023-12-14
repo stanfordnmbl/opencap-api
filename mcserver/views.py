@@ -54,7 +54,8 @@ from mcserver.serializers import (
     AnalysisFunctionSerializer,
     AnalysisResultSerializer,
     AnalysisDashboardTemplateSerializer,
-    AnalysisDashboardSerializer
+    AnalysisDashboardSerializer,
+    ProfilePictureSerializer
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -1798,6 +1799,27 @@ class UserUpdate(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+class UpdateProfilePicture(APIView):
+    """
+    Updates the profile picture of a user.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, format='json'):
+        try:
+            user = request.user
+            serializer = ProfilePictureSerializer(user, data=request.data, partial=True)
+            if serializer.is_valid():
+                updated_user = serializer.save()
+                return Response(ProfilePictureSerializer(updated_user).data, status=status.HTTP_200_OK)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_update_error'))
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class GetUserInfo(APIView):
     """
     Retrieves info about a user.
@@ -1818,9 +1840,14 @@ class GetUserInfo(APIView):
             'website': user.website,
             'first_name': user.first_name,
             'last_name': user.last_name,
-            'newsletter': user.newsletter,
-            # Add other user information as needed
+            'newsletter': user.newsletter
         }
+
+        if user.profile_picture:
+            user_info['profile_picture'] = user.profile_picture.url
+        else:
+            user_info['profile_picture'] = None
+
         return Response(user_info)
 
 

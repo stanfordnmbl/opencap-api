@@ -37,6 +37,7 @@ class UserAdmin(UserAdmin):
                 'newsletter',
                 'otp_verified',
                 'otp_skip_till',
+                'profile_picture'
             )}),
     )
 
