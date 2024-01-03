@@ -275,12 +275,13 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'mcserver.tasks.delete_pingdom_sessions',
         'schedule': crontab(hour='*', minute=0)
     },
-    'cleanup_unused_sessions': {
-        'task': 'mcserver.tasks.cleanup_unused_sessions',
-        'schedule': crontab(hour='*/4', minute=10)
-    },
-    'cleanup_stuck_trials': {
-        'task': 'mcserver.tasks.cleanup_stuck_trials',
-        'schedule': crontab(hour='*/4', minute=30)
-    },
+    # TODO: temporary disabled - need testing
+    # 'cleanup_unused_sessions': {
+    #     'task': 'mcserver.tasks.cleanup_unused_sessions',
+    #     'schedule': crontab(hour='*/4', minute=10)
+    # },
+    # 'cleanup_stuck_trials': {
+    #     'task': 'mcserver.tasks.cleanup_stuck_trials',
+    #     'schedule': crontab(hour='*/4', minute=30)
+    # },
 }

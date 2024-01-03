@@ -156,47 +156,48 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
                 template=dashboard_template
             )
 
-@shared_task
-def cleanup_unused_sessions():
-    """ This task deletes all Session's that are not used.
-    """
-    from django.db.models import Q, F, Count
-    from .models import Session
+# TODO: temporary disabled - need testing
+# @shared_task
+# def cleanup_unused_sessions():
+#     """ This task deletes all Session's that are not used.
+#     """
+#     from django.db.models import Q, F, Count
+#     from .models import Session
 
-    if settings.CLEANUP_UNUSED_DATA:
-        now = timezone.now()
+#     if settings.CLEANUP_UNUSED_DATA:
+#         now = timezone.now()
 
-        # Delete sessions that are older than 7 days and have no trials
-        ids_for_delete = Session.objects.annotate(
-            trials_count=Count('trial')).filter(
-            Q(updated_at__lt=now-timedelta(days=7)) &
-            Q(trials_count=0)
-        ).values_list('id', flat=True)[:100]
-        Session.objects.filter(id__in=ids_for_delete).delete()
+#         # Delete sessions that are older than 7 days and have no trials
+#         ids_for_delete = Session.objects.annotate(
+#             trials_count=Count('trial')).filter(
+#             Q(updated_at__lt=now-timedelta(days=7)) &
+#             Q(trials_count=0)
+#         ).values_list('id', flat=True)[:100]
+#         Session.objects.filter(id__in=ids_for_delete).delete()
 
-        # Delete sessions that are older than 7 days and have only calibration trials with errors
-        ids_for_delete = Session.objects.annotate(
-            trials_count=Count('trial'),
-            trials_calibration_error_count=Count(
-                'trial',
-                filter=(
-                    Q(trial__name__exact='calibration') & Q(trial__status__exact='error')))).filter(
-            Q(updated_at__lt=now-timedelta(days=7)) &
-            Q(trials_count=F('trials_calibration_error_count'))).values_list('id', flat=True)[:100]
-        Session.objects.filter(id__in=ids_for_delete).delete()
+#         # Delete sessions that are older than 7 days and have only calibration trials with errors
+#         ids_for_delete = Session.objects.annotate(
+#             trials_count=Count('trial'),
+#             trials_calibration_error_count=Count(
+#                 'trial',
+#                 filter=(
+#                     Q(trial__name__exact='calibration') & Q(trial__status__exact='error')))).filter(
+#             Q(updated_at__lt=now-timedelta(days=7)) &
+#             Q(trials_count=F('trials_calibration_error_count'))).values_list('id', flat=True)[:100]
+#         Session.objects.filter(id__in=ids_for_delete).delete()
 
 
-@shared_task
-def cleanup_stuck_trials():
-    """ This task deletes all Trial's that are not used.
-    """
-    from .models import Trial
+# @shared_task
+# def cleanup_stuck_trials():
+#     """ This task deletes all Trial's that are not used.
+#     """
+#     from .models import Trial
 
-    if settings.CLEANUP_UNUSED_DATA:
-        now = timezone.now()
-        # Limit to 50 trials to avoid long running queries
-        stuck_trials = Trial.objects.filter(
-            created_at__lt=now-timedelta(days=1),
-            status='recording',
-        )
-        stuck_trials.delete()
+#     if settings.CLEANUP_UNUSED_DATA:
+#         now = timezone.now()
+#         # Limit to 50 trials to avoid long running queries
+#         stuck_trials = Trial.objects.filter(
+#             created_at__lt=now-timedelta(days=1),
+#             status='recording',
+#         )
+#         stuck_trials.delete()
