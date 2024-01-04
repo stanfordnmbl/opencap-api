@@ -14,16 +14,17 @@ from mcserver.models import (
 )
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
+from django.utils.translation import gettext as _
 
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
-            required=True,
-            validators=[UniqueValidator(queryset=User.objects.all())]
-            )
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all(), message=_("email-already_exists"))]
+    )
     username = serializers.CharField(
-            validators=[UniqueValidator(queryset=User.objects.all())]
-            )
+        validators=[UniqueValidator(queryset=User.objects.all(), message=_("username-already_exists"))]
+    )
     password = serializers.CharField(min_length=8)
 
     def create(self, validated_data):
@@ -38,14 +39,36 @@ class UserSerializer(serializers.ModelSerializer):
                                         newsletter=validated_data['newsletter'],
                                         profession=validated_data['profession'],
                                         country=validated_data['country']
-        )
-        
+                                        )
+
         return user
 
     class Meta:
         model = User
         fields = ('id', 'username', 'first_name', 'last_name', 'email', 'password', 'institution', 'reason', 'website',
                   'newsletter', 'profession', 'country')
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        user = User.objects.create_user(validated_data['username'],
+                                        first_name=validated_data['first_name'],
+                                        last_name=validated_data['last_name'],
+                                        country=validated_data['country'],
+                                        institution=validated_data['institution'],
+                                        profession=validated_data['profession'],
+                                        reason=validated_data['reason'],
+                                        website=validated_data['website'],
+                                        newsletter=validated_data['newsletter'],
+                                        )
+
+        return user
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'first_name', 'last_name', 'country', 'institution', 'profession', 'reason',
+                  'website', 'newsletter')
+
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
