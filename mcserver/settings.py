@@ -248,9 +248,6 @@ TRASHED_OBJECTS_CLEANUP_DAYS = config(
     'TRASHED_OBJECTS_CLEANUP_DAYS', default=30, cast=int)  # 30 days by default
 ARCHIVE_CLEANUP_DAYS = config('ARCHIVE_CLEANUP_DAYS', default=4, cast=int)
 
-# An option to disable the cleanup of the unused data for debugging purposes
-CLEANUP_UNUSED_DATA = config('CLEANUP_UNUSED_DATA', default=True, cast=bool)
-
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_BEAT_SCHEDULER = 'redbeat.RedBeatScheduler'
@@ -271,17 +268,8 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'mcserver.tasks.cleanup_archives',
         'schedule': crontab(hour=0, minute=0)
     },
-    'cleanup_pingdom_sessions': {
+    'cleanup_archives': {
         'task': 'mcserver.tasks.delete_pingdom_sessions',
         'schedule': crontab(hour='*', minute=0)
-    },
-    # TODO: temporary disabled - need testing
-    # 'cleanup_unused_sessions': {
-    #     'task': 'mcserver.tasks.cleanup_unused_sessions',
-    #     'schedule': crontab(hour='*/4', minute=10)
-    # },
-    # 'cleanup_stuck_trials': {
-    #     'task': 'mcserver.tasks.cleanup_stuck_trials',
-    #     'schedule': crontab(hour='*/4', minute=30)
-    # },
+    }
 }
