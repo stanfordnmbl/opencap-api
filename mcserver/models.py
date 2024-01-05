@@ -44,6 +44,7 @@ class User(AbstractUser):
     otp_verified = models.BooleanField(default=False)
     otp_skip_till = models.DateTimeField(blank=True, null=True)
     newsletter = models.BooleanField(default=True)
+    profile_picture = models.ImageField(upload_to="profile_pictures", blank=True, null=True)
 
 
 class Session(models.Model):
