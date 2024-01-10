@@ -38,7 +38,8 @@ class UserSerializer(serializers.ModelSerializer):
                                         website=validated_data['website'],
                                         newsletter=validated_data['newsletter'],
                                         profession=validated_data['profession'],
-                                        country=validated_data['country']
+                                        country=validated_data['country'],
+                                        profile_pictures=validated_data['profile_pictures']
                                         )
 
         return user
@@ -46,7 +47,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'first_name', 'last_name', 'email', 'password', 'institution', 'reason', 'website',
-                  'newsletter', 'profession', 'country')
+                  'newsletter', 'profession', 'country', 'profile_pictures')
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -61,13 +62,24 @@ class UserUpdateSerializer(serializers.ModelSerializer):
                                         website=validated_data['website'],
                                         newsletter=validated_data['newsletter'],
                                         )
-
         return user
 
     class Meta:
         model = User
         fields = ('id', 'username', 'first_name', 'last_name', 'country', 'institution', 'profession', 'reason',
                   'website', 'newsletter')
+
+
+class ProfilePictureSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        user = User.objects.create_user(validated_data['username'],
+                                        profile_picture=validated_data['profile_picture'],
+                                        )
+        return user
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'profile_picture')
 
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
@@ -79,26 +91,26 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
         model = User
         fields = ('email',)
 
+
 class NewPasswordSerializer(serializers.ModelSerializer):
     password = serializers.CharField(min_length=20,
-            required=True,
-            )
+                                     required=True)
     token = serializers.CharField(min_length=36,
-            required=True
-            )
+                                  required=True)
 
     class Meta:
         model = User
         fields = ('password','token',)
 
+
 # Serializers define the API representation.
 class VideoSerializer(serializers.ModelSerializer):
     video_url = serializers.CharField(max_length=256,
-            required=False
-            )
+                                      required=False)
     class Meta:
         model = Video
         fields = ['id', 'trial', 'device_id', 'video', 'video_url', 'video_thumb', 'parameters', 'created_at', 'updated_at']
+
 
 # Serializers define the API representation.
 class ResultSerializer(serializers.ModelSerializer):
@@ -107,6 +119,7 @@ class ResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = Result
         fields = ['id', 'trial', 'tag', 'media', 'media_url', 'meta', 'device_id', 'created_at', 'updated_at']
+
 
 # Serializers define the API representation.
 class TrialSerializer(serializers.ModelSerializer):
@@ -121,10 +134,11 @@ class TrialSerializer(serializers.ModelSerializer):
             'trashed', 'trashed_at',
         ]
 
+
 # Serializers define the API representation.
 class SessionSerializer(serializers.ModelSerializer):
-#    trials = TrialSerializer(source='trial_set', many=True)
-    trials = serializers.SerializerMethodField() #TrialSerializer(source='trial_set', many=True)
+    # trials = TrialSerializer(source='trial_set', many=True)
+    trials = serializers.SerializerMethodField()  # TrialSerializer(source='trial_set', many=True)
 
     name = serializers.SerializerMethodField('session_name')
 
@@ -151,7 +165,6 @@ class SessionSerializer(serializers.ModelSerializer):
         if subject_id:
             return subject_id
         return str(session.id).split("-")[0]
-
 
     class Meta:
         model = Session
