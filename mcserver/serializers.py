@@ -226,10 +226,11 @@ class AnalysisResultSerializer(serializers.ModelSerializer):
     analysis_function = AnalysisFunctionSerializer(source="function")
     result = ResultSerializer()
     response = serializers.SerializerMethodField()
+    menu = serializers.SerializerMethodField()
 
     class Meta:
         model = AnalysisResult
-        fields = ('analysis_function', 'result', 'status', 'state', 'response')
+        fields = ('analysis_function', 'result', 'status', 'state', 'response', 'menu')
     
     def get_response(self, obj):
         """ Returns Result.media content if analysis was successful,
@@ -238,6 +239,11 @@ class AnalysisResultSerializer(serializers.ModelSerializer):
         if obj.result:
             return json.loads(obj.result.media.read())
         return obj.response
+
+    def get_menu(self, obj):
+        """ Returns menu for analysis dashboard.
+        """
+        return obj.get_menu_definition()
 
 
 class AnalysisDashboardTemplateSerializer(serializers.ModelSerializer):

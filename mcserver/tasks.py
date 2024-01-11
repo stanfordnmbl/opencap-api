@@ -136,13 +136,14 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
             json_path,
             ContentFile(json.dumps(function_response).encode('utf-8'))
         )
-
+        if 'menu' in function_response:
+            analysis_result.response['menu'] = function_response['menu']
         analysis_result.result = result
     else:
         analysis_result.response = function_response
     analysis_result.save(update_fields=['result', 'status', 'state', 'response'])
 
-    # Crreate analysis dashboard if available
+    # Create analysis dashboard if available
     try:
         AnalysisDashboard.objects.get(user_id=user_id, function_id=function_id)
     except AnalysisDashboard.DoesNotExist:

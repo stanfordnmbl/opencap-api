@@ -219,7 +219,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 id_session_with_calibration = session.meta['sessionWithCalibration']
                 # If parent does not exist, capture the exception, and continue.
                 try:
-                    session_with_calibration = Session.objects.filter(pk=id_session_with_calibration['id'])
+                    session_with_calibration = Session.objects.filter(pk=id_session_with_calibration)
                 except Exception:
                     break
                 # If parent exist, extract calibration trials.
@@ -2162,6 +2162,7 @@ class AnalysisFunctionsStatesForTrialsAPIView(APIView):
             for t_id in trial_ids:
                 data[result.function_id][str(t_id)] =  {
                     'state': result.state,
+                    'menu': result.get_menu_definition(),
                     'task_id': result.task_id,
                     'dashboard_id': dashboard_id,
                 }

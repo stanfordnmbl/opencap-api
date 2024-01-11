@@ -400,6 +400,12 @@ class AnalysisResult(models.Model):
     def __str__(self):
         return f'{self.function.title}-{self.status}'
 
+    def get_menu_definition(self):
+        result = []
+        if 'menu' in self.response:
+            result = self.response['menu']
+        return result
+
     def save(self, *args, **kwargs):
         if 'session_id' in self.data and 'specific_trial_names' in self.data:
             self.trial = Trial.objects.filter(
