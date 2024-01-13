@@ -28,6 +28,8 @@ class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(min_length=8)
 
     def create(self, validated_data):
+        profile_picture = validated_data.get('profile_picture', None)
+
         user = User.objects.create_user(validated_data['username'],
                                         validated_data['email'],
                                         validated_data['password'],
@@ -39,7 +41,7 @@ class UserSerializer(serializers.ModelSerializer):
                                         newsletter=validated_data['newsletter'],
                                         profession=validated_data['profession'],
                                         country=validated_data['country'],
-                                        profile_pictures=validated_data['profile_pictures']
+                                        profile_picture=profile_picture
                                         )
 
         return user
@@ -47,7 +49,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'first_name', 'last_name', 'email', 'password', 'institution', 'reason', 'website',
-                  'newsletter', 'profession', 'country', 'profile_pictures')
+                  'newsletter', 'profession', 'country', 'profile_picture')
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
