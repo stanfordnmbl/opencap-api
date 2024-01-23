@@ -179,6 +179,23 @@ class SessionSerializer(serializers.ModelSerializer):
         ]
 
 
+class SessionStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Session
+        fields = ['status']
+
+
+class SessionIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Session
+        fields = ['id']
+
+
+class SessionFilteringSerializer(serializers.Serializer):
+    status = serializers.CharField(max_length=64, required=True)
+    date_range = serializers.ListField(child=serializers.DateField(), required=False)
+
+
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
