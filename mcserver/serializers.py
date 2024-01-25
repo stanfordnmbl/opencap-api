@@ -1,3 +1,4 @@
+import json
 from rest_framework import serializers
 from mcserver.models import (
     Session,
@@ -7,7 +8,9 @@ from mcserver.models import (
     Result,
     Subject,
     AnalysisFunction,
-    AnalysisResult
+    AnalysisResult,
+    AnalysisDashboardTemplate,
+    AnalysisDashboard,
 )
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
@@ -185,7 +188,30 @@ class AnalysisFunctionSerializer(serializers.ModelSerializer):
 
 class AnalysisResultSerializer(serializers.ModelSerializer):
     analysis_function = AnalysisFunctionSerializer(source="function")
+    result = ResultSerializer()
+    response = serializers.SerializerMethodField()
 
     class Meta:
         model = AnalysisResult
-        fields = ('analysis_function', 'result', 'status', 'state')
+        fields = ('analysis_function', 'result', 'status', 'state', 'response')
+    
+    def get_response(self, obj):
+        """ Returns Result.media content if analysis was successful,
+            otherwise returns the original response with error details.
+        """
+        if obj.result:
+            return json.loads(obj.result.media.read())
+        return obj.response
+
+
+class AnalysisDashboardTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnalysisDashboardTemplate
+        fields = ('id', 'title', 'function', 'layout')
+
+
+class AnalysisDashboardSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = AnalysisDashboard
+        fields = ('id', 'title', 'function', 'template', 'layout')

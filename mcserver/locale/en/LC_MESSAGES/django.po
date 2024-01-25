@@ -107,7 +107,7 @@ msgstr "Undefined UUID."
 #: .\mcserver\views.py:1798 .\mcserver\views.py:1833 .\mcserver\views.py:1847
 #: .\mcserver\views.py:1851 .\mcserver\views.py:1874 .\mcserver\views.py:1879
 msgid "error"
-msgstr "Error: %(error_message)"
+msgstr "Error: %(error_message)s"
 
 #: .\mcserver\views.py:185 .\mcserver\views.py:219 .\mcserver\views.py:255
 #: .\mcserver\views.py:331 .\mcserver\views.py:366 .\mcserver\views.py:393
@@ -116,7 +116,7 @@ msgstr "Error: %(error_message)"
 #: .\mcserver\views.py:949 .\mcserver\views.py:1041 .\mcserver\views.py:1077
 #: .\mcserver\views.py:1134 .\mcserver\views.py:1200
 msgid "session_uuid_not_found"
-msgstr "Sorry, we couldn't find a session with UUID: %(uuid)"
+msgstr "Sorry, we couldn't find a session with UUID: %(uuid)s"
 
 #: .\mcserver\views.py:189 .\mcserver\views.py:231 .\mcserver\views.py:267
 #: .\mcserver\views.py:343 .\mcserver\views.py:370 .\mcserver\views.py:397
@@ -125,7 +125,7 @@ msgstr "Sorry, we couldn't find a session with UUID: %(uuid)"
 #: .\mcserver\views.py:1045 .\mcserver\views.py:1081 .\mcserver\views.py:1146
 #: .\mcserver\views.py:1212
 msgid "session_uuid_not_valid"
-msgstr "Sorry, the session UUID: %(uuid) is not valid"
+msgstr "Sorry, the session UUID: %(uuid)s is not valid"
 
 #: .\mcserver\views.py:193
 msgid "calibration_error"
@@ -149,7 +149,7 @@ msgstr "There was an error while retrieving the session. Please try again."
 #: .\mcserver\views.py:1543 .\mcserver\views.py:1572 .\mcserver\views.py:1600
 #: .\mcserver\views.py:1624
 msgid "subject_uuid_not_found"
-msgstr "Sorry, we couldn't find a subject with UUID: %(uuid)"
+msgstr "Sorry, we couldn't find a subject with UUID: %(uuid)s"
 
 #: .\mcserver\views.py:315
 msgid "session_not_valid"
@@ -218,12 +218,12 @@ msgstr "There was an error while dequeuing the trials. Please try again."
 #: .\mcserver\views.py:1345 .\mcserver\views.py:1372 .\mcserver\views.py:1400
 #: .\mcserver\views.py:1428
 msgid "trial_uuid_not_found"
-msgstr "Sorry, we couldn't find a trial with UUID: %(uuid)."
+msgstr "Sorry, we couldn't find a trial with UUID: %(uuid)s."
 
 #: .\mcserver\views.py:1349 .\mcserver\views.py:1376 .\mcserver\views.py:1404
 #: .\mcserver\views.py:1432
 msgid "trial_uuid_not_valid"
-msgstr "Sorry, the trial UUID: %(uuid) is not valid."
+msgstr "Sorry, the trial UUID: %(uuid)s is not valid."
 
 #: .\mcserver\views.py:1353
 msgid "trial_rename_error"
@@ -244,7 +244,7 @@ msgstr "There was an error while removing the trial. Please try again."
 #: .\mcserver\views.py:1520 .\mcserver\views.py:1547 .\mcserver\views.py:1576
 #: .\mcserver\views.py:1604 .\mcserver\views.py:1628
 msgid "subject_uuid_not_valid"
-msgstr "Sorry, the subject UUID: %(uuid) is not valid"
+msgstr "Sorry, the subject UUID: %(uuid)s is not valid"
 
 #: .\mcserver\views.py:1524
 msgid "subject_remove_error"

@@ -36,7 +36,9 @@ from mcserver.models import (
     DownloadLog,
     AnalysisFunction,
     AnalysisResult,
-    AnalysisResultState
+    AnalysisResultState,
+    AnalysisDashboardTemplate,
+    AnalysisDashboard,
 )
 from mcserver.serializers import (
     SessionSerializer,
@@ -49,7 +51,9 @@ from mcserver.serializers import (
     ResetPasswordSerializer,
     NewPasswordSerializer,
     AnalysisFunctionSerializer,
-    AnalysisResultSerializer
+    AnalysisResultSerializer,
+    AnalysisDashboardTemplateSerializer,
+    AnalysisDashboardSerializer,
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -197,6 +201,60 @@ class SessionViewSet(viewsets.ModelViewSet):
             "data": request.data,
         })
 
+    @action(detail=True)
+    def get_n_calibrated_cameras(self, request, pk):
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            error_message = ''
+            session = get_object_or_404(Session, pk=pk)
+            calibration_trials = session.trial_set.filter(name="calibration")
+            last_calibration_trial_num_videos = 0
+
+            # Check if there is a calibration trial. If not, it must be in a parent session.
+            while not calibration_trials and session.meta['sessionWithCalibration']:
+                id_session_with_calibration = session.meta['sessionWithCalibration']
+                # If parent does not exist, capture the exception, and continue.
+                try:
+                    session_with_calibration = Session.objects.filter(pk=id_session_with_calibration['id'])
+                except Exception:
+                    break
+                # If parent exist, extract calibration trials.
+                if session_with_calibration:
+                    try:
+                        calibration_trials = session_with_calibration[0].trial_set.filter(name="calibration")
+                    except Exception:
+                        break
+
+            # If there are calibration trials, check if the number of cameras is the same as in the
+            # current trial being stopped.
+            if calibration_trials:
+                last_calibration_trial = calibration_trials.order_by("-created_at")[0]
+
+                last_calibration_trial_num_videos = Video.objects.filter(trial=last_calibration_trial).count()
+            else:
+                error_message = 'Sorry, there is no calibration trial for this session.' \
+                                                 'Maybe it was created from a session that was remove.'
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("calibration_error"))
+
+        return Response({
+            'error_message': error_message,
+            'data': last_calibration_trial_num_videos
+        })
+
     @action(detail=True, methods=['post'])
     def rename(self, request, pk):
         # Get session.
@@ -254,9 +312,10 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
-            if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_('login_needed'))
+            # if settings.DEBUG:
+            #     raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            return Response(_('login_needed'), status=status.HTTP_401_UNAUTHORIZED)
+            # raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -271,6 +330,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_("session_retrieve_error"))
 
         return Response(serializer.data)
+
+
 
     @action(
         detail=False,
@@ -296,7 +357,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             # A session is valid only if at least one trial is the "neutral" trial and its status is "done".
             for session in sessions:
-                trials = Trial.objects.filter(session__exact=session, name__exact="neutral").filter(status__exact="done")
+                trials = Trial.objects.filter(session__exact=session, name__exact="neutral")
                 if trials.count() < 1:
                     sessions = sessions.exclude(id__exact=session.id)
 
@@ -558,8 +619,10 @@ class SessionViewSet(viewsets.ModelViewSet):
         return super(SessionViewSet, self).get_permissions()
     
     def get_status(self, request, pk):
+        if pk == 'undefined':
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
 
-        session = Session.objects.get(pk=pk)
+        session = get_object_or_404(Session, pk=pk)
         self.check_object_permissions(self.request, session)
         serializer = SessionSerializer(session)
 
@@ -598,8 +661,15 @@ class SessionViewSet(viewsets.ModelViewSet):
                 video.save()
             status = "recording"
 
+        # If status 'uploading' and 'device_id' provided
+        n_videos_uploaded = 0
+        n_cameras_connected = Video.objects.filter(trial=trial).count()
+        for video in Video.objects.filter(trial=trial).all():
+            if video.video and video.video.url:
+                n_videos_uploaded = n_videos_uploaded + 1
+
         video_url = None
-        if trial and "device_id" in request.GET:
+        if trial and trial.status == "recording" and "device_id" in request.GET:
             videos = trial.video_set.filter(device_id=request.GET["device_id"])
             if videos.count() > 0:
                 video_url = reverse('video-detail', kwargs={'pk': videos[0].id})
@@ -624,7 +694,9 @@ class SessionViewSet(viewsets.ModelViewSet):
             "trial": trial_url,
             "video": video_url,
             "framerate": frameRate,
-            "newSessionURL":newSessionURL,
+            "newSessionURL": newSessionURL,
+            "n_cameras_connected": n_cameras_connected,
+            "n_videos_uploaded": n_videos_uploaded
         }
 
         if "ret_session" in request.GET:
@@ -747,7 +819,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_('session_download_error'))
 
         return FileResponse(open(session_zip, "rb"))
-    
+
     @action(
         detail=True,
         url_path="async-download",
@@ -755,11 +827,17 @@ class SessionViewSet(viewsets.ModelViewSet):
     )
     def async_download(self, request, pk):
         try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            # Check if the session is public or belongs to the logged-in user
+            session = get_object_or_404(Session, pk=pk)
+            if not session.public and session.user != request.user:
+                raise PermissionDenied(_('permission_denied'))
+
             if request.user.is_authenticated:
-                session = get_object_or_404(Session, pk=pk, user=request.user)
                 task = download_session_archive.delay(session.id, request.user.id)
             else:
-                session = get_object_or_404(Session, pk=pk, public=True)
                 task = download_session_archive.delay(session.id)
         except Exception:
             if settings.DEBUG:
@@ -1097,37 +1175,41 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             trials = session.trial_set.filter(name="calibration").order_by("-created_at")
             print(trials)
+            status_session = self.get_status(request, pk)
+
             if len(trials) == 0:
                 data = {
                     "status": "error",
                     "img": [
                         "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
                     ],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
             elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
                 data = {
                     "status": "processing",
                     "img": [
-    #                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
+                        # "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
                     ],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
-            else:
-                imgs = []
-                for result in trials[0].result_set.all():
-                    if result.tag == "calibration-img":
-                        imgs.append(result.media.url)
-                print(imgs)
-                if len(imgs) > 0:
-                    data = {
-                        "status": "done",
-                        "img": list(sorted(imgs, key=lambda x: x.split("-")[-1])),
+            elif trials[0].status == 'done':
+                data = {
+                    "status": "done",
+                    "img": "None",
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
 
-                else:
-                   data = {
-                        "status": "error",
-                        "img": [],
-                    }
+            else:
+                data = {
+                    "status": "error",
+                    "img": [],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
+                }
         except Http404:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
@@ -1161,6 +1243,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             self.check_object_permissions(self.request, session)
             trials = session.trial_set.filter(name="neutral").order_by("-created_at")
 
+            status_session = self.get_status(request, pk)
 
             if len(trials) == 0:
                 data = {
@@ -1168,13 +1251,17 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "img": [
                         "https://main.d2stl78iuswh3t.amplifyapp.com/images/neutral_pose.png",
                     ],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
             elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
                 data = {
                     "status": "processing",
                     "img": [
-    #                    "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
+                        # "https://main.d2stl78iuswh3t.amplifyapp.com/images/camera-calibration.png"
                     ],
+                    "n_cameras_connected": status_session["n_cameras_connected"],
+                    "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
             else:
                 imgs = []
@@ -1185,13 +1272,17 @@ class SessionViewSet(viewsets.ModelViewSet):
                 if len(imgs) > 0:
                     data = {
                         "status": "done",
-                        "img": imgs
+                        "img": imgs,
+                        "n_cameras_connected": status_session["n_cameras_connected"],
+                        "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
                 else:
                    data = {
                         "status": "error",
                         "img": [
                         ],
+                       "n_cameras_connected": status_session["n_cameras_connected"],
+                       "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
 
         except Http404:
@@ -1466,6 +1557,13 @@ class ResultViewSet(viewsets.ModelViewSet):
     def create(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # We use [0] here because all our permissions is the single list element
+        has_perms = self.permission_classes[0]().has_object_permission(
+            request, self, serializer.validated_data["trial"])
+        if not has_perms:
+            raise PermissionDenied(_('permission_denied'))
+
         if request.data.get('media_url'):
             serializer.validated_data["media"] = serializer.validated_data["media_url"]
             del serializer.validated_data["media_url"]
@@ -1907,7 +2005,14 @@ class AnalysisFunctionsListAPIView(ListAPIView):
     """
     permission_classes = (IsAuthenticated, )
     serializer_class = AnalysisFunctionSerializer
-    queryset = AnalysisFunction.objects.filter(is_active=True)
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = AnalysisFunction.objects.filter(
+            Q(is_active=True) & (
+                Q(only_for_users__isnull=True) | Q(only_for_users=user)
+            ))
+        return queryset
 
 
 class InvokeAnalysisFunctionAPIView(APIView):
@@ -1921,6 +2026,23 @@ class InvokeAnalysisFunctionAPIView(APIView):
         )
         task = invoke_aws_lambda_function.delay(request.user.id, function.id, request.data)
         return Response({'task_id': task.id}, status=201)
+
+
+class AnalysisFunctionTaskIdAPIView(APIView):
+    """ Returns the Celery task id for the analysis function for given trial id.
+    """
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        function = get_object_or_404(
+            AnalysisFunction, pk=self.kwargs['pk'], is_active=True
+        )
+        analysis_result = AnalysisResult.objects.filter(
+            function=function, trial_id=kwargs['trial_id']).order_by('-id').first()
+        if analysis_result:
+            return Response({'task_id': analysis_result.task_id}, status=201)
+        return Http404()
+
 
 class AnalysisResultOnReadyAPIView(APIView):
     """ Returns AnalysisResult if it has been proccessed,
@@ -1937,5 +2059,85 @@ class AnalysisResultOnReadyAPIView(APIView):
             AnalysisResultState.SUCCESSFULL, AnalysisResultState.FAILED
         ):
             serializer = AnalysisResultSerializer(result)
-            return Response(serializer.data)
+            dashboard = AnalysisDashboard.objects.filter(
+                user=request.user, function_id=result.function_id
+            ).first()
+            data = serializer.data
+            if dashboard:
+                data['dashboard_id'] = dashboard.id
+            if result.state == AnalysisResultState.FAILED:
+                # A fix with partial Result emulation to avoid errors on frontend
+                if result.trial:
+                    data['result'] = {
+                        'trial': TrialSerializer(result.trial).data,
+                    }
+            return Response(data)
         return Response(status=202)
+
+class AnalysisFunctionsPendingForTrialsAPIView(APIView):
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        from collections import defaultdict
+        results = AnalysisResult.objects.filter(
+            user=request.user,
+            state=AnalysisResultState.PENDING,
+        )
+        data = defaultdict(list)
+        for result in results:
+            trial_ids = Trial.objects.filter(
+                session_id=result.data['session_id'],
+                name__in=result.data['specific_trial_names']).values_list('id', flat=True)
+            data[result.function_id] += list(trial_ids)
+
+        return Response(data)
+
+
+class AnalysisFunctionsStatesForTrialsAPIView(APIView):
+    permission_classes = (IsAuthenticated, )
+
+    def get(self, request, *args, **kwargs):
+        from collections import defaultdict
+        results = AnalysisResult.objects.filter(user=request.user).order_by('-id')
+        data = defaultdict(dict)
+        skip_lines = set()
+
+        for result in results:
+            # Skip duplicated results. Fetch only newest.
+            if (result.function_id, str(result.data)) in skip_lines:
+                continue
+            dashboard_id = AnalysisDashboard.objects.filter(
+                user=request.user,
+                function_id=result.function_id,
+            ).values_list('id', flat=True).first()
+            trial_ids = Trial.objects.filter(
+                session_id=result.data['session_id'],
+                name__in=result.data['specific_trial_names']).values_list('id', flat=True)
+            for t_id in trial_ids:
+                data[result.function_id][str(t_id)] =  {
+                    'state': result.state,
+                    'task_id': result.task_id,
+                    'dashboard_id': dashboard_id,
+                }
+                skip_lines.add((result.function_id, str(result.data)))
+
+        return Response(data)
+
+
+class AnalysisDashboardViewSet(viewsets.ModelViewSet):
+    serializer_class = AnalysisDashboardSerializer
+    permission_classes = [IsOwner]
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the sessions
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        return AnalysisDashboard.objects.filter(user=user)
+
+    @action(detail=True)
+    def data(self, request, pk):
+        dashboard = get_object_or_404(AnalysisDashboard, user=request.user, pk=pk)
+        return Response(dashboard.get_available_data())
+
