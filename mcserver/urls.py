@@ -23,6 +23,7 @@ from mcserver.views import (
     SubjectViewSet,
     DownloadFileOnReadyAPIView,
     UserCreate,
+    UserDelete,
     CustomAuthToken,
     verify,
     reset_otp_challenge,
@@ -60,6 +61,7 @@ urlpatterns = [
     path('check-otp-verified/', check_otp_verified),
     path('admin/', admin.site.urls),
     path('register/', UserCreate.as_view(), name='account-create'),
+    path('delete-account/', UserDelete.as_view(), name='account-delete'),
     path('reset-password/', ResetPasswordView.as_view()),
     path('new-password/', NewPasswordView.as_view()),
     path(
