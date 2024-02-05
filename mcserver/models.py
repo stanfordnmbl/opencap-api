@@ -53,7 +53,7 @@ class User(AbstractUser):
     website = models.CharField(max_length=256, blank=True, null=True)
     otp_verified = models.BooleanField(default=False)
     otp_skip_till = models.DateTimeField(blank=True, null=True)
-    newsletter = models.BooleanField(default=True)    
+    newsletter = models.BooleanField(default=True)
     profile_picture = models.ImageField(upload_to="profile_pictures", blank=True, null=True)
     institutional_use = models.CharField(max_length=100, choices=INSTITUTIONAL_USE_CHOICES, blank=True, default='')
 
