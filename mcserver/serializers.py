@@ -48,8 +48,19 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'password', 'institution', 'reason', 'website',
-                  'newsletter', 'profession', 'country', 'profile_picture')
+        fields = (
+            'id', 'username', 'first_name', 'last_name',
+            'email', 'password', 'institution',
+            'reason', 'website',
+            'newsletter', 'profession', 'country', 'profile_picture',
+            'institutional_use',
+        )
+
+
+class UserInstitutionalUseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('institutional_use',)
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):

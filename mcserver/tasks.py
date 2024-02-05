@@ -50,24 +50,57 @@ def download_session_archive(self, session_id, user_id=None):
     """ This task is responsible for asynchronous session archive download.
         If user_id is None, the public session download occurred.
     """
-    session_dir_path = SessionDirectoryConstructor().build(session_id)
-    session_zip_path = zipdir(session_dir_path)
-    with open(session_zip_path, "rb") as archive:
-        log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
-        log.media.save(os.path.basename(session_zip_path), archive)
-        os.remove(session_zip_path)
+    import shutil
 
+    session_dir_path = None
+    session_zip_path = None
+
+    try:
+        session_dir_path = SessionDirectoryConstructor().build(session_id)
+        session_zip_path = zipdir(session_dir_path)
+        with open(session_zip_path, "rb") as archive:
+            log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
+            log.media.save(os.path.basename(session_zip_path), archive)
+            os.remove(session_zip_path)
+    except Exception as e:
+        # Delete files and send the traceback to Sentry if something went wrong
+        if session_dir_path and os.path.isfile(session_dir_path):
+            shutil.rmtree(session_dir_path)
+        if session_zip_path and os.path.isfile(session_zip_path):
+            os.remove(session_zip_path)
+        if settings.SENTRY_DSN:
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
+        else:
+            print(e)
 
 @shared_task(bind=True)
 def download_subject_archive(self, subject_id, user_id):
     """ This task is responsible for asynchronous subject archive download
     """
-    subject_dir_path = SubjectDirectoryConstructor().build(subject_id)
-    subject_zip_path = zipdir(subject_dir_path)
-    with open(subject_zip_path, "rb") as archive:
-        log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
-        log.media.save(os.path.basename(subject_zip_path), archive)
-        os.remove(subject_zip_path)
+    import shutil
+
+    subject_dir_path = None
+    subject_zip_path = None
+
+    try:
+        subject_dir_path = SubjectDirectoryConstructor().build(subject_id)
+        subject_zip_path = zipdir(subject_dir_path)
+        with open(subject_zip_path, "rb") as archive:
+            log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
+            log.media.save(os.path.basename(subject_zip_path), archive)
+            os.remove(subject_zip_path)
+    except Exception as e:
+        # Delete files and send the traceback to Sentry if something went wrong
+        if subject_dir_path and os.path.isfile(subject_dir_path):
+            shutil.rmtree(subject_dir_path)
+        if subject_zip_path and os.path.isfile(subject_zip_path):
+            os.remove(subject_zip_path)
+        if settings.SENTRY_DSN:
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
+        else:
+            print(e)
 
 
 @shared_task
