@@ -55,7 +55,8 @@ from mcserver.serializers import (
     AnalysisResultSerializer,
     AnalysisDashboardTemplateSerializer,
     AnalysisDashboardSerializer,
-    ProfilePictureSerializer
+    ProfilePictureSerializer,
+    UserInstitutionalUseSerializer,    
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -1916,6 +1917,7 @@ class CustomAuthToken(ObtainAuthToken):
             'token': token.key,
             'user_id': user.id,
             'otp_challenge_sent': otp_challenge_sent,
+            'institutional_use': user.institutional_use,
         })
 
 class ResetPasswordView(APIView):
@@ -2054,6 +2056,22 @@ def verify(request):
 @api_view(('POST',))
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 @csrf_exempt
+def set_institutional_use(request):
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+        request.user.institutional_use = data['institutional_use']
+        request.user.save()
+    except Exception:
+        if settings.DEBUG:
+            raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+        raise APIException(_('set_institutional_use_error'))
+
+    return Response({})
+
+
+@api_view(('POST',))
+@renderer_classes((TemplateHTMLRenderer, JSONRenderer))
+@csrf_exempt
 def reset_otp_challenge(request):
     from mcserver.utils import send_otp_challenge
 
@@ -2070,6 +2088,36 @@ def reset_otp_challenge(request):
 @csrf_exempt
 def check_otp_verified(request):
     return Response({'otp_verified': request.user.otp_verified})
+
+
+class UserInstitutionalUseView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserInstitutionalUseSerializer
+
+
+    def get(self, request, format='json'):
+        try:
+            user = request.user
+            serializer = UserInstitutionalUseSerializer(user)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_institutional_use_error'))
+
+        return Response(serializer.data)
+
+    def post(self, request, format='json'):
+        try:
+            user = request.user
+            serializer = UserInstitutionalUseSerializer(user, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_institutional_use_error'))
+
+        return Response(serializer.data)
 
 
 class AnalysisFunctionsListAPIView(ListAPIView):
