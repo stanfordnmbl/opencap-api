@@ -1780,6 +1780,32 @@ class UserCreate(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class UserDelete(APIView):
+    """
+    Deletes the user.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, format='json'):
+        try:
+            if "confirm" not in request.data:
+                return Response(_('user_delete_error'), status=status.HTTP_400_BAD_REQUEST)
+            # Check user confirmed by inserting username.
+            if request.data["confirm"] == request.user.username:
+                user = User.objects.get(email__exact=request.user.email)
+                # Check user is authenticated.
+                if request.user.is_authenticated:
+                    user.delete()
+                    return Response(_("user_removed"), status=status.HTTP_200_OK)
+                else:
+                    return Response(_("user_not_authenticated"), status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                return Response(_('confirmation_username_not_correct'), status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_delete_error'))
+        
 class UserUpdate(APIView):
     """
     Updates the user.
