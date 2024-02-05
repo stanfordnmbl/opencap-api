@@ -14,19 +14,22 @@ from mcserver.models import (
 )
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
+from django.utils.translation import gettext as _
 
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
-            required=True,
-            validators=[UniqueValidator(queryset=User.objects.all())]
-            )
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all(), message=_("email-already_exists"))]
+    )
     username = serializers.CharField(
-            validators=[UniqueValidator(queryset=User.objects.all())]
-            )
+        validators=[UniqueValidator(queryset=User.objects.all(), message=_("username-already_exists"))]
+    )
     password = serializers.CharField(min_length=8)
 
     def create(self, validated_data):
+        profile_picture = validated_data.get('profile_picture', None)
+
         user = User.objects.create_user(validated_data['username'],
                                         validated_data['email'],
                                         validated_data['password'],
@@ -37,9 +40,10 @@ class UserSerializer(serializers.ModelSerializer):
                                         website=validated_data['website'],
                                         newsletter=validated_data['newsletter'],
                                         profession=validated_data['profession'],
-                                        country=validated_data['country']
-        )
-        
+                                        country=validated_data['country'],
+                                        profile_picture=profile_picture
+                                        )
+
         return user
 
     class Meta:
@@ -48,7 +52,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'first_name', 'last_name',
             'email', 'password', 'institution',
             'reason', 'website',
-            'newsletter', 'profession', 'country',
+            'newsletter', 'profession', 'country', 'profile_picture',
             'institutional_use',
         )
 
@@ -57,6 +61,38 @@ class UserInstitutionalUseSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('institutional_use',)
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        user = User.objects.create_user(validated_data['username'],
+                                        first_name=validated_data['first_name'],
+                                        last_name=validated_data['last_name'],
+                                        country=validated_data['country'],
+                                        institution=validated_data['institution'],
+                                        profession=validated_data['profession'],
+                                        reason=validated_data['reason'],
+                                        website=validated_data['website'],
+                                        newsletter=validated_data['newsletter'],
+                                        )
+        return user
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'first_name', 'last_name', 'country', 'institution', 'profession', 'reason',
+                  'website', 'newsletter')
+
+
+class ProfilePictureSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        user = User.objects.create_user(validated_data['username'],
+                                        profile_picture=validated_data['profile_picture'],
+                                        )
+        return user
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'profile_picture')
 
 
 class ResetPasswordSerializer(serializers.ModelSerializer):
@@ -68,26 +104,26 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
         model = User
         fields = ('email',)
 
+
 class NewPasswordSerializer(serializers.ModelSerializer):
     password = serializers.CharField(min_length=20,
-            required=True,
-            )
+                                     required=True)
     token = serializers.CharField(min_length=36,
-            required=True
-            )
+                                  required=True)
 
     class Meta:
         model = User
         fields = ('password','token',)
 
+
 # Serializers define the API representation.
 class VideoSerializer(serializers.ModelSerializer):
     video_url = serializers.CharField(max_length=256,
-            required=False
-            )
+                                      required=False)
     class Meta:
         model = Video
         fields = ['id', 'trial', 'device_id', 'video', 'video_url', 'video_thumb', 'parameters', 'created_at', 'updated_at']
+
 
 # Serializers define the API representation.
 class ResultSerializer(serializers.ModelSerializer):
@@ -96,6 +132,7 @@ class ResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = Result
         fields = ['id', 'trial', 'tag', 'media', 'media_url', 'meta', 'device_id', 'created_at', 'updated_at']
+
 
 # Serializers define the API representation.
 class TrialSerializer(serializers.ModelSerializer):
@@ -110,10 +147,11 @@ class TrialSerializer(serializers.ModelSerializer):
             'trashed', 'trashed_at',
         ]
 
+
 # Serializers define the API representation.
 class SessionSerializer(serializers.ModelSerializer):
-#    trials = TrialSerializer(source='trial_set', many=True)
-    trials = serializers.SerializerMethodField() #TrialSerializer(source='trial_set', many=True)
+    # trials = TrialSerializer(source='trial_set', many=True)
+    trials = serializers.SerializerMethodField()  # TrialSerializer(source='trial_set', many=True)
 
     name = serializers.SerializerMethodField('session_name')
 
@@ -140,7 +178,6 @@ class SessionSerializer(serializers.ModelSerializer):
         if subject_id:
             return subject_id
         return str(session.id).split("-")[0]
-
 
     class Meta:
         model = Session

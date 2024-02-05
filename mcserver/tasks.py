@@ -50,24 +50,57 @@ def download_session_archive(self, session_id, user_id=None):
     """ This task is responsible for asynchronous session archive download.
         If user_id is None, the public session download occurred.
     """
-    session_dir_path = SessionDirectoryConstructor().build(session_id)
-    session_zip_path = zipdir(session_dir_path)
-    with open(session_zip_path, "rb") as archive:
-        log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
-        log.media.save(os.path.basename(session_zip_path), archive)
-        os.remove(session_zip_path)
+    import shutil
 
+    session_dir_path = None
+    session_zip_path = None
+
+    try:
+        session_dir_path = SessionDirectoryConstructor().build(session_id)
+        session_zip_path = zipdir(session_dir_path)
+        with open(session_zip_path, "rb") as archive:
+            log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
+            log.media.save(os.path.basename(session_zip_path), archive)
+            os.remove(session_zip_path)
+    except Exception as e:
+        # Delete files and send the traceback to Sentry if something went wrong
+        if session_dir_path and os.path.isfile(session_dir_path):
+            shutil.rmtree(session_dir_path)
+        if session_zip_path and os.path.isfile(session_zip_path):
+            os.remove(session_zip_path)
+        if settings.SENTRY_DSN:
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
+        else:
+            print(e)
 
 @shared_task(bind=True)
 def download_subject_archive(self, subject_id, user_id):
     """ This task is responsible for asynchronous subject archive download
     """
-    subject_dir_path = SubjectDirectoryConstructor().build(subject_id)
-    subject_zip_path = zipdir(subject_dir_path)
-    with open(subject_zip_path, "rb") as archive:
-        log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
-        log.media.save(os.path.basename(subject_zip_path), archive)
-        os.remove(subject_zip_path)
+    import shutil
+
+    subject_dir_path = None
+    subject_zip_path = None
+
+    try:
+        subject_dir_path = SubjectDirectoryConstructor().build(subject_id)
+        subject_zip_path = zipdir(subject_dir_path)
+        with open(subject_zip_path, "rb") as archive:
+            log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
+            log.media.save(os.path.basename(subject_zip_path), archive)
+            os.remove(subject_zip_path)
+    except Exception as e:
+        # Delete files and send the traceback to Sentry if something went wrong
+        if subject_dir_path and os.path.isfile(subject_dir_path):
+            shutil.rmtree(subject_dir_path)
+        if subject_zip_path and os.path.isfile(subject_zip_path):
+            os.remove(subject_zip_path)
+        if settings.SENTRY_DSN:
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
+        else:
+            print(e)
 
 
 @shared_task
@@ -156,3 +189,48 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
                 template=dashboard_template
             )
 
+# TODO: temporary disabled - need testing
+# @shared_task
+# def cleanup_unused_sessions():
+#     """ This task deletes all Session's that are not used.
+#     """
+#     from django.db.models import Q, F, Count
+#     from .models import Session
+
+#     if settings.CLEANUP_UNUSED_DATA:
+#         now = timezone.now()
+
+#         # Delete sessions that are older than 7 days and have no trials
+#         ids_for_delete = Session.objects.annotate(
+#             trials_count=Count('trial')).filter(
+#             Q(updated_at__lt=now-timedelta(days=7)) &
+#             Q(trials_count=0)
+#         ).values_list('id', flat=True)[:100]
+#         Session.objects.filter(id__in=ids_for_delete).delete()
+
+#         # Delete sessions that are older than 7 days and have only calibration trials with errors
+#         ids_for_delete = Session.objects.annotate(
+#             trials_count=Count('trial'),
+#             trials_calibration_error_count=Count(
+#                 'trial',
+#                 filter=(
+#                     Q(trial__name__exact='calibration') & Q(trial__status__exact='error')))).filter(
+#             Q(updated_at__lt=now-timedelta(days=7)) &
+#             Q(trials_count=F('trials_calibration_error_count'))).values_list('id', flat=True)[:100]
+#         Session.objects.filter(id__in=ids_for_delete).delete()
+
+
+# @shared_task
+# def cleanup_stuck_trials():
+#     """ This task deletes all Trial's that are not used.
+#     """
+#     from .models import Trial
+
+#     if settings.CLEANUP_UNUSED_DATA:
+#         now = timezone.now()
+#         # Limit to 50 trials to avoid long running queries
+#         stuck_trials = Trial.objects.filter(
+#             created_at__lt=now-timedelta(days=1),
+#             status='recording',
+#         )
+#         stuck_trials.delete()

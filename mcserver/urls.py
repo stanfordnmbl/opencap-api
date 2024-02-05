@@ -39,6 +39,9 @@ from mcserver.views import (
     AnalysisFunctionsPendingForTrialsAPIView,
     AnalysisFunctionsStatesForTrialsAPIView,
     AnalysisDashboardViewSet,
+    GetUserInfo,
+    UserUpdate,
+    UpdateProfilePicture
 )
 from rest_framework import routers, serializers, viewsets
 from rest_framework.authtoken.views import obtain_auth_token
@@ -68,6 +71,9 @@ urlpatterns = [
     path('check-otp-verified/', check_otp_verified),
     path('admin/', admin.site.urls),
     path('register/', UserCreate.as_view(), name='account-create'),
+    path('update_profile/', UserUpdate.as_view(), name='update-profile'),
+    path('update_profile_picture/', UpdateProfilePicture.as_view(), name='update-profile-picture'),
+    path('get_user_info/', GetUserInfo.as_view(), name='get_user_info'),
     path('reset-password/', ResetPasswordView.as_view()),
     path('new-password/', NewPasswordView.as_view()),
     path('user-institutional-use/', UserInstitutionalUseView.as_view()),

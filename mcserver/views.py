@@ -48,13 +48,15 @@ from mcserver.serializers import (
     NewSubjectSerializer,
     SubjectSerializer,
     UserSerializer,
+    UserUpdateSerializer,
     ResetPasswordSerializer,
     NewPasswordSerializer,
     AnalysisFunctionSerializer,
     AnalysisResultSerializer,
     AnalysisDashboardTemplateSerializer,
     AnalysisDashboardSerializer,
-    UserInstitutionalUseSerializer,
+    ProfilePictureSerializer,
+    UserInstitutionalUseSerializer,    
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -1777,6 +1779,78 @@ class UserCreate(APIView):
             raise APIException(_('user_create_error'))
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UserUpdate(APIView):
+    """
+    Updates the user.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, format='json'):
+        try:
+            user = request.user
+            serializer = UserUpdateSerializer(user, data=request.data, partial=True)
+            if serializer.is_valid():
+                updated_user = serializer.save()
+                return Response(UserUpdateSerializer(updated_user).data, status=status.HTTP_200_OK)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_update_error'))
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UpdateProfilePicture(APIView):
+    """
+    Updates the profile picture of a user.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, format='json'):
+        try:
+            user = request.user
+            serializer = ProfilePictureSerializer(user, data=request.data, partial=True)
+            if serializer.is_valid():
+                updated_user = serializer.save()
+                return Response(ProfilePictureSerializer(updated_user).data, status=status.HTTP_200_OK)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('user_update_error'))
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class GetUserInfo(APIView):
+    """
+    Retrieves info about a user.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, format='json'):
+        username = request.data["username"]
+        user = get_object_or_404(User, username__exact=username)
+
+        user_info = {
+            'username': user.username,
+            'email': user.email,
+            'institution': user.institution,
+            'profession': user.profession,
+            'country': user.country,
+            'reason': user.reason,
+            'website': user.website,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'newsletter': user.newsletter
+        }
+
+        if user.profile_picture:
+            user_info['profile_picture'] = user.profile_picture.url
+        else:
+            user_info['profile_picture'] = None
+
+        return Response(user_info)
+
 
 class CustomAuthToken(ObtainAuthToken):
 
