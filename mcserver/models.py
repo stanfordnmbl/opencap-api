@@ -335,6 +335,21 @@ class Subject(models.Model):
             self.birth_year = timezone.now().year - self.age
         return super().save(*args, **kwargs)
 
+
+class SubjectTags(models.Model):
+    tag = models.TextField(blank=False, null=False)
+    subject = models.ForeignKey(to=Subject, on_delete=models.CASCADE, blank=False, null=False)
+
+    class Meta:
+        ordering = ['subject', 'tag']
+
+    def __str__(self):
+        return self.subject.name + " - " + self.tag
+
+    verbose_name = 'Subject Tag'
+    verbose_name_plural = 'Subject Tags'
+
+
 class AnalysisFunction(models.Model):
     """ This model describes AWS Lambda function object.
     """

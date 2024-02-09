@@ -33,6 +33,7 @@ from mcserver.models import (
     Result,
     ResetPassword,
     Subject,
+    SubjectTags,
     DownloadLog,
     AnalysisFunction,
     AnalysisResult,
@@ -56,7 +57,8 @@ from mcserver.serializers import (
     AnalysisDashboardTemplateSerializer,
     AnalysisDashboardSerializer,
     ProfilePictureSerializer,
-    UserInstitutionalUseSerializer,    
+    UserInstitutionalUseSerializer,
+    TagSerializer
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -1739,6 +1741,59 @@ class SubjectViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_create_error'))
+
+    def perform_update(self, serializer):
+        try:
+            serializer.save()
+
+            tags = serializer.context['request'].data['subject_tags']
+
+            # Get current subject.
+            subject = Subject.objects.get(id=serializer.context['request'].data['id'])
+
+            # Remove previous tags.
+            SubjectTags.objects.filter(subject=subject).delete()
+
+            # Insert new tags.
+            for tag in tags:
+                SubjectTags.objects.create(subject=subject, tag=tag)
+
+            print(tags)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_update_error'))
+
+class SubjectTagViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
+    serializer_class = TagSerializer
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the subjects tags
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        # Get all subjects associated to a user.
+        subject = Subject.objects.filter(user=self.request.user)
+
+        # Get tags associated to those subjects.
+        tags = SubjectTags.objects.filter(subject__in=list(subject))
+
+        return tags
+
+    @action(detail=False, methods=['get'])
+    def get_tags_subject(self, request, subject_id):
+        # Get subject associated to that id.
+        subject = Subject.objects.get(id=subject_id, user=self.request.user)
+
+        # Get tags associated to the subject.
+        tags = list(SubjectTags.objects.filter(subject=subject).values())
+
+        return Response(tags, status=200)
+
+
+
 
 class DownloadFileOnReadyAPIView(APIView):
     permission_classes = (AllowAny,)
