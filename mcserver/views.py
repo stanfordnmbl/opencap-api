@@ -985,6 +985,11 @@ class SessionViewSet(viewsets.ModelViewSet):
                 if not session.meta["settings"]:
                     session.meta["settings"] = {}
                 session.meta["settings"]["augmentermodel"] = request.GET.get("settings_augmenter_model", "")
+
+            if "settings_filter_frequency" in request.GET:
+                if not session.meta["settings"]:
+                    session.meta["settings"] = {}
+                session.meta["settings"]["filterfrequency"] = request.GET.get("settings_filter_frequency", "")
             
             if "cb_square" in request.GET:
                 session.meta["checkerboard"] = {
