@@ -388,7 +388,9 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             session = get_object_or_404(Session, pk=pk, user=request.user)
             self.check_object_permissions(self.request, session)
-            session.delete()
+            # Delete all non-calibration trials. We keep the session itself to avoid breaking the chain of sessions.
+            Trial.objects.filter(session=session).exclude(name="calibration").delete()
+            # session.delete()
         except Http404:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
