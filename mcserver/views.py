@@ -1327,6 +1327,9 @@ class SessionViewSet(viewsets.ModelViewSet):
                     filter_kwargs['status_changed__lte'] = date_range[1]
                 if not IsAdmin().has_permission(request, self) and not IsBackend().has_permission(request, self):
                     filter_kwargs['user'] = request.user
+                else:
+                    if 'username' in filtering_serializer.validated_data:
+                        filter_kwargs['user__username'] = filtering_serializer.validated_data.get('username')
 
                 sessions = Session.objects.filter(**filter_kwargs)
                 serializer = SessionIdSerializer(sessions, many=True)

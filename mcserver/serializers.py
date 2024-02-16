@@ -205,6 +205,7 @@ class SessionIdSerializer(serializers.ModelSerializer):
 class SessionFilteringSerializer(serializers.Serializer):
     status = serializers.CharField(max_length=64, required=True)
     date_range = serializers.ListField(child=serializers.DateField(), required=False)
+    username = serializers.CharField(max_length=64, required=False)
 
 
 class SubjectSerializer(serializers.ModelSerializer):
