@@ -342,6 +342,8 @@ class AnalysisFunction(models.Model):
     description = models.CharField('Description', max_length=255)
     url = models.CharField('Url', max_length=255)
 
+    info = models.TextField('Info', blank=True, default='')
+
     is_active = models.BooleanField('Active', default=True)
     only_for_users = models.ManyToManyField(
         User,
