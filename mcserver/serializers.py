@@ -232,7 +232,7 @@ class NewSubjectSerializer(serializers.ModelSerializer):
 class AnalysisFunctionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AnalysisFunction
-        fields = ('id', 'title', 'description')
+        fields = ('id', 'title', 'description', 'info')
 
 
 class AnalysisResultSerializer(serializers.ModelSerializer):
