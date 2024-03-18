@@ -14,6 +14,7 @@ from mcserver.models import (
     AnalysisResult,
     AnalysisDashboardTemplate,
     AnalysisDashboard,
+    SubjectTags
 )
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
@@ -141,6 +142,14 @@ class SubjectAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ('user',)
 
+@admin.register(SubjectTags)
+class SubjectTagsAdmin(admin.ModelAdmin):
+    search_fields = ['tag', 'subject']
+    list_display = (
+        'id',
+        'tag',
+        'subject',
+    )
 
 @admin.register(ResetPassword)
 class ResetPasswordAdmin(admin.ModelAdmin):
