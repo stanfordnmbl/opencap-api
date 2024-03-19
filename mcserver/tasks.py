@@ -31,9 +31,19 @@ from mcserver.zipsession_v2 import (
 def cleanup_trashed_sessions():
     from .models import Session
     now = timezone.now()
-    Session.objects.filter(
+    sessions = Session.objects.filter(
         trashed=True,
-        trashed_at__lt=now-timedelta(days=settings.TRASHED_OBJECTS_CLEANUP_DAYS)).delete()
+        trashed_at__lt=now-timedelta(days=settings.TRASHED_OBJECTS_CLEANUP_DAYS))
+    for session in sessions:
+        meta = session.meta
+        # There is a possible issue if you try to delete the parent session (you have other sessions created from)
+        # that contains calibration trials. That affects the child sessions.
+        # In such case we do not actually delete the session, but we remove the
+        # all trials excluding the calibration trials.
+        if 'startNewSession' in meta and meta['startNewSession']:
+            session.trial_set.exclude(name="calibration").delete()
+        else:
+            session.delete()
 
 
 @shared_task
