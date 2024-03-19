@@ -1317,7 +1317,75 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_("neutral_image_retrieve_error") % {"uuid": str(pk)})
 
         return Response(data)
-    
+
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAdmin | IsBackend | IsOwner])
+    def get_session_statuses(self, request):
+        from .serializers import SessionIdSerializer, SessionFilteringSerializer
+        try:
+            filtering_serializer = SessionFilteringSerializer(data=request.data)
+            serializer = SessionIdSerializer(Session.objects.none(), many=True)
+            if filtering_serializer.is_valid():
+                status_str = filtering_serializer.validated_data.get('status')
+                date_range = filtering_serializer.validated_data.get('date_range')
+                filter_kwargs = {'status': status_str}
+                if date_range:
+                    filter_kwargs['status_changed__gte'] = date_range[0]
+                    filter_kwargs['status_changed__lte'] = date_range[1]
+                if not IsAdmin().has_permission(request, self) and not IsBackend().has_permission(request, self):
+                    filter_kwargs['user'] = request.user
+                else:
+                    if 'username' in filtering_serializer.validated_data:
+                        filter_kwargs['user__username'] = filtering_serializer.validated_data.get('username')
+
+                sessions = Session.objects.filter(**filter_kwargs)
+                serializer = SessionIdSerializer(sessions, many=True)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_remove_error"))
+
+        return Response(serializer.data)
+
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin | IsBackend])
+    def set_session_status(self, request, pk):
+        from .serializers import SessionStatusSerializer
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            session = get_object_or_404(Session, pk=pk)
+            serializer = SessionStatusSerializer(data=request.data)
+            if serializer.is_valid():
+                session.status = serializer.validated_data['status']
+                session.status_changed = timezone.now()
+                session.save()
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_remove_error"))
+
+        return Response(serializer.data)
+
+
 
 ## Processing machine:
 # A worker asks whether there is any trial to process

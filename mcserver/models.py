@@ -68,6 +68,9 @@ class Session(models.Model):
     public = models.BooleanField(blank=False, null=False, default=False)
     server = models.GenericIPAddressField(null=True, blank=True)
 
+    status = models.CharField(max_length=64, default="init", blank=True, db_index=True)
+    status_changed = models.DateTimeField(null=True, blank=True, default=timezone.now, db_index=True)
+
     subject = models.ForeignKey(
         'Subject', blank=True, null=True,
         related_name='sessions',
