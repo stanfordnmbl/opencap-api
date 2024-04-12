@@ -33,6 +33,7 @@ from mcserver.models import (
     Result,
     ResetPassword,
     Subject,
+    SubjectTags,
     DownloadLog,
     AnalysisFunction,
     AnalysisResult,
@@ -56,7 +57,8 @@ from mcserver.serializers import (
     AnalysisDashboardTemplateSerializer,
     AnalysisDashboardSerializer,
     ProfilePictureSerializer,
-    UserInstitutionalUseSerializer,    
+    UserInstitutionalUseSerializer,
+    TagSerializer
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -1315,7 +1317,75 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_("neutral_image_retrieve_error") % {"uuid": str(pk)})
 
         return Response(data)
-    
+
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAdmin | IsBackend | IsOwner])
+    def get_session_statuses(self, request):
+        from .serializers import SessionIdSerializer, SessionFilteringSerializer
+        try:
+            filtering_serializer = SessionFilteringSerializer(data=request.data)
+            serializer = SessionIdSerializer(Session.objects.none(), many=True)
+            if filtering_serializer.is_valid():
+                status_str = filtering_serializer.validated_data.get('status')
+                date_range = filtering_serializer.validated_data.get('date_range')
+                filter_kwargs = {'status': status_str}
+                if date_range:
+                    filter_kwargs['status_changed__gte'] = date_range[0]
+                    filter_kwargs['status_changed__lte'] = date_range[1]
+                if not IsAdmin().has_permission(request, self) and not IsBackend().has_permission(request, self):
+                    filter_kwargs['user'] = request.user
+                else:
+                    if 'username' in filtering_serializer.validated_data:
+                        filter_kwargs['user__username'] = filtering_serializer.validated_data.get('username')
+
+                sessions = Session.objects.filter(**filter_kwargs)
+                serializer = SessionIdSerializer(sessions, many=True)
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_remove_error"))
+
+        return Response(serializer.data)
+
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin | IsBackend])
+    def set_session_status(self, request, pk):
+        from .serializers import SessionStatusSerializer
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            session = get_object_or_404(Session, pk=pk)
+            serializer = SessionStatusSerializer(data=request.data)
+            if serializer.is_valid():
+                session.status = serializer.validated_data['status']
+                session.status_changed = timezone.now()
+                session.save()
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("session_remove_error"))
+
+        return Response(serializer.data)
+
+
 
 ## Processing machine:
 # A worker asks whether there is any trial to process
@@ -1744,6 +1814,59 @@ class SubjectViewSet(viewsets.ModelViewSet):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_create_error'))
+
+    def perform_update(self, serializer):
+        try:
+            serializer.save()
+
+            tags = serializer.context['request'].data['subject_tags']
+
+            # Get current subject.
+            subject = Subject.objects.get(id=serializer.context['request'].data['id'])
+
+            # Remove previous tags.
+            SubjectTags.objects.filter(subject=subject).delete()
+
+            # Insert new tags.
+            for tag in tags:
+                SubjectTags.objects.create(subject=subject, tag=tag)
+
+            print(tags)
+        except Exception:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_('subject_update_error'))
+
+class SubjectTagViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
+    serializer_class = TagSerializer
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the subjects tags
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        # Get all subjects associated to a user.
+        subject = Subject.objects.filter(user=self.request.user)
+
+        # Get tags associated to those subjects.
+        tags = SubjectTags.objects.filter(subject__in=list(subject))
+
+        return tags
+
+    @action(detail=False, methods=['get'])
+    def get_tags_subject(self, request, subject_id):
+        # Get subject associated to that id.
+        subject = Subject.objects.get(id=subject_id, user=self.request.user)
+
+        # Get tags associated to the subject.
+        tags = list(SubjectTags.objects.filter(subject=subject).values())
+
+        return Response(tags, status=200)
+
+
+
 
 class DownloadFileOnReadyAPIView(APIView):
     permission_classes = (AllowAny,)

@@ -14,6 +14,7 @@ from mcserver.models import (
     AnalysisResult,
     AnalysisDashboardTemplate,
     AnalysisDashboard,
+    SubjectTags
 )
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
@@ -54,10 +55,11 @@ class SessionAdmin(admin.ModelAdmin):
         'id', 'user', 'subject',
         'public',
         'created_at', 'updated_at', 'server',
+        'status', 'status_changed',
         'trashed', 'trashed_at',
     )
     raw_id_fields = ('user', 'subject')
-    search_fields = ['id']
+    search_fields = ['id', 'user__username', "subject__name"]
     inlines = [TrialInline]
     actions = ['set_subject']
 
@@ -92,7 +94,7 @@ class ResultInline(admin.TabularInline):
 
 @admin.register(Trial)
 class TrialAdmin(admin.ModelAdmin):
-    search_fields = ['id', 'session_id']
+    search_fields = ['id', 'name', 'session__id']
     list_display = (
         'id',
         'name',
@@ -111,20 +113,20 @@ class ResultAdmin(admin.ModelAdmin):
         'id', 'trial', 'tag', 'media',
         'device_id',
         'created_at', 'updated_at')
-    search_fields = ['trial']
+    search_fields = ['id', 'trial__id']
     raw_id_fields = ('trial',)
 
 
 @admin.register(Video)
 class VideoAdmin(admin.ModelAdmin):
-    search_fields = ['trial']
-    list_display = ('trial', 'video', 'created_at', 'updated_at')
+    search_fields = ['id', 'trial__id']
+    list_display = ('id', 'trial', 'video', 'created_at', 'updated_at')
     raw_id_fields = ('trial',)
 
 
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    search_fields = ['name']
+    search_fields = ['name', 'user__username']
     list_display = (
         'id',
         'name',
@@ -141,11 +143,19 @@ class SubjectAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ('user',)
 
+@admin.register(SubjectTags)
+class SubjectTagsAdmin(admin.ModelAdmin):
+    search_fields = ['tag', 'subject__name']
+    list_display = (
+        'id',
+        'tag',
+        'subject',
+    )
 
 @admin.register(ResetPassword)
 class ResetPasswordAdmin(admin.ModelAdmin):
     search_field = ['email']
-    list_display = ('email', 'id', 'datetime')
+    list_display = ['email', 'id', 'datetime']
 
 
 @admin.register(LogEntry)
@@ -184,10 +194,10 @@ class DownloadLogAdmin(admin.ModelAdmin):
 @admin.register(AnalysisFunction)
 class AnalysisFunctionAdmin(admin.ModelAdmin):
     list_display = [
-        'id', 'title', 'is_active',
+        'id', 'title', 'description', 'is_active',
         'only_for_users_display',
         'local_run', 'created_at']
-    search_fields = ['title', 'description']
+    search_fields = ['title']
     raw_id_fields = ['only_for_users']
 
     def only_for_users_display(self, obj):

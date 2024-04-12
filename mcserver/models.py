@@ -68,6 +68,9 @@ class Session(models.Model):
     public = models.BooleanField(blank=False, null=False, default=False)
     server = models.GenericIPAddressField(null=True, blank=True)
 
+    status = models.CharField(max_length=64, default="init", blank=True, db_index=True)
+    status_changed = models.DateTimeField(null=True, blank=True, default=timezone.now, db_index=True)
+
     subject = models.ForeignKey(
         'Subject', blank=True, null=True,
         related_name='sessions',
@@ -334,6 +337,21 @@ class Subject(models.Model):
         if not self.birth_year:
             self.birth_year = timezone.now().year - self.age
         return super().save(*args, **kwargs)
+
+
+class SubjectTags(models.Model):
+    tag = models.TextField(blank=False, null=False)
+    subject = models.ForeignKey(to=Subject, on_delete=models.CASCADE, blank=False, null=False)
+
+    class Meta:
+        ordering = ['subject', 'tag']
+
+    def __str__(self):
+        return self.subject.name + " - " + self.tag
+
+    verbose_name = 'Subject Tag'
+    verbose_name_plural = 'Subject Tags'
+
 
 class AnalysisFunction(models.Model):
     """ This model describes AWS Lambda function object.

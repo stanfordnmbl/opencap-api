@@ -11,6 +11,7 @@ from mcserver.models import (
     AnalysisResult,
     AnalysisDashboardTemplate,
     AnalysisDashboard,
+    SubjectTags
 )
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
@@ -190,6 +191,24 @@ class SessionSerializer(serializers.ModelSerializer):
         ]
 
 
+class SessionStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Session
+        fields = ['status']
+
+
+class SessionIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Session
+        fields = ['id']
+
+
+class SessionFilteringSerializer(serializers.Serializer):
+    status = serializers.CharField(max_length=64, required=True)
+    date_range = serializers.ListField(child=serializers.DateField(), required=False)
+    username = serializers.CharField(max_length=64, required=False)
+
+
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
@@ -210,8 +229,23 @@ class SubjectSerializer(serializers.ModelSerializer):
             'trashed_at'
         ]
 
+    def create(self, validated_data):
+        # Extract subject_tags from validated_data
+        subject_tags_data = validated_data.pop('subject_tags', [])
+
+        # Create the subject instance
+        subject_instance = Subject.objects.create(**validated_data)
+
+        # Create corresponding tags in SubjectTags table
+        for tag_data in subject_tags_data:
+            SubjectTags.objects.create(subject=subject_instance, tag=tag_data)
+
+        return subject_instance
+
 
 class NewSubjectSerializer(serializers.ModelSerializer):
+    subject_tags = serializers.ListField(write_only=True, required=False)
+
     class Meta:
         model = Subject
         fields = [
@@ -222,11 +256,34 @@ class NewSubjectSerializer(serializers.ModelSerializer):
             'gender',
             'sex_at_birth',
             'characteristics',
+            'subject_tags',
         ]
 
     def to_representation(self, instance):
         serializer = SubjectSerializer(instance)
         return serializer.data
+
+    def create(self, validated_data):
+        # Extract subject_tags from validated_data
+        subject_tags_data = validated_data.pop('subject_tags', [])
+
+        # Create the subject instance
+        subject_instance = Subject.objects.create(**validated_data)
+
+        # Insert new tags.
+        for tag_data in subject_tags_data:
+            SubjectTags.objects.create(subject=subject_instance, tag=tag_data)
+
+        return subject_instance
+
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubjectTags
+        fields = [
+            'tag',
+            'subject',
+        ]
 
 
 class AnalysisFunctionSerializer(serializers.ModelSerializer):
