@@ -15,7 +15,7 @@ from mcserver.models import (
     TrialTags
 )
 from rest_framework.validators import UniqueValidator
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.utils.translation import gettext as _
 
 
@@ -154,6 +154,8 @@ class TrialSerializer(serializers.ModelSerializer):
 class SessionSerializer(serializers.ModelSerializer):
     # trials = TrialSerializer(source='trial_set', many=True)
     trials = serializers.SerializerMethodField()  # TrialSerializer(source='trial_set', many=True)
+    trials_count = serializers.SerializerMethodField()
+    trashed_trials_count = serializers.SerializerMethodField()
 
     name = serializers.SerializerMethodField('session_name')
 
@@ -167,7 +169,13 @@ class SessionSerializer(serializers.ModelSerializer):
     def get_trials(self, instance):
         trials = instance.trial_set.all()
         return TrialSerializer(trials, many=True).data
-    
+
+    def get_trials_count(self, instance):
+        return instance.trial_set.exclude(Q(name='calibration') | Q(~Q(status='done') & Q(name='neutral'))).count()
+
+    def get_trashed_trials_count(self, instance):
+        return instance.trial_set.filter(trashed=True).count()
+
     def session_name(self, session):
         # Get subject name from the latest static trial
         subject_id = None
@@ -188,8 +196,66 @@ class SessionSerializer(serializers.ModelSerializer):
             'qrcode', 'meta', 'trials', 'server',
             'subject',
             'created_at', 'updated_at',
-            'trashed', 'trashed_at',
+            'trashed', 'trashed_at', 'trials_count', 'trashed_trials_count',
         ]
+
+
+class ValidSessionLightSerializer(serializers.ModelSerializer):
+    trials = serializers.SerializerMethodField()
+    trials_count = serializers.SerializerMethodField()
+    trashed_trials_count = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField('session_name')
+
+    class Meta:
+        model = Session
+        fields = [
+            'id', 'user', 'public', 'name',
+            'qrcode', 'meta', 'trials', 'server',
+            'subject',
+            'created_at', 'updated_at',
+            'trashed', 'trashed_at', 'trials_count', 'trashed_trials_count',
+        ]
+
+    def get_trials(self, instance):
+        return []
+
+    def get_trials_count(self, instance):
+        return instance.trial_set.exclude(Q(name='calibration') | Q(~Q(status='done') & Q(name='neutral'))).count()
+
+    def get_trashed_trials_count(self, instance):
+        return instance.trial_set.filter(trashed=True).count()
+
+    def session_name(self, session):
+        # Get subject name from the latest static trial
+        subject_id = None
+        if session.subject:
+            subject_id = session.subject.name
+        elif session.meta is not None and "subject" in session.meta and "id" in session.meta["subject"]:
+            subject_id = session.meta["subject"]["id"]
+
+        # otherwise return session id
+        if subject_id:
+            return subject_id
+        return str(session.id).split("-")[0]
+
+
+
+class SessionStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Session
+        fields = ['status']
+
+
+class SessionIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Session
+        fields = ['id']
+
+
+class SessionFilteringSerializer(serializers.Serializer):
+    status = serializers.CharField(max_length=64, required=True)
+    date_range = serializers.ListField(child=serializers.DateField(), required=False)
+    username = serializers.CharField(max_length=64, required=False)
 
 
 class SubjectSerializer(serializers.ModelSerializer):

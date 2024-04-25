@@ -56,6 +56,7 @@ class SessionAdmin(admin.ModelAdmin):
         'id', 'user', 'subject',
         'public',
         'created_at', 'updated_at', 'server',
+        'status', 'status_changed',
         'trashed', 'trashed_at',
     )
     raw_id_fields = ('user', 'subject')
