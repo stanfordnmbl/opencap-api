@@ -34,6 +34,7 @@ from mcserver.models import (
     ResetPassword,
     Subject,
     SubjectTags,
+    TrialTags,
     DownloadLog,
     AnalysisFunction,
     AnalysisResult,
@@ -58,7 +59,8 @@ from mcserver.serializers import (
     AnalysisDashboardSerializer,
     ProfilePictureSerializer,
     UserInstitutionalUseSerializer,
-    TagSerializer
+    SubjectTagSerializer,
+    TrialTagSerializer
 )
 from mcserver.utils import send_otp_challenge
 from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
@@ -1538,6 +1540,44 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'])
+    def modifyTags(self, request, pk):
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            tags = request.data['trialNewTags']
+
+            # Get trial.
+            trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
+
+            # Remove previous tags.
+            if TrialTags.objects.filter(trial=trial).exists():
+                TrialTags.objects.filter(trial=trial).delete()
+
+            # Insert new tags.
+            for tag in tags:
+                TrialTags.objects.create(trial=trial, tag=tag)
+
+            print(tags)
+
+            # Serialize trial.
+            serializer = TrialSerializer(trial)
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
+
+        # Return error message and data.
+        return Response({
+            'data': serializer.data
+        })
+
 
 
 
@@ -1771,14 +1811,14 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
 class SubjectTagViewSet(viewsets.ModelViewSet):
     permission_classes = [IsOwner | IsAdmin | IsBackend]
-    serializer_class = TagSerializer
+    serializer_class = SubjectTagSerializer
 
     def get_queryset(self):
         """
         This view should return a list of all the subjects tags
         for the currently authenticated user.
         """
-        user = self.request.user
+
         # Get all subjects associated to a user.
         subject = Subject.objects.filter(user=self.request.user)
 
@@ -1797,6 +1837,37 @@ class SubjectTagViewSet(viewsets.ModelViewSet):
 
         return Response(tags, status=200)
 
+
+class TrialTagViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
+    serializer_class = TrialTagSerializer
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the trial tags
+        for the currently authenticated user.
+        """
+
+        # Get all sessions associated to user.
+        sessions = Session.objects.filter(user=self.request.user)
+
+        # Get all subjects associated to a user.
+        trials = Trial.objects.filter(session__in=list(sessions))
+
+        # Get tags associated to those subjects.
+        tags = TrialTags.objects.filter(trial__in=list(trials))
+
+        return tags
+
+    @action(detail=False, methods=['get'])
+    def get_tags_trial(self, request, trial_id):
+        # Get subject associated to that id.
+        trial = Trial.objects.get(id=trial_id)
+
+        # Get tags associated to the subject.
+        tags = list(TrialTags.objects.filter(trial=trial).values())
+
+        return Response(tags, status=200)
 
 
 

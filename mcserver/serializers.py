@@ -11,7 +11,8 @@ from mcserver.models import (
     AnalysisResult,
     AnalysisDashboardTemplate,
     AnalysisDashboard,
-    SubjectTags
+    SubjectTags,
+    TrialTags
 )
 from rest_framework.validators import UniqueValidator
 from django.db.models import Prefetch
@@ -259,12 +260,20 @@ class NewSubjectSerializer(serializers.ModelSerializer):
         return subject_instance
 
 
-class TagSerializer(serializers.ModelSerializer):
+class SubjectTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubjectTags
         fields = [
             'tag',
             'subject',
+        ]
+
+class TrialTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrialTags
+        fields = [
+            'tag',
+            'trial',
         ]
 
 
