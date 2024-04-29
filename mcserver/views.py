@@ -218,7 +218,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             last_calibration_trial_num_videos = 0
 
             # Check if there is a calibration trial. If not, it must be in a parent session.
-            while not calibration_trials and session.meta['sessionWithCalibration']:
+            loop_counter = 0
+            while not calibration_trials and session.meta['sessionWithCalibration']  and loop_counter < 100:
                 id_session_with_calibration = session.meta['sessionWithCalibration']
                 # If parent does not exist, capture the exception, and continue.
                 try:
@@ -231,6 +232,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                         calibration_trials = session_with_calibration[0].trial_set.filter(name="calibration")
                     except Exception:
                         break
+                loop_counter += 1
 
             # If there are calibration trials, check if the number of cameras is the same as in the
             # current trial being stopped.
@@ -343,6 +345,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         methods=["get", "post"],
     )
     def valid(self, request):
+        from .serializers import ValidSessionLightSerializer
         try:
             # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
             if 'quantity' not in request.data:
@@ -370,7 +373,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             if quantity != -1:
                 sessions = sessions[: request.data['quantity']]
 
-            serializer = SessionSerializer(sessions, many=True)
+            # serializer = SessionSerializer(sessions, many=True)
+            serializer = ValidSessionLightSerializer(sessions, many=True)
         except Http404:
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
