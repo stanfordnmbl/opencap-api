@@ -64,8 +64,7 @@ msgstr "Set Subject"
 
 #: .\mcserver\templates\admin\set_subject.html:14
 msgid "set_subject_confirmation"
-msgstr ""
-"Are you sure you want to set the subject for the next list of sessions?"
+msgstr "Are you sure you want to set the subject for the next list of sessions?"
 
 #: .\mcserver\templates\email\reset_password_email.html:11
 msgid "reset_password_email_greeting"
@@ -89,9 +88,7 @@ msgstr "If the button if not working, click on the following token:"
 
 #: .\mcserver\templates\email\reset_password_email.html:23
 msgid "reset_password_email_ignore"
-msgstr ""
-"If you did not request to retrieve your username or change your password, "
-"you can ignore this email."
+msgstr "If you did not request to retrieve your username or change your password, you can ignore this email."
 
 #: .\mcserver\templates\email\reset_password_email.html:26
 msgid "reset_password_email_team"
@@ -221,14 +218,11 @@ msgstr "Sorry, we couldn't find a subject with UUID: %(uuid)s"
 
 #: .\mcserver\views.py:385
 msgid "session_not_valid"
-msgstr ""
-"There was an error while checking the validity of the session. Please try "
-"again."
+msgstr "There was an error while checking the validity of the session. Please try again."
 
 #: .\mcserver\views.py:417
 msgid "session_permanent_remove_error"
-msgstr ""
-"There was an error while permanently removing the session. Please try again."
+msgstr "There was an error while permanently removing the session. Please try again."
 
 #: .\mcserver\views.py:444 .\mcserver\views.py:1358 .\mcserver\views.py:1388
 msgid "session_remove_error"
@@ -260,21 +254,15 @@ msgstr "There was an error while downloading the session. Please try again."
 
 #: .\mcserver\views.py:884 .\mcserver\views.py:942
 msgid "session_get_settings_error"
-msgstr ""
-"There was an error while getting the settings of the session. Please try "
-"again."
+msgstr "There was an error while getting the settings of the session. Please try again."
 
 #: .\mcserver\views.py:1027
 msgid "session_set_metadata_error"
-msgstr ""
-"There was an error while setting the metadata of the session. Please try "
-"again."
+msgstr "There was an error while setting the metadata of the session. Please try again."
 
 #: .\mcserver\views.py:1049 .\mcserver\views.py:1061 .\mcserver\views.py:1070
 msgid "subject_assign_error"
-msgstr ""
-"There was an error while assigning this subject to the session. Please try "
-"again."
+msgstr "There was an error while assigning this subject to the session. Please try again."
 
 #: .\mcserver\views.py:1141 .\mcserver\views.py:1177
 msgid "trial_cancel_error"
@@ -282,13 +270,11 @@ msgstr "There was an error while canceling the trial. Please try again."
 
 #: .\mcserver\views.py:1246
 msgid "calibration_image_retrieve_error"
-msgstr ""
-"There was an error while retrieving the calibration image. Please try again."
+msgstr "There was an error while retrieving the calibration image. Please try again."
 
 #: .\mcserver\views.py:1321
 msgid "neutral_image_retrieve_error"
-msgstr ""
-"There was an error while retrieving the neutral image. Please try again."
+msgstr "There was an error while retrieving the neutral image. Please try again."
 
 #: .\mcserver\views.py:1477
 msgid "trial_dequeue_error"
@@ -310,8 +296,7 @@ msgstr "There was an error while renaming the trial. Please try again."
 
 #: .\mcserver\views.py:1553
 msgid "trial_permanent_remove_error"
-msgstr ""
-"There was an error while permanently removing the trial. Please try again."
+msgstr "There was an error while permanently removing the trial. Please try again."
 
 #: .\mcserver\views.py:1581
 msgid "trial_remove_error"
@@ -340,8 +325,7 @@ msgstr "There was an error while creating a new subject. Please try again."
 
 #: .\mcserver\views.py:1812
 msgid "subject_permanent_remove_error"
-msgstr ""
-"There was an error while permanently removing the subject. Please try again."
+msgstr "There was an error while permanently removing the subject. Please try again."
 
 #: .\mcserver\views.py:1842
 msgid "subject_update_error"
@@ -349,11 +333,11 @@ msgstr "There was an error while updating a new subject. Please try again."
 
 #: .\mcserver\views.py:1873
 msgid "Subject with id: "
-msgstr ""
+msgstr "Subject with id: "
 
 #: .\mcserver\views.py:1873
 msgid " does not exist for user "
-msgstr ""
+msgstr " does not exist for user "
 
 #: .\mcserver\views.py:1915
 msgid "user_create_error"
@@ -373,9 +357,7 @@ msgstr "Sorry, the user is not authenticated."
 
 #: .\mcserver\views.py:1939
 msgid "confirmation_username_not_correct"
-msgstr ""
-"Looks like the verification code is incorrect. Please double check and try "
-"again."
+msgstr "Looks like the verification code is incorrect. Please double check and try again."
 
 #: .\mcserver\views.py:1961 .\mcserver\views.py:1982
 msgid "user_update_error"
@@ -383,9 +365,7 @@ msgstr "There was an error while updating your user. Please try again."
 
 #: .\mcserver\views.py:2046
 msgid "credentials_incorrect"
-msgstr ""
-"Looks like the username or password you entered is incorrect. Please double "
-"check and try again."
+msgstr "Looks like the username or password you entered is incorrect. Please double check and try again."
 
 #: .\mcserver\views.py:2050
 msgid "login_error"
@@ -405,9 +385,7 @@ msgstr "There was an error while resetting your password. Please try again."
 
 #: .\mcserver\views.py:2141 .\mcserver\views.py:2155
 msgid "reset_password_link_expired"
-msgstr ""
-"The link to reset your password has expired or does not exist. Try resetting "
-"your password again."
+msgstr "The link to reset your password has expired or does not exist. Try resetting your password again."
 
 #: .\mcserver\views.py:2159
 msgid "new_password_creation_error"
@@ -419,16 +397,12 @@ msgstr "There was an error during the verification process. Please try again."
 
 #: .\mcserver\views.py:2187
 msgid "verification_code_incorrect"
-msgstr ""
-"Looks like the verification code is incorrect. Please double check and try "
-"again."
+msgstr "Looks like the verification code is incorrect. Please double check and try again."
 
 #: .\mcserver\views.py:2203
 msgid "set_institutional_use_error"
-msgstr ""
-"There was an error while setting your institutional use. Please try again."
+msgstr "There was an error while setting your institutional use. Please try again."
 
 #: .\mcserver\views.py:2241 .\mcserver\views.py:2254
 msgid "user_institutional_use_error"
-msgstr ""
-"There was an error while getting your institutional use. Please try again."
+msgstr "There was an error while getting your institutional use. Please try again."
