@@ -1862,12 +1862,16 @@ class SubjectTagViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def get_tags_subject(self, request, subject_id):
         # Get subject associated to that id.
-        subject = Subject.objects.get(id=subject_id, user=self.request.user)
+        subject = Subject.objects.filter(id=subject_id, user=self.request.user).first()
 
-        # Get tags associated to the subject.
-        tags = list(SubjectTags.objects.filter(subject=subject).values())
+        if subject:
+            # Get tags associated to the subject.
+            tags = list(SubjectTags.objects.filter(subject=subject).values())
 
-        return Response(tags, status=200)
+            return Response(tags, status=200)
+        else:
+            return NotFound("Subject with id: " + str(subject_id) + " does not exist for user " + self.request.user.username)
+
 
 
 
@@ -1937,7 +1941,7 @@ class UserDelete(APIView):
             if settings.DEBUG:
                 raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('user_delete_error'))
-        
+
 class UserUpdate(APIView):
     """
     Updates the user.
