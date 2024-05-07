@@ -1862,7 +1862,7 @@ class SubjectTagViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def get_tags_subject(self, request, subject_id):
         # Get subject associated to that id.
-        subject = Subject.objects.filter(id=subject_id, user=self.request.user).first()
+        subject = Subject.objects.filter(id=subject_id).first()
 
         if subject:
             # Get tags associated to the subject.
