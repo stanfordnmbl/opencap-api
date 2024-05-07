@@ -190,7 +190,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             trial.save()
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
@@ -198,7 +198,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("calibration_error"))
 
         return Response({
@@ -246,7 +246,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
@@ -254,7 +254,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("calibration_error"))
 
         return Response({
@@ -280,23 +280,23 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(session)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_retrieve_error"))
 
         # Return error message and data.
@@ -316,24 +316,24 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(session)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
             # if settings.DEBUG:
-            #     raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            #     raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             return Response(_('login_needed'), status=status.HTTP_401_UNAUTHORIZED)
             # raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_retrieve_error"))
 
         return Response(serializer.data)
@@ -377,11 +377,11 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = ValidSessionLightSerializer(sessions, many=True)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("subject_uuid_not_found"))
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_not_valid"))
 
         return Response(serializer.data)
@@ -397,23 +397,23 @@ class SessionViewSet(viewsets.ModelViewSet):
             session.delete()
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_permanent_remove_error"))
 
         return Response({})
@@ -432,15 +432,15 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(session)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_remove_error"))
 
         return Response(serializer.data)
@@ -459,15 +459,15 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(session)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_restore_error"))
 
         return Response(serializer.data)
@@ -509,7 +509,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_create_error"))
 
         return Response(serializer.data)
@@ -550,7 +550,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("qr_retrieve_error"))
 
         return Response(res)
@@ -575,7 +575,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
 
         try:
@@ -604,19 +604,19 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except NotFound:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("user_not_found"))
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_create_error"))
 
         return Response(serializer.data)
@@ -798,15 +798,15 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_record_error'))
 
         return Response(serializer.data)
@@ -824,7 +824,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('session_download_error'))
 
         return FileResponse(open(session_zip, "rb"))
@@ -850,7 +850,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 task = download_session_archive.delay(session.id)
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('session_download_error'))
 
         return Response({"task_id": task.id}, status=200)
@@ -872,15 +872,15 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('session_get_settings_error'))
 
         return Response(sessionPermission)
@@ -922,23 +922,23 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('session_get_settings_error'))
 
         return Response(settings_dict)
@@ -1015,15 +1015,15 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
+                raise APIException("Error: " + traceback.format_exc())
             raise APIException(_('session_set_metadata_error'))
 
         return Response(serializer.data)
@@ -1037,15 +1037,15 @@ class SessionViewSet(viewsets.ModelViewSet):
             session = get_object_or_404(Session, pk=pk)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_assign_error'))
 
         try:
@@ -1053,11 +1053,11 @@ class SessionViewSet(viewsets.ModelViewSet):
             subject = get_object_or_404(Subject, id=subject_id, user=request.user)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_assign_error'))
 
         try:
@@ -1066,7 +1066,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             serializer = SessionSerializer(session, many=False)
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_assign_error'))
 
         return Response(serializer.data)
@@ -1129,15 +1129,15 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
+                raise APIException("Error: " + traceback.format_exc())
             raise APIException(_('trial_cancel_error'))
 
         return Response(serializer.data)
@@ -1165,15 +1165,15 @@ class SessionViewSet(viewsets.ModelViewSet):
                 data = {"status": "noTrials"}
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception("Error: " + traceback.format_exc())
+                raise APIException("Error: " + traceback.format_exc())
             raise APIException(_('trial_cancel_error'))
 
         return Response(data)
@@ -1226,23 +1226,23 @@ class SessionViewSet(viewsets.ModelViewSet):
                 }
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('calibration_image_retrieve_error'))
 
         return Response(data)
@@ -1301,23 +1301,23 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except NotAuthenticated:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('login_needed'))
         except PermissionDenied:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('permission_denied'))
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("neutral_image_retrieve_error") % {"uuid": str(pk)})
 
         return Response(data)
@@ -1346,15 +1346,15 @@ class SessionViewSet(viewsets.ModelViewSet):
                 serializer = SessionIdSerializer(sessions, many=True)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_remove_error"))
 
         return Response(serializer.data)
@@ -1376,15 +1376,15 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_remove_error"))
 
         return Response(serializer.data)
@@ -1473,7 +1473,7 @@ class TrialViewSet(viewsets.ModelViewSet):
             if Http404: # we use the 404 to tell app.py that there are no trials, so need to pass this thru
                 raise Http404
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_dequeue_error'))
 
         return Response(serializer.data)
@@ -1514,15 +1514,15 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_rename_error'))
 
         # Return error message and data.
@@ -1541,15 +1541,15 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_permanent_remove_error'))
 
         return Response({})
@@ -1569,15 +1569,15 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_remove_error'))
 
         return Response(serializer.data)
@@ -1597,15 +1597,15 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_restore_error'))
 
         return Response(serializer.data)
@@ -1692,15 +1692,15 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_remove_error'))
 
         return Response(serializer.data)
@@ -1719,15 +1719,15 @@ class SubjectViewSet(viewsets.ModelViewSet):
             serializer = SubjectSerializer(subject)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_restore_error'))
 
         return Response(serializer.data)
@@ -1748,15 +1748,15 @@ class SubjectViewSet(viewsets.ModelViewSet):
             subject_zip = downloadAndZipSubject(pk, host=host)
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_create_error'))
 
         return FileResponse(open(subject_zip, "rb"))
@@ -1776,15 +1776,15 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_create_error'))
 
         return Response({"task_id": task.id}, status=200)
@@ -1800,15 +1800,15 @@ class SubjectViewSet(viewsets.ModelViewSet):
             return Response({})
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_found') % {"uuid": str(pk)})
         except ValueError:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('subject_uuid_not_valid') % {"uuid": str(pk)})
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_permanent_remove_error'))
 
     def perform_create(self, serializer):
@@ -1816,7 +1816,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
             serializer.save(user=self.request.user)
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_create_error'))
 
     def perform_update(self, serializer):
@@ -1838,7 +1838,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
             print(tags)
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_update_error'))
 
 class SubjectTagViewSet(viewsets.ModelViewSet):
@@ -1911,7 +1911,7 @@ class UserCreate(APIView):
                     return Response(json, status=status.HTTP_201_CREATED)
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('user_create_error'))
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1939,7 +1939,7 @@ class UserDelete(APIView):
                 return Response(_('confirmation_username_not_correct'), status=status.HTTP_400_BAD_REQUEST)
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('user_delete_error'))
 
 class UserUpdate(APIView):
@@ -1957,7 +1957,7 @@ class UserUpdate(APIView):
                 return Response(UserUpdateSerializer(updated_user).data, status=status.HTTP_200_OK)
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('user_update_error'))
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1978,7 +1978,7 @@ class UpdateProfilePicture(APIView):
                 return Response(ProfilePictureSerializer(updated_user).data, status=status.HTTP_200_OK)
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('user_update_error'))
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -2042,11 +2042,11 @@ class CustomAuthToken(ObtainAuthToken):
         except ValidationError:
             if settings.DEBUG:
                 print(str(traceback.format_exc()))
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": traceback.format_exc()})
             raise APIException(_('credentials_incorrect'))
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('login_error'))
 
         return Response({
@@ -2098,11 +2098,11 @@ class ResetPasswordView(APIView):
             email.send()
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('account_email_not_found'))
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('error_reset_password'))
 
         return Response({
@@ -2137,7 +2137,7 @@ class NewPasswordView(APIView):
                     object.delete()
 
                 if settings.DEBUG:
-                    raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                    raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
                 raise NotFound(_('reset_password_link_expired'))
 
             else:
@@ -2151,11 +2151,11 @@ class NewPasswordView(APIView):
                     object.delete()
         except Http404:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('reset_password_link_expired'))
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_('new_password_creation_error'))
 
         # Return message. At this point no error have been thrown and this should return success.
@@ -2178,12 +2178,12 @@ def verify(request):
 
     except Exception:
         if settings.DEBUG:
-            raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
         raise APIException(_('verification_error'))
 
     if not verified:
         if settings.DEBUG:
-            raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
         raise NotAuthenticated(_('verification_code_incorrect'))
 
     return Response({})
@@ -2199,7 +2199,7 @@ def set_institutional_use(request):
         request.user.save()
     except Exception:
         if settings.DEBUG:
-            raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
         raise APIException(_('set_institutional_use_error'))
 
     return Response({})
@@ -2237,7 +2237,7 @@ class UserInstitutionalUseView(APIView):
             serializer = UserInstitutionalUseSerializer(user)
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('user_institutional_use_error'))
 
         return Response(serializer.data)
@@ -2250,7 +2250,7 @@ class UserInstitutionalUseView(APIView):
             serializer.save()
         except Exception:
             if settings.DEBUG:
-                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('user_institutional_use_error'))
 
         return Response(serializer.data)
