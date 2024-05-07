@@ -1870,7 +1870,7 @@ class SubjectTagViewSet(viewsets.ModelViewSet):
 
             return Response(tags, status=200)
         else:
-            return NotFound(_("Subject with id: ") + str(subject_id) + _(" does not exist for user ") + self.request.user.username)
+            return Response(_("Subject with id: ") + str(subject_id) + _(" does not exist for user ") + self.request.user.username, status=404)
 
 
 
