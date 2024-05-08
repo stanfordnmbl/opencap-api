@@ -475,7 +475,6 @@ class AnalysisDashboard(models.Model):
         verbose_name='Analysis function'
     )
     layout = models.JSONField('Layout', default=dict)
-    public = models.BooleanField(blank=False, default=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -488,16 +487,19 @@ class AnalysisDashboard(models.Model):
         return self.title
 
     def is_public(self):
-        return self.public
+        return self.user.session_set.filter(public=True).exists()
 
     def get_user(self):
         return self.user
 
-    def get_available_data(self):
-        results = Result.objects.filter(
-            trial__session__user=self.user,
-            tag=f'analysis_function_result:{self.function_id}',
-        )
+    def get_available_data(self, only_public=False):
+        kwargs = {
+            'trial__session__user': self.user,
+            'tag': f'analysis_function_result:{self.function_id}',
+        }
+        if only_public:
+            kwargs['trial__session__public'] = True
+        results = Result.objects.filter(**kwargs)
         data = {
             'subjects': [],
             'sessions': [],

@@ -220,6 +220,6 @@ class AnalysisDashboardTemplateAdmin(admin.ModelAdmin):
 
 @admin.register(AnalysisDashboard)
 class AnalysisDashboardAdmin(admin.ModelAdmin):
-    list_display = ['id', 'title', 'function', 'user', 'template', 'public', 'created_at', 'updated_at']
+    list_display = ['id', 'title', 'function', 'user', 'template', 'created_at', 'updated_at']
     search_fields = ['title']
     raw_id_fields = ['user', 'template']
