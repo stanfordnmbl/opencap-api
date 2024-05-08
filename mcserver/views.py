@@ -2378,7 +2378,7 @@ class AnalysisFunctionsStatesForTrialsAPIView(APIView):
 
 class AnalysisDashboardViewSet(viewsets.ModelViewSet):
     serializer_class = AnalysisDashboardSerializer
-    permission_classes = [IsOwner]
+    permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
 
     def get_queryset(self):
         """
@@ -2386,7 +2386,7 @@ class AnalysisDashboardViewSet(viewsets.ModelViewSet):
         for the currently authenticated user.
         """
         user = self.request.user
-        return AnalysisDashboard.objects.filter(user=user)
+        return AnalysisDashboard.objects.filter(Q(user=user) | Q(public=True))
 
     @action(detail=True)
     def data(self, request, pk):

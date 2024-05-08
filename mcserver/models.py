@@ -475,6 +475,7 @@ class AnalysisDashboard(models.Model):
         verbose_name='Analysis function'
     )
     layout = models.JSONField('Layout', default=dict)
+    public = models.BooleanField(blank=False, default=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -485,6 +486,9 @@ class AnalysisDashboard(models.Model):
 
     def __str__(self):
         return self.title
+
+    def is_public(self):
+        return self.public
 
     def get_user(self):
         return self.user
