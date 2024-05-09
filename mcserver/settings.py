@@ -275,6 +275,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'mcserver.tasks.delete_pingdom_sessions',
         'schedule': crontab(hour='*', minute=0)
     },
+    'submit_cloudwatch_metric': {
+        'task': 'mcserver.tasks.submit_number_of_pending_trials_to_cloudwatch',
+        'schedule': crontab(minute='*')
+    },
     # TODO: temporary disabled - need testing
     # 'cleanup_unused_sessions': {
     #     'task': 'mcserver.tasks.cleanup_unused_sessions',
