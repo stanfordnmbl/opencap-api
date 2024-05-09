@@ -276,7 +276,7 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour='*', minute=0)
     },
     'submit_cloudwatch_metric': {
-        'task': 'mcserver.tasks.submit_number_of_pending_trials_to_cloudwatch',
+        'task': 'mcserver.tasks.submit_cloudwatch_metrics',
         'schedule': crontab(minute='*')
     },
     # TODO: temporary disabled - need testing
