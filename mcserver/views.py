@@ -2382,7 +2382,7 @@ class AnalysisFunctionsStatesForTrialsAPIView(APIView):
 
 class AnalysisDashboardViewSet(viewsets.ModelViewSet):
     serializer_class = AnalysisDashboardSerializer
-    permission_classes = [IsOwner]
+    permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
 
     def get_queryset(self):
         """
@@ -2390,10 +2390,17 @@ class AnalysisDashboardViewSet(viewsets.ModelViewSet):
         for the currently authenticated user.
         """
         user = self.request.user
-        return AnalysisDashboard.objects.filter(user=user)
+        if user.is_authenticated:
+            users_have_public_sessions = User.objects.filter(Q(session__public=True) | Q(id=user.id)).distinct()
+        else:
+            users_have_public_sessions = User.objects.filter(session__public=True).distinct()
+        return AnalysisDashboard.objects.filter(user__in=users_have_public_sessions)
 
     @action(detail=True)
     def data(self, request, pk):
-        dashboard = get_object_or_404(AnalysisDashboard, user=request.user, pk=pk)
-        return Response(dashboard.get_available_data())
-
+        dashboard = get_object_or_404(AnalysisDashboard, pk=pk)
+        if request.user.is_authenticated and request.user == dashboard.user:
+            return Response(dashboard.get_available_data())
+        else:
+            return Response(dashboard.get_available_data(only_public=True))
+        return Response(status=403)
