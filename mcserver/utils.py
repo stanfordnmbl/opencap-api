@@ -12,12 +12,7 @@ def submit_custom_metric(namespace, metric_name, value):
     - metric_name (str): The name of the metric.
     - value (float): The value associated with the metric.
     """
-    client = boto3.client(
-        'cloudwatch',
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        region_name='us-west-2',
-    )
+    client = boto3.client('cloudwatch', region_name='us-west-2')
     response = client.put_metric_data(
         Namespace=namespace,
         MetricData=[
@@ -50,7 +45,7 @@ def send_otp_challenge(user):
 
 def get_processing_trials_count():
     from mcserver.models import Trial
-    return Trial.objects.filter(status='processing').count()
+    return Trial.objects.filter(status='stopped').count()
 
 
 def submit_number_of_pending_trials_to_cloudwatch():
