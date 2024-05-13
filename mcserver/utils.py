@@ -12,7 +12,7 @@ def submit_custom_metric(namespace, metric_name, value):
     - metric_name (str): The name of the metric.
     - value (float): The value associated with the metric.
     """
-    client = boto3.client('cloudwatch', region_name='us-west-2')
+    client = boto3.client('cloudwatch', region_name=settings.AWS_S3_REGION_NAME)
     response = client.put_metric_data(
         Namespace=namespace,
         MetricData=[
