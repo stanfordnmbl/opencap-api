@@ -492,14 +492,21 @@ class AnalysisDashboard(models.Model):
     def get_user(self):
         return self.user
 
-    def get_available_data(self, only_public=False):
+    def get_available_data(self, only_public=False, subject_id=None, share_token=None):
+        import hashlib
+
         kwargs = {
             'trial__session__user': self.user,
             'tag': f'analysis_function_result:{self.function_id}',
         }
         if only_public:
             kwargs['trial__session__public'] = True
+        if subject_id:
+            kwargs['trial__session__subject_id'] = subject_id
         results = Result.objects.filter(**kwargs)
+        if only_public and hashlib.sha256(f'{self.id}-{subject_id}'.encode()).hexdigest() != share_token:
+            results = Result.objects.none()
+
         data = {
             'subjects': [],
             'sessions': [],
@@ -525,11 +532,17 @@ class AnalysisDashboard(models.Model):
                     {
                         'id': session.id,
                         'subject_id': session.subject_id,
-                        'subject_name': session.subject.name if session.subject else None})
+                        'subject_name': session.subject.name if session.subject else None,
+                        'public': session.public,
+                    })
                 session_ids.append(session.id)
             subject = session.subject
             if subject and subject.id not in subject_ids:
-                data['subjects'].append({'id': subject.id, 'name': subject.name})
+                data['subjects'].append({
+                    'id': subject.id,
+                    'name': subject.name,
+                    'share_token': hashlib.sha256(f'{self.id}-{subject.id}'.encode()).hexdigest(),
+                })
                 subject_ids.append(subject.id)
 
         return data

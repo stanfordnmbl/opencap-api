@@ -2401,6 +2401,6 @@ class AnalysisDashboardViewSet(viewsets.ModelViewSet):
         dashboard = get_object_or_404(AnalysisDashboard, pk=pk)
         if request.user.is_authenticated and request.user == dashboard.user:
             return Response(dashboard.get_available_data())
-        else:
-            return Response(dashboard.get_available_data(only_public=True))
-        return Response(status=403)
+
+        return Response(dashboard.get_available_data(
+            only_public=True, subject_id=request.GET.get('subject_id'), share_token=request.GET.get('share_token')))
