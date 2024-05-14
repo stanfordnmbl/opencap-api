@@ -151,7 +151,6 @@ def zipdir(path, ziph):
                        os.path.relpath(os.path.join(root, file), 
                                        os.path.join(path, '..')))
 
-
 class SessionViewSet(viewsets.ModelViewSet):
     serializer_class = SessionSerializer
     permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
@@ -163,8 +162,8 @@ class SessionViewSet(viewsets.ModelViewSet):
         for the currently authenticated user.
         """
         user = self.request.user
-        # if user.is_authenticated and user.id == 1:
-        #     return Session.objects.all().order_by("-created_at")
+        if user.is_authenticated and user.id == 1:
+            return Session.objects.all().order_by("-created_at")
         return Session.objects.filter(Q(user__id=user.id) | Q(public=True)).order_by("-created_at")
 
     @action(detail=False)
@@ -1665,8 +1664,8 @@ class SubjectViewSet(viewsets.ModelViewSet):
         for the currently authenticated user.
         """
         user = self.request.user
-        # if user.is_authenticated and user.id == 1:
-        #     return Subject.objects.all()
+        if user.is_authenticated and user.id == 1:
+            return Subject.objects.all()
         return Subject.objects.filter(user=user)
 
     def get_serializer_class(self):
@@ -1851,6 +1850,7 @@ class SubjectTagViewSet(viewsets.ModelViewSet):
         This view should return a list of all the subjects tags
         for the currently authenticated user.
         """
+        user = self.request.user
         # Get all subjects associated to a user.
         subject = Subject.objects.filter(user=self.request.user)
 
@@ -2382,7 +2382,7 @@ class AnalysisFunctionsStatesForTrialsAPIView(APIView):
 
 class AnalysisDashboardViewSet(viewsets.ModelViewSet):
     serializer_class = AnalysisDashboardSerializer
-    permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
+    permission_classes = [IsOwner]
 
     def get_queryset(self):
         """
@@ -2390,17 +2390,10 @@ class AnalysisDashboardViewSet(viewsets.ModelViewSet):
         for the currently authenticated user.
         """
         user = self.request.user
-        if user.is_authenticated:
-            users_have_public_sessions = User.objects.filter(Q(session__public=True) | Q(id=user.id)).distinct()
-        else:
-            users_have_public_sessions = User.objects.filter(session__public=True).distinct()
-        return AnalysisDashboard.objects.filter(user__in=users_have_public_sessions)
+        return AnalysisDashboard.objects.filter(user=user)
 
     @action(detail=True)
     def data(self, request, pk):
-        dashboard = get_object_or_404(AnalysisDashboard, pk=pk)
-        if request.user.is_authenticated and request.user == dashboard.user:
-            return Response(dashboard.get_available_data())
+        dashboard = get_object_or_404(AnalysisDashboard, user=request.user, pk=pk)
+        return Response(dashboard.get_available_data())
 
-        return Response(dashboard.get_available_data(
-            only_public=True, subject_id=request.GET.get('subject_id'), share_token=request.GET.get('share_token')))
