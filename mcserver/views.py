@@ -151,6 +151,7 @@ def zipdir(path, ziph):
                        os.path.relpath(os.path.join(root, file), 
                                        os.path.join(path, '..')))
 
+
 class SessionViewSet(viewsets.ModelViewSet):
     serializer_class = SessionSerializer
     permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
@@ -162,8 +163,8 @@ class SessionViewSet(viewsets.ModelViewSet):
         for the currently authenticated user.
         """
         user = self.request.user
-        if user.is_authenticated and user.id == 1:
-            return Session.objects.all().order_by("-created_at")
+        # if user.is_authenticated and user.id == 1:
+        #     return Session.objects.all().order_by("-created_at")
         return Session.objects.filter(Q(user__id=user.id) | Q(public=True)).order_by("-created_at")
 
     @action(detail=False)
@@ -1664,8 +1665,8 @@ class SubjectViewSet(viewsets.ModelViewSet):
         for the currently authenticated user.
         """
         user = self.request.user
-        if user.is_authenticated and user.id == 1:
-            return Subject.objects.all()
+        # if user.is_authenticated and user.id == 1:
+        #     return Subject.objects.all()
         return Subject.objects.filter(user=user)
 
     def get_serializer_class(self):
@@ -1850,7 +1851,6 @@ class SubjectTagViewSet(viewsets.ModelViewSet):
         This view should return a list of all the subjects tags
         for the currently authenticated user.
         """
-        user = self.request.user
         # Get all subjects associated to a user.
         subject = Subject.objects.filter(user=self.request.user)
 
