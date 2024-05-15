@@ -189,6 +189,15 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
                 template=dashboard_template
             )
 
+
+@shared_task
+def submit_cloudwatch_metrics():
+    """ This task submits the number of pending trials to CloudWatch
+    """
+    from mcserver.utils import submit_number_of_pending_trials_to_cloudwatch
+    submit_number_of_pending_trials_to_cloudwatch()
+
+
 # TODO: temporary disabled - need testing
 # @shared_task
 # def cleanup_unused_sessions():
