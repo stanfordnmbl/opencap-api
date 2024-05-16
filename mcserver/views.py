@@ -353,7 +353,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 quantity = -1
             else:
                 quantity = request.data['quantity']
-
+            start = 0 if 'start' not in request.data else request.data['start']
             # Note the use of `get_queryset()` instead of `self.queryset`
             sessions = self.get_queryset() \
                 .annotate(trial_count=Count('trial'))\
@@ -371,8 +371,10 @@ class SessionViewSet(viewsets.ModelViewSet):
                     sessions = sessions.exclude(id__exact=session.id)
 
             # If quantity is not -1, retrieve only last n sessions.
-            if quantity != -1:
-                sessions = sessions[: request.data['quantity']]
+            if quantity != -1 and start > 0:
+                sessions = sessions[start: start + quantity]
+            elif quantity != -1:
+                sessions = sessions[:quantity]
 
             # serializer = SessionSerializer(sessions, many=True)
             serializer = ValidSessionLightSerializer(sessions, many=True)
