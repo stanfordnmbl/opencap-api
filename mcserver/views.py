@@ -370,6 +370,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 if trials.count() < 1:
                     sessions = sessions.exclude(id__exact=session.id)
 
+            sessions_count = sessions.count()
             # If quantity is not -1, retrieve only last n sessions.
             if quantity != -1 and start > 0:
                 sessions = sessions[start: start + quantity]
@@ -387,6 +388,8 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_not_valid"))
 
+        if quantity != -1:
+            return Response({'sessions': serializer.data, 'total': sessions_count})
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
