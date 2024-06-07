@@ -353,7 +353,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 quantity = -1
             else:
                 quantity = request.data['quantity']
-
+            start = 0 if 'start' not in request.data else request.data['start']
             # Note the use of `get_queryset()` instead of `self.queryset`
             sessions = self.get_queryset() \
                 .annotate(trial_count=Count('trial'))\
@@ -370,9 +370,12 @@ class SessionViewSet(viewsets.ModelViewSet):
                 if trials.count() < 1:
                     sessions = sessions.exclude(id__exact=session.id)
 
+            sessions_count = sessions.count()
             # If quantity is not -1, retrieve only last n sessions.
-            if quantity != -1:
-                sessions = sessions[: request.data['quantity']]
+            if quantity != -1 and start > 0:
+                sessions = sessions[start: start + quantity]
+            elif quantity != -1:
+                sessions = sessions[:quantity]
 
             # serializer = SessionSerializer(sessions, many=True)
             serializer = ValidSessionLightSerializer(sessions, many=True)
@@ -385,6 +388,8 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_("session_not_valid"))
 
+        if quantity != -1:
+            return Response({'sessions': serializer.data, 'total': sessions_count})
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
@@ -1668,6 +1673,23 @@ class SubjectViewSet(viewsets.ModelViewSet):
         if user.is_authenticated and user.id == 1:
             return Subject.objects.all()
         return Subject.objects.filter(user=user)
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
+        if 'quantity' not in self.request.query_params:
+            quantity = -1
+        else:
+            quantity = int(self.request.query_params['quantity'])
+        start = 0 if 'start' not in self.request.query_params else int(self.request.query_params['start'])
+
+        if quantity != -1 and start > 0:
+            queryset = queryset[start: start + quantity]
+        elif quantity != -1:
+            queryset = queryset[:quantity]
+
+        serializer = SubjectSerializer(queryset, many=True)
+        return Response(serializer.data)
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:

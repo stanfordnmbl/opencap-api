@@ -1,5 +1,6 @@
 import json
 from rest_framework import serializers
+from rest_framework import pagination
 from mcserver.models import (
     Session,
     User,
@@ -244,7 +245,6 @@ class ValidSessionLightSerializer(serializers.ModelSerializer):
         return str(session.id).split("-")[0]
 
 
-
 class SessionStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Session
@@ -276,7 +276,7 @@ class SubjectSerializer(serializers.ModelSerializer):
             'gender',
             'sex_at_birth',
             'characteristics',
-            'sessions',
+            # 'sessions',
             'created_at',
             'updated_at',
             'trashed',
