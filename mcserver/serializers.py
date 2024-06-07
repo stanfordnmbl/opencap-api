@@ -270,7 +270,7 @@ class SubjectSerializer(serializers.ModelSerializer):
             'gender',
             'sex_at_birth',
             'characteristics',
-            'sessions',
+            # 'sessions',
             'created_at',
             'updated_at',
             'trashed',

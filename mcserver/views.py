@@ -1674,6 +1674,23 @@ class SubjectViewSet(viewsets.ModelViewSet):
             return Subject.objects.all()
         return Subject.objects.filter(user=user)
 
+    def list(self, request):
+        queryset = self.get_queryset()
+        # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
+        if 'quantity' not in self.request.query_params:
+            quantity = -1
+        else:
+            quantity = int(self.request.query_params['quantity'])
+        start = 0 if 'start' not in self.request.query_params else int(self.request.query_params['start'])
+
+        if quantity != -1 and start > 0:
+            queryset = queryset[start: start + quantity]
+        elif quantity != -1:
+            queryset = queryset[:quantity]
+
+        serializer = SubjectSerializer(queryset, many=True)
+        return Response(serializer.data)
+
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return NewSubjectSerializer
