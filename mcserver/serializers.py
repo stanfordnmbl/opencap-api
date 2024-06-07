@@ -66,10 +66,16 @@ class UserInstitutionalUseSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all(), message=_("email-already_exists"))]
+    )
+
     def create(self, validated_data):
         user = User.objects.create_user(validated_data['username'],
                                         first_name=validated_data['first_name'],
                                         last_name=validated_data['last_name'],
+                                        email=validated_data['email'],
                                         country=validated_data['country'],
                                         institution=validated_data['institution'],
                                         profession=validated_data['profession'],
@@ -81,7 +87,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'country', 'institution', 'profession', 'reason',
+        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'country', 'institution', 'profession', 'reason',
                   'website', 'newsletter')
 
 
