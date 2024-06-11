@@ -1670,7 +1670,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
         for the currently authenticated user.
         """
         user = self.request.user
-        if user.is_authenticated and user.id == 1:
+        if (user.is_authenticated and user.id == 1) or (user.is_authenticated and user.id == 2):
             return Subject.objects.all()
         return Subject.objects.filter(user=user)
 
