@@ -348,7 +348,8 @@ class SessionViewSet(viewsets.ModelViewSet):
     def valid(self, request):
         from .serializers import ValidSessionLightSerializer
         try:
-            include_trashed = request.data.get('include_trashed', 'false') == 'true'
+            print(request.data)
+            include_trashed = request.data.get('include_trashed', False) is True
             # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
             if 'quantity' not in request.data:
                 quantity = -1
@@ -360,7 +361,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 .annotate(trial_count=Count('trial'))\
                 .filter(trial_count__gte=1, user=request.user)
             if not include_trashed:
-                sessions = sessions.filter(trashed=False)
+                sessions = sessions.exclude(trashed=True)
             if 'subject_id' in request.data:
                 subject = get_object_or_404(
                     Subject,
