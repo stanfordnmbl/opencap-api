@@ -348,7 +348,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     def valid(self, request):
         from .serializers import ValidSessionLightSerializer
         try:
-            print(request.data)
+            # print(request.data)
             include_trashed = request.data.get('include_trashed', False) is True
             # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
             if 'quantity' not in request.data:
@@ -1681,11 +1681,16 @@ class SubjectViewSet(viewsets.ModelViewSet):
     def list(self, request):
         queryset = self.get_queryset()
         # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
+        # print(request.query_params)
+        include_trashed = request.query_params.get('include_trashed', 'false') == 'true'
         if 'quantity' not in self.request.query_params:
             quantity = -1
         else:
             quantity = int(self.request.query_params['quantity'])
         start = 0 if 'start' not in self.request.query_params else int(self.request.query_params['start'])
+
+        if not include_trashed:
+            queryset = queryset.exclude(trashed=True)
 
         if quantity != -1 and start > 0:
             queryset = queryset[start: start + quantity]
