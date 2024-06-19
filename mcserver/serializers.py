@@ -297,6 +297,20 @@ class SubjectSerializer(serializers.ModelSerializer):
         return subject_instance
 
 
+class SimpleSubjectSerializer(serializers.ModelSerializer):
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Subject
+        fields = [
+            'id',
+            'display_name',
+        ]
+
+    def get_display_name(self, obj):
+        return f'{obj.name} ({obj.weight} Kg, {obj.height} m, {obj.birth_year})'
+
+
 class NewSubjectSerializer(serializers.ModelSerializer):
     subject_tags = serializers.ListField(write_only=True, required=False)
 

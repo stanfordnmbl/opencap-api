@@ -48,6 +48,7 @@ from mcserver.serializers import (
     ResultSerializer,
     NewSubjectSerializer,
     SubjectSerializer,
+    SimpleSubjectSerializer,
     UserSerializer,
     UserUpdateSerializer,
     ResetPasswordSerializer,
@@ -1682,6 +1683,8 @@ class SubjectViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
         # print(request.query_params)
+        is_simple = request.query_params.get('simple', 'false') == 'true'
+        search = request.query_params.get('search', '')
         include_trashed = request.query_params.get('include_trashed', 'false') == 'true'
         if 'quantity' not in self.request.query_params:
             quantity = -1
@@ -1691,13 +1694,15 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
         if not include_trashed:
             queryset = queryset.exclude(trashed=True)
+        if search:
+            queryset = queryset.filter(name__icontains=search)
 
         if quantity != -1 and start > 0:
             queryset = queryset[start: start + quantity]
         elif quantity != -1:
             queryset = queryset[:quantity]
 
-        serializer = SubjectSerializer(queryset, many=True)
+        serializer = (SimpleSubjectSerializer if is_simple else SubjectSerializer)(queryset, many=True)
         return Response({'subjects': serializer.data, 'total': self.get_queryset().count()})
 
     def get_serializer_class(self):
