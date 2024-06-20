@@ -351,6 +351,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         try:
             # print(request.data)
             include_trashed = request.data.get('include_trashed', False) is True
+            only_trashed = request.data.get('only_trashed', False) is True
             # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
             if 'quantity' not in request.data:
                 quantity = -1
@@ -361,8 +362,12 @@ class SessionViewSet(viewsets.ModelViewSet):
             sessions = self.get_queryset() \
                 .annotate(trial_count=Count('trial'))\
                 .filter(trial_count__gte=1, user=request.user)
-            if not include_trashed:
+
+            if only_trashed:
+                sessions = sessions.filter(Q(trashed=True) | Q(trial__trashed=True))
+            elif not include_trashed:
                 sessions = sessions.exclude(trashed=True)
+
             if 'subject_id' in request.data:
                 subject = get_object_or_404(
                     Subject,
@@ -918,8 +923,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             if trials.count():
                 trial = trials[0]
 
+            maxFramerates = []
             if trial and trial.video_set.count() > 0:
-                maxFramerates = []
                 for video in trial.video_set.all():
                     if 'max_framerate' in video.parameters:
                         maxFramerates.append(video.parameters['max_framerate'])
@@ -927,7 +932,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                         maxFramerates = [60]
 
             framerateOptions = [60, 120, 240]
-            frameratesAvailable = [f for f in framerateOptions if f <= min(maxFramerates)]
+            frameratesAvailable = [f for f in framerateOptions if f <= min(maxFramerates or [0])]
 
             settings_dict = {'framerates': frameratesAvailable}
 
