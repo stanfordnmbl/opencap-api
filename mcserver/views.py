@@ -352,6 +352,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             # print(request.data)
             include_trashed = request.data.get('include_trashed', False) is True
             only_trashed = request.data.get('only_trashed', False) is True
+            sort_by = request.data.get('sort', [])
+            sort_desc = request.data.get('sort_desc', [])
             # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
             if 'quantity' not in request.data:
                 quantity = -1
@@ -379,6 +381,20 @@ class SessionViewSet(viewsets.ModelViewSet):
                 trials = Trial.objects.filter(session__exact=session, name__exact="neutral")
                 if trials.count() < 1:
                     sessions = sessions.exclude(id__exact=session.id)
+
+            # Sort by
+            if sort_by:
+                sessions = sessions.annotate(
+                    trials_count=Count('trial'),
+                )
+                sort_options = {
+                    'name': 'subject__name',
+                    'trials_count': 'trials_count',
+                    'created_at': 'created_at',
+                }
+
+                sessions = sessions.order_by(
+                    *[('-' if sort_desc[i] else '')+sort_options[x] for i, x in enumerate(sort_by) if x in sort_options], '-id')
 
             sessions_count = sessions.count()
             # If quantity is not -1, retrieve only last n sessions.
