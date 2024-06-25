@@ -1707,6 +1707,10 @@ class SubjectViewSet(viewsets.ModelViewSet):
         is_simple = request.query_params.get('simple', 'false') == 'true'
         search = request.query_params.get('search', '')
         include_trashed = request.query_params.get('include_trashed', 'false') == 'true'
+        sort_by = request.query_params.get('sort[]', 'name')
+        sort_desc = request.query_params.get('sort_desc[]', 'false') == 'true'
+        print(request.query_params)
+
         if 'quantity' not in self.request.query_params:
             quantity = -1
         else:
@@ -1717,6 +1721,18 @@ class SubjectViewSet(viewsets.ModelViewSet):
             queryset = queryset.exclude(trashed=True)
         if search:
             queryset = queryset.filter(name__icontains=search)
+
+        sort_options = {
+            'sex_display': 'sex_at_birth',
+            'gender_display': 'gender',
+        }
+
+        print(
+            *[('-' if sort_desc else '') + sort_options.get(sort_by, sort_by)],
+            'id')
+        queryset = queryset.order_by(
+            *[('-' if sort_desc else '') + sort_options.get(sort_by, sort_by)],
+            'id')
 
         if quantity != -1 and start > 0:
             queryset = queryset[start: start + quantity]
