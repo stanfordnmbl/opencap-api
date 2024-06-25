@@ -1709,7 +1709,6 @@ class SubjectViewSet(viewsets.ModelViewSet):
         include_trashed = request.query_params.get('include_trashed', 'false') == 'true'
         sort_by = request.query_params.get('sort[]', 'name')
         sort_desc = request.query_params.get('sort_desc[]', 'false') == 'true'
-        print(request.query_params)
 
         if 'quantity' not in self.request.query_params:
             quantity = -1
@@ -1727,9 +1726,6 @@ class SubjectViewSet(viewsets.ModelViewSet):
             'gender_display': 'gender',
         }
 
-        print(
-            *[('-' if sort_desc else '') + sort_options.get(sort_by, sort_by)],
-            'id')
         queryset = queryset.order_by(
             *[('-' if sort_desc else '') + sort_options.get(sort_by, sort_by)],
             'id')
