@@ -48,6 +48,7 @@ from mcserver.serializers import (
     ResultSerializer,
     NewSubjectSerializer,
     SubjectSerializer,
+    SimpleSubjectSerializer,
     UserSerializer,
     UserUpdateSerializer,
     ResetPasswordSerializer,
@@ -348,6 +349,11 @@ class SessionViewSet(viewsets.ModelViewSet):
     def valid(self, request):
         from .serializers import ValidSessionLightSerializer
         try:
+            # print(request.data)
+            include_trashed = request.data.get('include_trashed', False) is True
+            only_trashed = request.data.get('only_trashed', False) is True
+            sort_by = request.data.get('sort', [])
+            sort_desc = request.data.get('sort_desc', [])
             # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
             if 'quantity' not in request.data:
                 quantity = -1
@@ -358,6 +364,12 @@ class SessionViewSet(viewsets.ModelViewSet):
             sessions = self.get_queryset() \
                 .annotate(trial_count=Count('trial'))\
                 .filter(trial_count__gte=1, user=request.user)
+
+            if only_trashed:
+                sessions = sessions.filter(Q(trashed=True) | Q(trial__trashed=True))
+            elif not include_trashed:
+                sessions = sessions.exclude(trashed=True)
+
             if 'subject_id' in request.data:
                 subject = get_object_or_404(
                     Subject,
@@ -369,6 +381,20 @@ class SessionViewSet(viewsets.ModelViewSet):
                 trials = Trial.objects.filter(session__exact=session, name__exact="neutral")
                 if trials.count() < 1:
                     sessions = sessions.exclude(id__exact=session.id)
+
+            # Sort by
+            if sort_by:
+                sessions = sessions.annotate(
+                    trials_count=Count('trial'),
+                )
+                sort_options = {
+                    'name': 'subject__name',
+                    'trials_count': 'trials_count',
+                    'created_at': 'created_at',
+                }
+
+                sessions = sessions.order_by(
+                    *[('-' if sort_desc[i] else '')+sort_options[x] for i, x in enumerate(sort_by) if x in sort_options], '-id')
 
             sessions_count = sessions.count()
             # If quantity is not -1, retrieve only last n sessions.
@@ -913,8 +939,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             if trials.count():
                 trial = trials[0]
 
+            maxFramerates = []
             if trial and trial.video_set.count() > 0:
-                maxFramerates = []
                 for video in trial.video_set.all():
                     if 'max_framerate' in video.parameters:
                         maxFramerates.append(video.parameters['max_framerate'])
@@ -922,7 +948,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                         maxFramerates = [60]
 
             framerateOptions = [60, 120, 240]
-            frameratesAvailable = [f for f in framerateOptions if f <= min(maxFramerates)]
+            frameratesAvailable = [f for f in framerateOptions if f <= min(maxFramerates or [0])]
 
             settings_dict = {'framerates': frameratesAvailable}
 
@@ -1682,19 +1708,40 @@ class SubjectViewSet(viewsets.ModelViewSet):
     def list(self, request):
         queryset = self.get_queryset()
         # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
+        # print(request.query_params)
+        is_simple = request.query_params.get('simple', 'false') == 'true'
+        search = request.query_params.get('search', '')
+        include_trashed = request.query_params.get('include_trashed', 'false') == 'true'
+        sort_by = request.query_params.get('sort[]', 'name')
+        sort_desc = request.query_params.get('sort_desc[]', 'false') == 'true'
+
         if 'quantity' not in self.request.query_params:
             quantity = -1
         else:
             quantity = int(self.request.query_params['quantity'])
         start = 0 if 'start' not in self.request.query_params else int(self.request.query_params['start'])
 
+        if not include_trashed:
+            queryset = queryset.exclude(trashed=True)
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+
+        sort_options = {
+            'sex_display': 'sex_at_birth',
+            'gender_display': 'gender',
+        }
+
+        queryset = queryset.order_by(
+            *[('-' if sort_desc else '') + sort_options.get(sort_by, sort_by)],
+            'id')
+
         if quantity != -1 and start > 0:
             queryset = queryset[start: start + quantity]
         elif quantity != -1:
             queryset = queryset[:quantity]
 
-        serializer = SubjectSerializer(queryset, many=True)
-        return Response(serializer.data)
+        serializer = (SimpleSubjectSerializer if is_simple else SubjectSerializer)(queryset, many=True)
+        return Response({'subjects': serializer.data, 'total': self.get_queryset().count()})
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:

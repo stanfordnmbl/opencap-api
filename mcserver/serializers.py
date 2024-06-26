@@ -164,6 +164,7 @@ class SessionSerializer(serializers.ModelSerializer):
     trashed_trials_count = serializers.SerializerMethodField()
 
     name = serializers.SerializerMethodField('session_name')
+    sessionName = serializers.SerializerMethodField('get_sessionName')
 
     @staticmethod
     def setup_eager_loading(queryset):
@@ -195,10 +196,13 @@ class SessionSerializer(serializers.ModelSerializer):
             return subject_id
         return str(session.id).split("-")[0]
 
+    def get_sessionName(self, session):
+        return session.meta.get("sessionName", "")
+
     class Meta:
         model = Session
         fields = [
-            'id', 'user', 'public', 'name',
+            'id', 'user', 'public', 'name', 'sessionName',
             'qrcode', 'meta', 'trials', 'server',
             'subject',
             'created_at', 'updated_at',
@@ -211,11 +215,12 @@ class ValidSessionLightSerializer(serializers.ModelSerializer):
     trials_count = serializers.SerializerMethodField()
     trashed_trials_count = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField('session_name')
+    sessionName = serializers.SerializerMethodField('get_sessionName')
 
     class Meta:
         model = Session
         fields = [
-            'id', 'user', 'public', 'name',
+            'id', 'user', 'public', 'name', 'sessionName',
             'qrcode', 'meta', 'trials', 'server',
             'subject',
             'created_at', 'updated_at',
@@ -244,6 +249,9 @@ class ValidSessionLightSerializer(serializers.ModelSerializer):
             return subject_id
         return str(session.id).split("-")[0]
 
+    def get_sessionName(self, session):
+        return session.meta.get("sessionName", "")
+
 
 class SessionStatusSerializer(serializers.ModelSerializer):
     class Meta:
@@ -264,6 +272,9 @@ class SessionFilteringSerializer(serializers.Serializer):
 
 
 class SubjectSerializer(serializers.ModelSerializer):
+    sex_display = serializers.SerializerMethodField()
+    gender_display = serializers.SerializerMethodField()
+
     class Meta:
         model = Subject
         fields = [
@@ -273,8 +284,8 @@ class SubjectSerializer(serializers.ModelSerializer):
             'height',
             'age',
             'birth_year',
-            'gender',
-            'sex_at_birth',
+            'gender', 'gender_display',
+            'sex_at_birth', 'sex_display',
             'characteristics',
             # 'sessions',
             'created_at',
@@ -295,6 +306,27 @@ class SubjectSerializer(serializers.ModelSerializer):
             SubjectTags.objects.create(subject=subject_instance, tag=tag_data)
 
         return subject_instance
+
+    def get_sex_display(self, obj):
+        return obj.get_sex_at_birth_display()
+
+    def get_gender_display(self, obj):
+        return obj.get_gender_display()
+
+
+
+class SimpleSubjectSerializer(serializers.ModelSerializer):
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Subject
+        fields = [
+            'id',
+            'display_name',
+        ]
+
+    def get_display_name(self, obj):
+        return f'{obj.name} ({obj.weight} Kg, {obj.height} m, {obj.birth_year})'
 
 
 class NewSubjectSerializer(serializers.ModelSerializer):
