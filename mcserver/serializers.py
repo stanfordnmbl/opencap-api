@@ -197,7 +197,7 @@ class SessionSerializer(serializers.ModelSerializer):
         return str(session.id).split("-")[0]
 
     def get_sessionName(self, session):
-        return session.meta.get("sessionName", "")
+        return session.meta.get("sessionName", "") if session.meta else ""
 
     class Meta:
         model = Session
