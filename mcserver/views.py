@@ -221,7 +221,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             # Check if there is a calibration trial. If not, it must be in a parent session.
             loop_counter = 0
-            while not calibration_trials and session.meta['sessionWithCalibration']  and loop_counter < 100:
+            while not calibration_trials and session.meta.get('sessionWithCalibration') and loop_counter < 100:
                 id_session_with_calibration = session.meta['sessionWithCalibration']
                 # If parent does not exist, capture the exception, and continue.
                 try:
