@@ -1702,8 +1702,8 @@ class SubjectViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         if (user.is_authenticated and user.id == 1) or (user.is_authenticated and user.id == 2):
-            return Subject.objects.all()
-        return Subject.objects.filter(user=user)
+            return Subject.objects.all().prefetch_related('subjecttags_set')
+        return Subject.objects.filter(user=user).prefetch_related('subjecttags_set')
 
     def list(self, request):
         queryset = self.get_queryset()
