@@ -271,9 +271,19 @@ class SessionFilteringSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=64, required=False)
 
 
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubjectTags
+        fields = [
+            'tag',
+            'subject',
+        ]
+
+
 class SubjectSerializer(serializers.ModelSerializer):
     sex_display = serializers.SerializerMethodField()
     gender_display = serializers.SerializerMethodField()
+    subject_tags = serializers.SerializerMethodField('get_tags')
 
     class Meta:
         model = Subject
@@ -288,6 +298,7 @@ class SubjectSerializer(serializers.ModelSerializer):
             'sex_at_birth', 'sex_display',
             'characteristics',
             # 'sessions',
+            'subject_tags',
             'created_at',
             'updated_at',
             'trashed',
@@ -312,6 +323,9 @@ class SubjectSerializer(serializers.ModelSerializer):
 
     def get_gender_display(self, obj):
         return obj.get_gender_display()
+
+    def get_tags(self, obj):
+        return obj.subjecttags_set.all().values_list('tag', flat=True)
 
 
 
@@ -361,15 +375,6 @@ class NewSubjectSerializer(serializers.ModelSerializer):
             SubjectTags.objects.create(subject=subject_instance, tag=tag_data)
 
         return subject_instance
-
-
-class TagSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SubjectTags
-        fields = [
-            'tag',
-            'subject',
-        ]
 
 
 class AnalysisFunctionSerializer(serializers.ModelSerializer):
