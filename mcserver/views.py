@@ -1703,7 +1703,8 @@ class SubjectViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if (user.is_authenticated and user.id == 1) or (user.is_authenticated and user.id == 2):
             return Subject.objects.all().prefetch_related('subjecttags_set')
-        return Subject.objects.filter(user=user).prefetch_related('subjecttags_set')
+        public_subject_ids = Session.objects.filter(public=True).values_list('subject_id', flat=True).distinct()
+        return Subject.objects.filter(Q(user=user) | Q(id__in=public_subject_ids)).prefetch_related('subjecttags_set')
 
     def list(self, request):
         queryset = self.get_queryset()
