@@ -385,12 +385,15 @@ class SessionViewSet(viewsets.ModelViewSet):
             # Sort by
             if sort_by:
                 sessions = sessions.annotate(
-                    trials_count=Count('trial'),
-                )
+                    trials_count=Count(
+                        'trial',
+                        filter=~Q(trial__name='calibration') & ~(Q(trial__name='neutral') & ~Q(trial__status='done')),
+                ))
                 sort_options = {
                     'name': 'subject__name',
                     'trials_count': 'trials_count',
                     'created_at': 'created_at',
+                    'sessionName': 'meta__sessionName',
                 }
 
                 sessions = sessions.order_by(
