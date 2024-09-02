@@ -2376,7 +2376,7 @@ class AnalysisFunctionTaskIdAPIView(APIView):
             function=function, trial_id=kwargs['trial_id']).order_by('-id').first()
         if analysis_result:
             return Response({'task_id': analysis_result.task_id}, status=201)
-        return Http404()
+        raise NotFound('task_id is not found')
 
 
 class AnalysisResultOnReadyAPIView(APIView):
