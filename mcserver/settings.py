@@ -52,7 +52,17 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
+
+    'django_extensions',
+
+    'rest_framework_swagger',
+    'drf_yasg'
 ]
+
+SWAGGER_SETTINGS = {
+    'USE_SESSION_AUTH': True,
+    'LOGIN_URL': '/admin/',
+}
 
 REST_FRAMEWORK = {
     # 'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',),
@@ -289,4 +299,9 @@ CELERY_BEAT_SCHEDULE = {
     #     'task': 'mcserver.tasks.cleanup_stuck_trials',
     #     'schedule': crontab(hour='*/4', minute=30)
     # },
+}
+
+GRAPH_MODELS ={
+    'all_applications': True,
+    'graph_models': True,
 }
