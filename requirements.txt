@@ -64,3 +64,4 @@ moto==4.1.10
 pydot
 django-rest-swagger
 drf-yasg
+django-extensions
