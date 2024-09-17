@@ -52,6 +52,21 @@ from rest_framework.authtoken.views import obtain_auth_token
 from django_otp.forms import OTPAuthenticationForm
 from django.http import HttpResponse
 
+from django.conf.urls.static import static
+from rest_framework_swagger.views import get_swagger_view
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+from rest_framework import permissions
+from django.conf import settings
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="OpenCap API",
+        default_version='v1',),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+)
+
 router = routers.DefaultRouter()
 
 router.register(r'sessions', SessionViewSet, "session")
@@ -83,6 +98,10 @@ urlpatterns = [
     path('reset-password/', ResetPasswordView.as_view()),
     path('new-password/', NewPasswordView.as_view()),
     path('user-institutional-use/', UserInstitutionalUseView.as_view()),
+    path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
+    path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('redocs/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+
     path(
         'logs/<str:task_id>/on-ready/',
         DownloadFileOnReadyAPIView.as_view(),

@@ -1,5 +1,6 @@
 import json
 from rest_framework import serializers
+from rest_framework import pagination
 from mcserver.models import (
     Session,
     User,
@@ -66,10 +67,16 @@ class UserInstitutionalUseSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all(), message=_("email-already_exists"))]
+    )
+
     def create(self, validated_data):
         user = User.objects.create_user(validated_data['username'],
                                         first_name=validated_data['first_name'],
                                         last_name=validated_data['last_name'],
+                                        email=validated_data['email'],
                                         country=validated_data['country'],
                                         institution=validated_data['institution'],
                                         profession=validated_data['profession'],
@@ -81,7 +88,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'country', 'institution', 'profession', 'reason',
+        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'country', 'institution', 'profession', 'reason',
                   'website', 'newsletter')
 
 
@@ -158,6 +165,7 @@ class SessionSerializer(serializers.ModelSerializer):
     trashed_trials_count = serializers.SerializerMethodField()
 
     name = serializers.SerializerMethodField('session_name')
+    sessionName = serializers.SerializerMethodField('get_sessionName')
 
     @staticmethod
     def setup_eager_loading(queryset):
@@ -189,10 +197,13 @@ class SessionSerializer(serializers.ModelSerializer):
             return subject_id
         return str(session.id).split("-")[0]
 
+    def get_sessionName(self, session):
+        return session.meta.get("sessionName", "") if session.meta else ""
+
     class Meta:
         model = Session
         fields = [
-            'id', 'user', 'public', 'name',
+            'id', 'user', 'public', 'name', 'sessionName',
             'qrcode', 'meta', 'trials', 'server',
             'subject',
             'created_at', 'updated_at',
@@ -205,11 +216,12 @@ class ValidSessionLightSerializer(serializers.ModelSerializer):
     trials_count = serializers.SerializerMethodField()
     trashed_trials_count = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField('session_name')
+    sessionName = serializers.SerializerMethodField('get_sessionName')
 
     class Meta:
         model = Session
         fields = [
-            'id', 'user', 'public', 'name',
+            'id', 'user', 'public', 'name', 'sessionName',
             'qrcode', 'meta', 'trials', 'server',
             'subject',
             'created_at', 'updated_at',
@@ -238,6 +250,8 @@ class ValidSessionLightSerializer(serializers.ModelSerializer):
             return subject_id
         return str(session.id).split("-")[0]
 
+    def get_sessionName(self, session):
+        return session.meta.get("sessionName", "")
 
 
 class SessionStatusSerializer(serializers.ModelSerializer):
@@ -258,7 +272,20 @@ class SessionFilteringSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=64, required=False)
 
 
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubjectTags
+        fields = [
+            'tag',
+            'subject',
+        ]
+
+
 class SubjectSerializer(serializers.ModelSerializer):
+    sex_display = serializers.SerializerMethodField()
+    gender_display = serializers.SerializerMethodField()
+    subject_tags = serializers.SerializerMethodField('get_tags')
+
     class Meta:
         model = Subject
         fields = [
@@ -268,10 +295,11 @@ class SubjectSerializer(serializers.ModelSerializer):
             'height',
             'age',
             'birth_year',
-            'gender',
-            'sex_at_birth',
+            'gender', 'gender_display',
+            'sex_at_birth', 'sex_display',
             'characteristics',
-            'sessions',
+            # 'sessions',
+            'subject_tags',
             'created_at',
             'updated_at',
             'trashed',
@@ -290,6 +318,30 @@ class SubjectSerializer(serializers.ModelSerializer):
             SubjectTags.objects.create(subject=subject_instance, tag=tag_data)
 
         return subject_instance
+
+    def get_sex_display(self, obj):
+        return obj.get_sex_at_birth_display()
+
+    def get_gender_display(self, obj):
+        return obj.get_gender_display()
+
+    def get_tags(self, obj):
+        return obj.subjecttags_set.all().values_list('tag', flat=True)
+
+
+
+class SimpleSubjectSerializer(serializers.ModelSerializer):
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Subject
+        fields = [
+            'id',
+            'display_name',
+        ]
+
+    def get_display_name(self, obj):
+        return f'{obj.name} ({obj.weight} Kg, {obj.height} m, {obj.birth_year})'
 
 
 class NewSubjectSerializer(serializers.ModelSerializer):
@@ -325,7 +377,6 @@ class NewSubjectSerializer(serializers.ModelSerializer):
 
         return subject_instance
 
-
 class SubjectTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubjectTags
@@ -341,7 +392,6 @@ class TrialTagSerializer(serializers.ModelSerializer):
             'tag',
             'trial',
         ]
-
 
 class AnalysisFunctionSerializer(serializers.ModelSerializer):
     class Meta:
