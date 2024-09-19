@@ -7,6 +7,7 @@ import json
 import time
 import platform
 import traceback
+import socket
 
 from datetime import datetime, timedelta
 
@@ -143,6 +144,14 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+def get_client_hostname(request):
+    ip = get_client_ip(request)
+    try:
+        hostname = socket.gethostbyaddr(ip)
+        return hostname[0]
+    except socket.herror:
+        return None
 
 def zipdir(path, ziph):
     # ziph is zipfile handle
@@ -1445,6 +1454,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     def dequeue(self, request):
         try:
             ip = get_client_ip(request)
+            hostname = get_client_hostname(request)
 
             workerType = self.request.query_params.get('workerType')
 
@@ -1497,6 +1507,9 @@ class TrialViewSet(viewsets.ModelViewSet):
 
             trial = trialsPrioritized[0]
             trial.status = "processing"
+            trial.server = ip
+            trial.hostname = hostname
+            trial.processed_count = F("processed_count") + 1
             trial.save()
 
             print(ip)

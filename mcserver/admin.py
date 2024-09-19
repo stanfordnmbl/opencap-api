@@ -101,6 +101,8 @@ class TrialAdmin(admin.ModelAdmin):
         'session',
         'status',
         'created_at', 'updated_at',
+        'server', 'is_docker', 'hostname',
+        'processed_duration', 'processed_count',
         'trashed', 'trashed_at',
     )
     raw_id_fields = ('session',)
