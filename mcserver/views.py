@@ -21,6 +21,7 @@ from django.db.models import Q
 from django.utils.translation import gettext as _
 from django.http import FileResponse
 from django.db.models import Count
+from django.db.models import F
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.core.mail import EmailMessage
