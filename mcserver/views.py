@@ -1510,8 +1510,8 @@ class TrialViewSet(viewsets.ModelViewSet):
             trial.status = "processing"
             trial.server = ip
             trial.hostname = hostname
-            trial.processed_count = F("processed_count") + 1
             trial.save()
+            trial.objects.update(processed_count=(F("processed_count") + 1))
 
             print(ip)
             print(trial.session.server)
