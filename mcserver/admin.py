@@ -101,7 +101,7 @@ class TrialAdmin(admin.ModelAdmin):
         'session',
         'status',
         'created_at', 'updated_at',
-        'server', 'git_commit'
+        'server', 'git_commit',
         'processed_duration', 'processed_count',
         'is_meta_null',
         'trashed', 'trashed_at',
