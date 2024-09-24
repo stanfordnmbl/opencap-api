@@ -1,23 +1,15 @@
-import json
-
-from django.db import models
-from django.contrib.auth.models import AbstractUser
-from django.core.validators import MinValueValidator, MaxValueValidator
 import os
 import uuid
-import base64
-import pathlib
 from http import HTTPStatus
-from django.utils import timezone
-from django.core.exceptions import ValidationError
-from django.db.models.signals import post_save
-from django.contrib.auth.signals import user_logged_in
-from django.dispatch import receiver
-from rest_framework.authtoken.models import Token
-from django.utils.translation import gettext as _
-from rest_framework import status
 
-from django.conf import settings
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
+from django.utils.translation import gettext as _
+from django_otp.plugins.otp_email.models import EmailDevice
 
 
 def random_filename(instance, filename):
@@ -184,10 +176,11 @@ class Video(models.Model):
     def get_user(self):
         return self.trial.get_user()
 
+
 class Result(models.Model):
     trial = models.ForeignKey(Trial, blank=False, null=False, on_delete=models.CASCADE)
     device_id = models.CharField(max_length=36, blank=True, null=True)
-    media = models.FileField(blank=True, null=True, upload_to=random_filename,max_length=500)
+    media = models.FileField(blank=True, null=True, upload_to=random_filename, max_length=500)
     tag = models.CharField(max_length=32, blank=True, null=True)
     meta = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -216,9 +209,12 @@ class Result(models.Model):
             )
     
     @classmethod
-    def reset(cls, trial, tag=None, selected=[]):
+    def reset(cls, trial, tag=None, selected=None):
         """ Deletes selected results, or all for trial with the tag
         """
+        if selected is None:
+            selected = []
+
         if selected:
             cls.objects.filter(id__in=selected).delete()
         elif tag:
@@ -247,15 +243,12 @@ class ResetPassword(models.Model):
     email = models.CharField(max_length=255)
     datetime = models.DateField(default=timezone.now)
 
-from django_otp.plugins.otp_email.models import EmailDevice
-from django.template.loader import render_to_string
-from mcserver.customEmailDevice import CustomEmailDevice
 
 @receiver(post_save, sender=User)
 def create_profile(sender, instance, created, **kwargs):
     """Create a matching profile whenever a user object is created."""
     if created:
-        device = EmailDevice(user = instance, name = "default e-mail")
+        device = EmailDevice(user=instance, name="default e-mail")
         device.save()
 
 
@@ -408,7 +401,7 @@ class AnalysisResult(models.Model):
         help_text='Trial function was called with. Set automatically.',
     )
     response = models.JSONField(
-        'Response', default=dict, help_text='Data function responsed with.'
+        'Response', default=dict, help_text='Data function responded with.'
     )
     result = models.ForeignKey(
         to=Result,
@@ -421,7 +414,7 @@ class AnalysisResult(models.Model):
         'Status',
         choices=[(status.value, status.phrase) for status in list(HTTPStatus)],
         default=HTTPStatus.OK.value,
-        help_text='Status code function responsed with.'
+        help_text='Status code function responded with.'
     )
     state = models.CharField(
         'Invokation state',
