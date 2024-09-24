@@ -101,12 +101,16 @@ class TrialAdmin(admin.ModelAdmin):
         'session',
         'status',
         'created_at', 'updated_at',
-        'server', 'is_docker', 'hostname',
+        'server', 'git_commit'
         'processed_duration', 'processed_count',
+        'is_meta_null',
         'trashed', 'trashed_at',
     )
     raw_id_fields = ('session',)
     inlines = [ResultInline]
+
+    def is_meta_null(self, obj):
+        return obj.meta is None
 
 
 @admin.register(Result)
