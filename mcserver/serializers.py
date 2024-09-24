@@ -1,6 +1,10 @@
 import json
+
+from django.db.models import Prefetch, Q
+from django.utils.translation import gettext as _
 from rest_framework import serializers
-from rest_framework import pagination
+from rest_framework.validators import UniqueValidator
+
 from mcserver.models import (
     Session,
     User,
@@ -14,9 +18,6 @@ from mcserver.models import (
     AnalysisDashboard,
     SubjectTags
 )
-from rest_framework.validators import UniqueValidator
-from django.db.models import Prefetch, Q
-from django.utils.translation import gettext as _
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -87,8 +88,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'country', 'institution', 'profession', 'reason',
-                  'website', 'newsletter')
+        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'country', 'institution', 'profession',
+                  'reason', 'website', 'newsletter')
 
 
 class ProfilePictureSerializer(serializers.ModelSerializer):
@@ -121,16 +122,18 @@ class NewPasswordSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('password','token',)
+        fields = ('password', 'token',)
 
 
 # Serializers define the API representation.
 class VideoSerializer(serializers.ModelSerializer):
     video_url = serializers.CharField(max_length=256,
                                       required=False)
+
     class Meta:
         model = Video
-        fields = ['id', 'trial', 'device_id', 'video', 'video_url', 'video_thumb', 'parameters', 'created_at', 'updated_at']
+        fields = ['id', 'trial', 'device_id', 'video', 'video_url', 'video_thumb', 'parameters', 'created_at',
+                  'updated_at']
 
 
 # Serializers define the API representation.
