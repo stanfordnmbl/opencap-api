@@ -205,11 +205,11 @@ def get_client_hostname(request):
 
 def zipdir(path, ziph):
     """
-        Compresses a directory into a zip archive.
+    Compresses a directory into a zip archive.
 
-        Traverses the directory tree starting at the specified path and adds all files
-        to the provided zip file handle. Preserves the directory structure in the archive.
-        """
+    Traverses the directory tree starting at the specified path and adds all files
+    to the provided zip file handle. Preserves the directory structure in the archive.
+    """
     # ziph is zipfile handle
     for root, dirs, files in os.walk(path):
         for file in files:
@@ -566,7 +566,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             else:
                 quantity = request.data['quantity']
             start = 0 if 'start' not in request.data else request.data['start']
-            # Note the use of `get_queryset()` instead of `self.queryset`
+            # Note the use of `get_queryset()` instead of `self.queryset` (Confusing)
             sessions = self.get_queryset() \
                 .annotate(trial_count=Count('trial')) \
                 .filter(trial_count__gte=1, user=request.user)
@@ -1962,11 +1962,11 @@ class SessionViewSet(viewsets.ModelViewSet):
         except Http404:
             if settings.DEBUG:
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+            raise NotFound(_("user_not_found"))
         except ValueError:
             if settings.DEBUG:
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
-            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+            raise NotFound(_("session_not_valid"))
         except Exception:
             if settings.DEBUG:
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
