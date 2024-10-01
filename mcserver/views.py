@@ -1,31 +1,48 @@
-import boto3
-import uuid
-import sys
-import os
-import qrcode
 import json
-import time
+import os
 import platform
-import traceback
 import socket
-
+import sys
+import time
+import traceback
+import uuid
 from datetime import datetime, timedelta
 
-from django.shortcuts import get_object_or_404
-from django.contrib.auth import login
-from django.core.files.base import ContentFile
-from django.utils.timezone import now
-from django.utils import timezone
-from django.http import Http404
-from django.db.models import Q
-from django.utils.translation import gettext as _
-from django.http import FileResponse
-from django.db.models import Count
-from django.db.models import F
-from django.views.decorators.csrf import csrf_exempt
+import boto3
+import qrcode
 from django.conf import settings
+from django.contrib.auth import login
+from django.contrib.auth.models import AnonymousUser
+from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage
+from django.db.models import Count
+from django.db.models import Q
+from django.http import FileResponse
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
+from django.utils import timezone
+from django.utils.timezone import now
+from django.utils.translation import gettext as _
+from django.views.decorators.csrf import csrf_exempt
+from drf_yasg import openapi
+from rest_framework import permissions
+from rest_framework import status
+from rest_framework import viewsets
+from rest_framework.authtoken.models import Token
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.decorators import action
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.exceptions import ValidationError, NotAuthenticated, NotFound, PermissionDenied, APIException
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
+from rest_framework.response import Response
+from rest_framework.reverse import reverse
+from rest_framework.views import APIView
+
+from drf_yasg.utils import swagger_auto_schema
 
 from mcserver.models import (
     Session,
@@ -40,7 +57,6 @@ from mcserver.models import (
     AnalysisFunction,
     AnalysisResult,
     AnalysisResultState,
-    AnalysisDashboardTemplate,
     AnalysisDashboard,
 )
 from mcserver.serializers import (
@@ -57,40 +73,29 @@ from mcserver.serializers import (
     NewPasswordSerializer,
     AnalysisFunctionSerializer,
     AnalysisResultSerializer,
-    AnalysisDashboardTemplateSerializer,
     AnalysisDashboardSerializer,
     ProfilePictureSerializer,
     UserInstitutionalUseSerializer,
-    TagSerializer
+    TagSerializer,
+    ValidSessionLightSerializer
 )
-from mcserver.utils import send_otp_challenge
-from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 from mcserver.tasks import (
     download_session_archive,
     download_subject_archive,
     invoke_aws_lambda_function
 )
-
-from rest_framework.exceptions import ValidationError, NotAuthenticated, NotFound, PermissionDenied, APIException
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import action
-from rest_framework import permissions
-from rest_framework.response import Response
-from rest_framework.reverse import reverse
-from rest_framework.views import APIView
-from rest_framework.authtoken.views import ObtainAuthToken
-from rest_framework.authtoken.models import Token
-from rest_framework.permissions import AllowAny
-from rest_framework.generics import ListAPIView
-from rest_framework import viewsets
-from rest_framework.decorators import api_view, renderer_classes
-from rest_framework.renderers import JSONRenderer, TemplateHTMLRenderer
-from rest_framework import status
-
+from mcserver.utils import send_otp_challenge
+from mcserver.zipsession import downloadAndZipSession, downloadAndZipSubject
 
 sys.path.insert(0, '/code/mobilecap')
 
+
 class IsOwner(permissions.BasePermission):
+    """
+    Allow owners of an object to perform operations.
+
+    A user is 'owner' if it is authenticated and the user associated to the object.
+    """
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
             return False
@@ -99,28 +104,52 @@ class IsOwner(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         return obj.get_user() == request.user
 
+
 class IsAdmin(permissions.BasePermission):
+    """
+    Allow admins to perform operations.
+
+    A user is admin if it belongs to the 'admin' group.
+    """
     def has_permission(self, request, view):
         return request.user.groups.filter(name='admin').exists()
 
     def has_object_permission(self, request, view, obj):
         return self.has_permission(request, view)
 
+
 class IsBackend(permissions.BasePermission):
+    """
+    Allow backend to perform operations.
+
+    A user is backend if it belongs to the 'backend' group.
+    """
     def has_permission(self, request, view):
         return request.user.groups.filter(name='backend').exists()
 
     def has_object_permission(self, request, view, obj):
         return self.has_permission(request, view)
 
+
 class IsPublic(permissions.BasePermission):
+    """
+    Allows public users to perform operations.
+
+    A method is public if it is a GET operation and the object retrieved is marked as 'public'.
+    """
     def has_permission(self, request, view):
         return request.method == "GET"
 
     def has_object_permission(self, request, view, obj):
         return obj.is_public()
 
+
 class AllowPublicCreate(permissions.BasePermission):
+    """
+    Allows public users to create new resources or update existing ones.
+
+    Permission is granted for POST (create) and PATCH (update) methods.
+    """
     def has_permission(self, request, view):
         # create new or update existing video 
         return (request.method == "POST") or (request.method == "PATCH")
@@ -128,7 +157,14 @@ class AllowPublicCreate(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         return self.has_permission(request, view)
 
+
 def setup_eager_loading(get_queryset):
+    """
+    Decorator function to enable eager loading for a queryset.
+
+    This decorator modifies the `get_queryset` method of a view to
+    include related objects in a single query, optimizing database access.
+     """
     def decorator(self):
         queryset = get_queryset(self)
         queryset = self.get_serializer_class().setup_eager_loading(queryset)
@@ -136,9 +172,14 @@ def setup_eager_loading(get_queryset):
 
     return decorator
 
-#from utils import switchCalibrationForCamera
 
 def get_client_ip(request):
+    """
+    Retrieves the client's IP address from the given request.
+
+    This function checks the `HTTP_X_FORWARDED_FOR` header first (which may be
+    set by proxies), and if not present, falls back to the `REMOTE_ADDR` header.
+    """
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
         ip = x_forwarded_for.split(',')[0]
@@ -146,7 +187,14 @@ def get_client_ip(request):
         ip = request.META.get('REMOTE_ADDR')
     return ip
 
+
 def get_client_hostname(request):
+    """
+    Retrieves the hostname corresponding to the client's IP address.
+
+    Uses the IP address from `get_client_ip()` and performs a reverse DNS lookup
+    to get the hostname. If the lookup fails, it returns `None`.
+    """
     ip = get_client_ip(request)
     try:
         hostname = socket.gethostbyaddr(ip)
@@ -154,39 +202,79 @@ def get_client_hostname(request):
     except socket.herror:
         return None
 
+
 def zipdir(path, ziph):
+    """
+        Compresses a directory into a zip archive.
+
+        Traverses the directory tree starting at the specified path and adds all files
+        to the provided zip file handle. Preserves the directory structure in the archive.
+        """
     # ziph is zipfile handle
     for root, dirs, files in os.walk(path):
         for file in files:
-            ziph.write(os.path.join(root, file), 
-                       os.path.relpath(os.path.join(root, file), 
+            ziph.write(os.path.join(root, file),
+                       os.path.relpath(os.path.join(root, file),
                                        os.path.join(path, '..')))
 
 
 class SessionViewSet(viewsets.ModelViewSet):
+    """
+    A view set for viewing and editing session objects.
+
+    """
     serializer_class = SessionSerializer
-    permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
+    permission_classes = [IsPublic | (IsOwner | IsAdmin | IsBackend)]
 
     @setup_eager_loading
     def get_queryset(self):
         """
-        This view should return a list of all the sessions
-        for the currently authenticated user.
+        Retrieves the queryset of sessions available to the current user.
         """
         user = self.request.user
         if user.is_authenticated and user.id == 1:
             return Session.objects.all().order_by("-created_at")
         return Session.objects.filter(Q(user__id=user.id) | Q(public=True)).order_by("-created_at")
 
+    @swagger_auto_schema(
+        operation_summary="API Health Check",
+        responses={
+            200: openapi.Response("Success - API health retrieved successfully."),
+        }
+    )
     @action(detail=False)
     def api_health_check(self, request):
+        """
+        Check the health of the API.
+        """
         return Response({"status": "True"})
 
-    @action(
-        detail=True,
-        methods=["get", "post"],
+    @swagger_auto_schema(
+        method="post",
+        operation_summary="Update Calibration Data",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'calibration': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    description="A dictionary containing calibration data for the session.",
+                    additionalProperties=openapi.Schema(type=openapi.TYPE_STRING)
+                ),
+            },
+            required=['calibration'],
+            description="Calibration data to be updated."
+        ),
+        responses={
+            200: openapi.Response("Success - Calibration data updated successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            404: openapi.Response("Not Found - Session not found."),
+        },
     )
+    @action(detail=True, methods=["get", "post"], )
     def calibration(self, request, pk):
+        """
+        Update calibration data for a specific session.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -218,8 +306,19 @@ class SessionViewSet(viewsets.ModelViewSet):
             "data": request.data,
         })
 
+    @swagger_auto_schema(
+        operation_summary="Get Number of Calibrated Cameras",
+        responses={
+            200: openapi.Response("Success - Number of calibrated cameras retrieved successfully."),
+            400: openapi.Response("Bad Request - Invalid Session data."),
+            404: openapi.Response("Not Found - Session not found."),
+        }
+    )
     @action(detail=True)
     def get_n_calibrated_cameras(self, request, pk):
+        """
+        Retrieve the number of calibrated cameras for a specific session.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -254,7 +353,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 last_calibration_trial_num_videos = Video.objects.filter(trial=last_calibration_trial).count()
             else:
                 error_message = 'Sorry, there is no calibration trial for this session.' \
-                                                 'Maybe it was created from a session that was remove.'
+                                'Maybe it was created from a session that was remove.'
 
         except Http404:
             if settings.DEBUG:
@@ -274,8 +373,26 @@ class SessionViewSet(viewsets.ModelViewSet):
             'data': last_calibration_trial_num_videos
         })
 
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['sessionNewName'],
+            properties={
+                'sessionNewName': openapi.Schema(type=openapi.TYPE_STRING, description="New name for the session"),
+            },
+            description="Object containing the new session name."
+        ),
+        responses={
+            200: openapi.Response("Success - Session renamed successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            404: openapi.Response("Not Found - Session not found."),
+        },
+    )
     @action(detail=True, methods=['post'])
     def rename(self, request, pk):
+        """
+        Rename a specific session.
+        """
         # Get session.
         session = get_object_or_404(Session.objects.all(), pk=pk)
 
@@ -317,7 +434,19 @@ class SessionViewSet(viewsets.ModelViewSet):
             'data': serializer.data
         })
 
+    @swagger_auto_schema(
+        operation_summary="Retrieve a session",
+        responses={
+            200: openapi.Response("Success - Session retrieved successfully."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            404: openapi.Response("Not Found - Session not found."),
+        },
+    )
     def retrieve(self, request, pk=None):
+        """
+        Retrieve a specific session.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -350,14 +479,38 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-
-
-    @action(
-        detail=False,
-        methods=["get", "post"],
+    @swagger_auto_schema(
+        method="get",
+        operation_summary="Retrieve and validate user sessions.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'include_trashed': openapi.Schema(type=openapi.TYPE_BOOLEAN,
+                                                  description="Whether to include trashed sessions."),
+                'only_trashed': openapi.Schema(type=openapi.TYPE_BOOLEAN,
+                                               description="Whether to include only trashed sessions."),
+                'sort': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_STRING),
+                                       description="Fields to sort by."),
+                'sort_desc': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_BOOLEAN),
+                                            description="Sort descending for each field."),
+                'quantity': openapi.Schema(type=openapi.TYPE_INTEGER,
+                                           description="Number of sessions to retrieve. Use -1 for all."),
+                'start': openapi.Schema(type=openapi.TYPE_INTEGER, description="Start index for pagination."),
+                'subject_id': openapi.Schema(type=openapi.TYPE_STRING, description="Filter by subject ID.")
+            },
+            description="Object containing filters, sorting, and pagination options."
+        ),
+        responses={
+            200: openapi.Response("Success - Session retrieved and validated successfully."),
+            400: openapi.Response("Bad Request - Invalid subject data."),
+            404: openapi.Response("Not Found - Session not found."),
+        },
     )
+    @action(detail=False, methods=["get", "post"], )
     def valid(self, request):
-        from .serializers import ValidSessionLightSerializer
+        """
+        Validate and retrieve user sessions based on various filters and sorting options.
+        """
         try:
             # print(request.data)
             include_trashed = request.data.get('include_trashed', False) is True
@@ -372,7 +525,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             start = 0 if 'start' not in request.data else request.data['start']
             # Note the use of `get_queryset()` instead of `self.queryset`
             sessions = self.get_queryset() \
-                .annotate(trial_count=Count('trial'))\
+                .annotate(trial_count=Count('trial')) \
                 .filter(trial_count__gte=1, user=request.user)
 
             if only_trashed:
@@ -398,7 +551,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                     trials_count=Count(
                         'trial',
                         filter=~Q(trial__name='calibration') & ~(Q(trial__name='neutral') & ~Q(trial__status='done')),
-                ))
+                    ))
                 sort_options = {
                     'name': 'subject__name',
                     'trials_count': 'trials_count',
@@ -407,7 +560,8 @@ class SessionViewSet(viewsets.ModelViewSet):
                 }
 
                 sessions = sessions.order_by(
-                    *[('-' if sort_desc[i] else '')+sort_options[x] for i, x in enumerate(sort_by) if x in sort_options], '-id')
+                    *[('-' if sort_desc[i] else '') + sort_options[x] for i, x in enumerate(sort_by) if
+                      x in sort_options], '-id')
 
             sessions_count = sessions.count()
             # If quantity is not -1, retrieve only last n sessions.
@@ -431,8 +585,21 @@ class SessionViewSet(viewsets.ModelViewSet):
             return Response({'sessions': serializer.data, 'total': sessions_count})
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Permanently remove a session",
+        responses={
+            204: openapi.Response("Deleted - Session deleted successfully."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not remove the session."),
+        },
+    )
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
+        """
+        Permanently remove a specific session by its ID (UUID).
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -463,8 +630,30 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response({})
 
+    @swagger_auto_schema(
+        operation_summary="Move a session to the trash",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "pk": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="UUID of the session to be moved to the trash.",
+                ),
+            },
+            required=["pk"],
+            description="JSON payload with the UUID of the session.",
+        ),
+        responses={
+            200: openapi.Response("Success - Session trashed successfully."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not trash the session."),
+        },
+    )
     @action(detail=True, methods=['post'])
     def trash(self, request, pk):
+        """
+        Move a specific session to the trash by marking it as 'trashed'.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -490,8 +679,19 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Restore a trashed session",
+        responses={
+            200: openapi.Response("Success - Session restored successfully."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not restore the session."),
+        },
+    )
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
+        """
+        Restore a specific session from the trash.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -517,11 +717,19 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-
-    ## New session GET '/new/'
-    # Creates a new session, returns session id and the QR code
+    @swagger_auto_schema(
+        operation_summary="Create a new session and generate a QR code for it.",
+        responses={
+            200: openapi.Response("Success - Session and QR created successfully."),
+            400: openapi.Response("Bad Request - Invalid request data."),
+            500: openapi.Response("Internal Server Error - Could not restore the session."),
+        }
+    )
     @action(detail=False)
     def new(self, request):
+        """
+        Create a new session and generate a QR code for it.
+        """
         try:
             session = Session()
 
@@ -558,21 +766,32 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_("session_create_error"))
 
         return Response(serializer.data)
-    
-    ## Get and send QR code
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve QR code for a session.",
+        responses={
+            200: openapi.Response("Success - Session QR retrieved successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not retrieve the QR."),
+        }
+    )
     @action(detail=True)
     def get_qr(self, request, pk):
+        """
+        Retrieve the QR code for the session.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk, user=request.user)
-       
+
             # get the QR code from the database
             if session.qrcode:
                 qr = session.qrcode
             elif session.meta and 'sessionWithCalibration' in session.meta:
-                sessionWithCalibration = Session.objects.get(pk = str(session.meta['sessionWithCalibration']['id']))
+                sessionWithCalibration = Session.objects.get(pk=str(session.meta['sessionWithCalibration']['id']))
                 qr = sessionWithCalibration.qrcode
 
             s3_client = boto3.client(
@@ -599,12 +818,21 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_("qr_retrieve_error"))
 
         return Response(res)
-       
-    ## New session GET '/new_subject/'
-    # Creates a new sessionm leaving metadata on previous session. Used to avoid
-    # re-connecting and re-calibrating cameras with every new subject.
+
+    @swagger_auto_schema(
+        operation_summary="Create a new session for a new subject.",
+        responses={
+            200: openapi.Response("Success - Session created successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not create the session."),
+        }
+    )
     @action(detail=True)
     def new_subject(self, request, pk):
+        """
+        Create a new session for a new subject.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -632,8 +860,8 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             sessionNew.meta = {}
             sessionNew.meta["sessionWithCalibration"] = {
-                    "id": sessionWithCalibration
-                }
+                "id": sessionWithCalibration
+            }
             sessionNew.save()
 
             # tell the old session to go to the new session - phones will connect to this new session
@@ -666,12 +894,19 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-
     def get_permissions(self):
         if self.action == 'status' or self.action == 'get_status':
             return [AllowAny(), ]
         return super(SessionViewSet, self).get_permissions()
-    
+
+    @swagger_auto_schema(
+        operation_summary="Get the status of the session.",
+        responses={
+            200: openapi.Response("Success - Session status retrieved successfully."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not retrieve the session status."),
+        },
+    )
     def get_status(self, request, pk):
         if pk == 'undefined':
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
@@ -683,7 +918,7 @@ class SessionViewSet(viewsets.ModelViewSet):
         trials = session.trial_set.order_by("-created_at")
         trial = None
 
-        status = "ready" # if no trials then "ready" (equivalent to trial_status = done)
+        status = "ready"  # if no trials then "ready" (equivalent to trial_status = done)
 
         # If there is at least one trial, check it's status
         if trials.count():
@@ -692,10 +927,10 @@ class SessionViewSet(viewsets.ModelViewSet):
         # if trial_status == 'done' then session ready again
         if trial and trial.status == "done":
             status = "ready"
-        
+
         # if trial_status == 'recording' then just continue and return 'recording'
         # otherwise recording is done and check processing
-        if trial and (trial.status in ["stopped","processing"]):
+        if trial and (trial.status in ["stopped", "processing"]):
             # if not all videos uploaded then the status is 'uploading'
             # if results are not ready then processing
             # otherwise it's ready again
@@ -728,20 +963,19 @@ class SessionViewSet(viewsets.ModelViewSet):
             if videos.count() > 0:
                 video_url = reverse('video-detail', kwargs={'pk': videos[0].id})
         trial_url = reverse('trial-detail', kwargs={'pk': trial.id}) if trial else None
-        
+
         # tell phones to pair with a new session
         if session.meta and "startNewSession" in session.meta:
             newSessionURL = "{}/sessions/{}/status/".format(settings.HOST_URL, session.meta['startNewSession']['id'])
         else:
             newSessionURL = None
-            
+
         if session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
             frameRate = int(session.meta['settings']['framerate'])
         else:
             frameRate = 60
-        if trial and (trial.name in {'calibration','neutral'}):
+        if trial and (trial.name in {'calibration', 'neutral'}):
             frameRate = 30
-
 
         res = {
             "status": status,
@@ -755,56 +989,107 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         if "ret_session" in request.GET:
             res["session"] = SessionSerializer(session, many=False).data
-            
+
         return res
 
-     
+    @swagger_auto_schema(
+        operation_summary="Generate S3 Presigned URL",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'fileName': openapi.Schema(type=openapi.TYPE_STRING, description='The name of the file to upload')
+            },
+            required=['fileName'],
+            description="Provide a file name for generating the S3 presigned URL."
+        ),
+        responses={
+            200: openapi.Response("Success - Presigned URL retrieved successfully."),
+            400: openapi.Response("Bad Request - Invalid request data."),
+        }
+    )
     @action(detail=True)
     def get_presigned_url(self, request, pk):
+        """
+        Generates a presigned URL for uploading a file to S3.
+        """
         s3_client = boto3.client(
             's3',
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         )
-        
-        if request.data and request.data.get('fileName'): 
-            fileName = '-' + request.data.get('fileName') # for result uploading - matching old way
-        else: # default: link for phones to upload videos
+
+        if request.data and request.data.get('fileName'):
+            fileName = '-' + request.data.get('fileName')  # for result uploading - matching old way
+        else:  # default: link for phones to upload videos
             fileName = '.mov'
-        
-        key = str(uuid.uuid4()) + fileName 
-        
+
+        key = str(uuid.uuid4()) + fileName
+
         response = s3_client.generate_presigned_post(
-            Bucket = settings.AWS_STORAGE_BUCKET_NAME,
-            Key = key,
-            ExpiresIn = 1200 
+            Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+            Key=key,
+            ExpiresIn=1200
         )
 
         return Response(response)
-    
-    ## Session status GET '<id>/status/'
-    # if no active trial then return "ready"
-    # if there is an active trial then return "recording"
-    # if recording completed (trial set to "done") but some videos pending then "uploading"
-    # if recording and upload, but not processed then "processing"
-    # if "processing" returns errors or is done then go back to "ready"
-    #
-    # Logic on the client side:
-    # - if status changed "*" -> "recording" start recording
-    # - if status change "recording" -> "*" stop recording and submit the video
-    #
-    # For each device checking the status in the "recording" phase, create a video record
+
+    # Session status GET '<id>/status/'
+    @swagger_auto_schema(
+        operation_summary="Get Session Status",
+        responses={
+            200: openapi.Response("Success - Session status retrieved successfully."),
+            404: openapi.Response("Not Found - Session not found."),
+        }
+    )
     @action(detail=True)
     def status(self, request, pk):
+        """
+        Retrieves the current status of a session.
+
+        Statuses:
+        - "ready": No active trial, session is ready to start recording.
+        - "recording": An active trial is in progress and recording is ongoing.
+        - "uploading": Recording completed but some videos are still being uploaded.
+        - "processing": Videos are uploaded but still being processed.
+        - If "processing" results in errors or completes, the status reverts to "ready".
+
+        Logic on the client side:
+        - if status changed "*" -> "recording" start recording
+        - if status change "recording" -> "*" stop recording and submit the video
+
+        For each device checking the status in the "recording" phase, create a video record
+        """
         status_dict = self.get_status(request, pk)
-            
+
         return Response(status_dict)
 
-    ## Start recording POST '<id>/record/'
-    # Create a new trial
-    # - creates a new trial with "recording" state
+    # Start recording POST '<id>/record/'
+    @swagger_auto_schema(
+        operation_summary="Start a New Recording Session",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'name': openapi.Schema(type=openapi.TYPE_STRING, description='The name of the trial to be created.')
+            },
+            required=['name'],
+            description="Provide the name for the new trial. If the name already exists, a new one will be created "
+                        "with a unique suffix."
+        ),
+        responses={
+            200: openapi.Response("Success - Recording session started successfully."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not start recording session."),
+        }
+    )
     @action(detail=True)
     def record(self, request, pk):
+        """
+        Starts a new recording session by creating a trial.
+
+        Creates a new trial associated with the given session and assigns it the status of "recording".
+        If the specified trial name already exists in the session, the function generates a new name
+        by appending a suffix.
+        """
         def get_count_from_name(name, base_name):
             try:
                 count = int(name[len(base_name) + 1:])
@@ -856,8 +1141,18 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Download Session Files as a ZIP",
+        responses={
+            200: openapi.Response("Success - File download initiated successfully."),
+            500: openapi.Response("Internal Server Error - Could not initiate file download."),
+        }
+    )
     @action(detail=True)
     def download(self, request, pk):
+        """
+        Downloads the files associated with a session and returns them as a ZIP archive.
+        """
         try:
             # Extract protocol and host.
             if request.is_secure():
@@ -874,11 +1169,21 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return FileResponse(open(session_zip, "rb"))
 
-    @action(
-        detail=True,
-        url_path="async-download",
-        url_name="async_session_download"
+    @swagger_auto_schema(
+        operation_summary="Initiate Asynchronous Session Download",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={},
+            required=[]
+        ),
+        responses={
+            200: openapi.Response("Success - Async download started successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            500: openapi.Response("Internal Server Error - Could not initialize async download."),
+        }
     )
+    @action(detail=True, url_path="async-download", url_name="async_session_download")
     def async_download(self, request, pk):
         try:
             if pk == 'undefined':
@@ -899,9 +1204,24 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_('session_download_error'))
 
         return Response({"task_id": task.id}, status=200)
-    
+
+    @swagger_auto_schema(
+        operation_summary="Get Session Permissions",
+        responses={
+            200: openapi.Response("Success - Session permissions retrieved successfully."),
+            400: openapi.Response("Bad Request - Invalid trial data."),
+            404: openapi.Response("Not Found - Trial not found."),
+            500: openapi.Response("Internal Server Error - Could not retrieve session permissions."),
+        }
+    )
     @action(detail=True)
     def get_session_permission(self, request, pk):
+        """
+        Retrieves the permission settings for a specified session.
+
+        This function checks the given session's ownership, visibility (public or private),
+        and whether the requesting user has admin privileges.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -930,8 +1250,22 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(sessionPermission)
 
+    @swagger_auto_schema(
+        operation_summary="Get Session Settings",
+        responses={
+            200: openapi.Response("Success - Session settings retrieved successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not retrieve session settings."),
+        }
+    )
     @action(detail=True)
     def get_session_settings(self, request, pk):
+        """
+        Retrieves the settings of a specified session, including available framerate options.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -939,7 +1273,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             session = get_object_or_404(Session, pk=pk)
 
             # Check if using same setup
-            if session.meta and 'sessionWithCalibration' in session.meta and 'id' in session.meta['sessionWithCalibration']:
+            if session.meta and 'sessionWithCalibration' in session.meta and 'id' in session.meta[
+                'sessionWithCalibration']:
                 session = Session.objects.get(pk=session.meta['sessionWithCalibration']['id'])
 
             self.check_object_permissions(self.request, session)
@@ -988,44 +1323,170 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(settings_dict)
 
+    @swagger_auto_schema(
+        operation_summary="Set Session Metadata",
+        manual_parameters=[
+            openapi.Parameter(
+                name="subject_id",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="ID of the subject for this session."
+            ),
+            openapi.Parameter(
+                name="subject_mass",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Mass of the subject."
+            ),
+            openapi.Parameter(
+                name="subject_height",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Height of the subject."
+            ),
+            openapi.Parameter(
+                name="subject_sex",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Sex of the subject."
+            ),
+            openapi.Parameter(
+                name="subject_gender",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Gender of the subject."
+            ),
+            openapi.Parameter(
+                name="subject_data_sharing",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Data sharing preferences for the subject."
+            ),
+            openapi.Parameter(
+                name="subject_pose_model",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Pose model used for the subject."
+            ),
+            openapi.Parameter(
+                name="settings_framerate",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Framerate setting for the session."
+            ),
+            openapi.Parameter(
+                name="settings_data_sharing",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Data sharing setting for the session."
+            ),
+            openapi.Parameter(
+                name="settings_pose_model",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Pose model setting for the session."
+            ),
+            openapi.Parameter(
+                name="settings_openSimModel",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="OpenSim model used for the session."
+            ),
+            openapi.Parameter(
+                name="settings_augmenter_model",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Augmenter model used for the session."
+            ),
+            openapi.Parameter(
+                name="settings_filter_frequency",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Filter frequency setting for the session."
+            ),
+            openapi.Parameter(
+                name="settings_scaling_setup",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Scaling setup used for the session."
+            ),
+            openapi.Parameter(
+                name="cb_square",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Size of each square in the checkerboard pattern."
+            ),
+            openapi.Parameter(
+                name="cb_rows",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Number of rows in the checkerboard pattern."
+            ),
+            openapi.Parameter(
+                name="cb_cols",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Number of columns in the checkerboard pattern."
+            ),
+            openapi.Parameter(
+                name="cb_placement",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Placement of the checkerboard."
+            ),
+            openapi.Parameter(
+                name="settings_session_name",
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                description="Name of the session."
+            ),
+        ],
+        responses={
+            200: openapi.Response("Success - Session metadata updated successfully."),
+            400: openapi.Response("Bad Request - Invalid request data."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not set the session metadata."),
+        }
+    )
     @action(detail=True)
     def set_metadata(self, request, pk):
-
+        """
+        Updates the metadata of a specified session with provided query parameters.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
 
             session = get_object_or_404(Session, pk=pk)
 
-
             if not session.meta:
                 session.meta = {}
-        
+
             if "subject_id" in request.GET:
                 session.meta["subject"] = {
-                    "id": request.GET.get("subject_id",""),
-                    "mass": request.GET.get("subject_mass",""),
-                    "height": request.GET.get("subject_height",""),
-                    "sex": request.GET.get("subject_sex",""),
-                    "gender": request.GET.get("subject_gender",""),
-                    "datasharing": request.GET.get("subject_data_sharing",""),
-                    "posemodel": request.GET.get("subject_pose_model",""),
+                    "id": request.GET.get("subject_id", ""),
+                    "mass": request.GET.get("subject_mass", ""),
+                    "height": request.GET.get("subject_height", ""),
+                    "sex": request.GET.get("subject_sex", ""),
+                    "gender": request.GET.get("subject_gender", ""),
+                    "datasharing": request.GET.get("subject_data_sharing", ""),
+                    "posemodel": request.GET.get("subject_pose_model", ""),
                 }
 
             if "settings_framerate" in request.GET:
                 session.meta["settings"] = {
-                    "framerate": request.GET.get("settings_framerate",""),
+                    "framerate": request.GET.get("settings_framerate", ""),
                 }
 
             if "settings_data_sharing" in request.GET:
                 if not session.meta["settings"]:
                     session.meta["settings"] = {}
-                session.meta["settings"]["datasharing"] = request.GET.get("settings_data_sharing","")
+                session.meta["settings"]["datasharing"] = request.GET.get("settings_data_sharing", "")
 
             if "settings_pose_model" in request.GET:
                 if not session.meta["settings"]:
                     session.meta["settings"] = {}
-                session.meta["settings"]["posemodel"] = request.GET.get("settings_pose_model","")
+                session.meta["settings"]["posemodel"] = request.GET.get("settings_pose_model", "")
 
             if "settings_openSimModel" in request.GET:
                 if not session.meta["settings"]:
@@ -1046,13 +1507,13 @@ class SessionViewSet(viewsets.ModelViewSet):
                 if not session.meta["settings"]:
                     session.meta["settings"] = {}
                 session.meta["settings"]["scalingsetup"] = request.GET.get("settings_scaling_setup", "")
-            
+
             if "cb_square" in request.GET:
                 session.meta["checkerboard"] = {
-                    "square_size": request.GET.get("cb_square",""),
-                    "rows": request.GET.get("cb_rows",""),
-                    "cols": request.GET.get("cb_cols",""),
-                    "placement": request.GET.get("cb_placement",""),
+                    "square_size": request.GET.get("cb_square", ""),
+                    "rows": request.GET.get("cb_rows", ""),
+                    "cols": request.GET.get("cb_cols", ""),
+                    "placement": request.GET.get("cb_placement", ""),
                 }
 
             if "settings_session_name" in request.GET:
@@ -1078,8 +1539,26 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Assign a Subject to a Session",
+        manual_parameters=[
+            openapi.Parameter(
+                'subject_id', openapi.IN_QUERY, description="UUID of the subject to assign to the session",
+                type=openapi.TYPE_STRING, required=True
+            ),
+        ],
+        responses={
+            200: openapi.Response("Success - Session subject updated successfully."),
+            400: openapi.Response("Bad Request - Invalid request data."),
+            404: openapi.Response("Not Found - Session or subject not found."),
+            500: openapi.Response("Internal Server Error - Could not update the subject."),
+        }
+    )
     @action(detail=True)
     def set_subject(self, request, pk):
+        """
+        Assign a Subject to a Session.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1121,13 +1600,24 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-
-## Stop recording POST '<id>/stop/'
-    # Changes the trial status from "recording" to "done"
-    # Logic on the client side:
-    # - session status changed so they start uploading videos
+    # Stop recording POST '<id>/stop/'
+    @swagger_auto_schema(
+        operation_summary="Stop Trial Recording",
+        responses={
+            200: openapi.Response("Success - Session stopped successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            404: openapi.Response("Not Found - Session or trial not found."),
+            500: openapi.Response("Internal Server Error - Could not stop the session."),
+        }
+    )
     @action(detail=True)
     def stop(self, request, pk):
+        """
+        Changes the trial status from "recording" to "done"
+
+        Logic on the client side:
+        - Session status changed, so they start uploading videos.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1191,13 +1681,25 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_('trial_cancel_error'))
 
         return Response(serializer.data)
-    
-    ## Cancel trial POST '<id>/stop/'
-    # Changes the trial status from "stopped" to "error"
-    # Logic on the client side:
-    # - session status changed when cancel is pressed
+
+    # Cancel trial POST '<id>/stop/'
+    @swagger_auto_schema(
+        operation_summary="Cancel Trial",
+        responses={
+            200: openapi.Response("Success - Trial cancelled successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not stop the trial."),
+        }
+    )
     @action(detail=True)
     def cancel_trial(self, request, pk):
+        """
+        Changes the trial status from "stopped" to "error"
+
+        Logic on the client side:
+         - session status changed when cancel is pressed
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1228,8 +1730,21 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(data)
 
+    @swagger_auto_schema(
+        operation_summary="Retrieve Calibration Image and Status",
+        responses={
+            200: openapi.Response("Success - Calibration image retrieved successfully."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            404: openapi.Response("Not Found - Session or trial not found."),
+            500: openapi.Response("Internal Server Error - Could not retrieve calibration image."),
+        }
+    )
     @action(detail=True)
     def calibration_img(self, request, pk):
+        """
+        Retrieve Calibration Image and Status.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1250,7 +1765,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "n_cameras_connected": status_session["n_cameras_connected"],
                     "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
-            elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
+            elif not trials[0].status in ['done', 'error']:  # this gets updated on the backend by app.py
                 data = {
                     "status": "processing",
                     "img": [
@@ -1265,7 +1780,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "img": "None",
                     "n_cameras_connected": status_session["n_cameras_connected"],
                     "n_videos_uploaded": status_session["n_videos_uploaded"]
-                    }
+                }
 
             else:
                 data = {
@@ -1296,9 +1811,22 @@ class SessionViewSet(viewsets.ModelViewSet):
             raise APIException(_('calibration_image_retrieve_error'))
 
         return Response(data)
-    
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve Neutral Image and Status",
+        responses={
+            200: openapi.Response("Success - Neutral image retrieved successfully."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            404: openapi.Response("Not Found - Session or trial not found."),
+            500: openapi.Response("Internal Server Error - Could not retrieve neutral image."),
+        }
+    )
     @action(detail=True)
     def neutral_img(self, request, pk):
+        """
+        Retrieve Calibration Image and Status.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1318,7 +1846,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "n_cameras_connected": status_session["n_cameras_connected"],
                     "n_videos_uploaded": status_session["n_videos_uploaded"]
                 }
-            elif not trials[0].status in ['done', 'error']: # this gets updated on the backend by app.py
+            elif not trials[0].status in ['done', 'error']:  # this gets updated on the backend by app.py
                 data = {
                     "status": "processing",
                     "img": [
@@ -1341,12 +1869,12 @@ class SessionViewSet(viewsets.ModelViewSet):
                         "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
                 else:
-                   data = {
+                    data = {
                         "status": "error",
                         "img": [
                         ],
-                       "n_cameras_connected": status_session["n_cameras_connected"],
-                       "n_videos_uploaded": status_session["n_videos_uploaded"]
+                        "n_cameras_connected": status_session["n_cameras_connected"],
+                        "n_videos_uploaded": status_session["n_videos_uploaded"]
                     }
 
         except Http404:
@@ -1372,9 +1900,41 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(data)
 
-
+    @swagger_auto_schema(
+        operation_summary="Retrieve Session Statuses",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'status': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Status of the sessions to filter (e.g., active, completed, error)."
+                ),
+                'date_range': openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_STRING),
+                    description="An array containing two date strings [start_date, end_date] for filtering sessions "
+                                "by status change date."
+                ),
+                'username': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Username of the user associated with the sessions (optional, requires admin or "
+                                "backend permissions)."
+                )
+            },
+            required=['status'],
+        ),
+        responses={
+            200: openapi.Response("Success - Session statuses retrieved successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not retrieve session statuses."),
+        }
+    )
     @action(detail=False, methods=['post'], permission_classes=[IsAdmin | IsBackend | IsOwner])
     def get_session_statuses(self, request):
+        """
+        Retrieve Session Statuses.
+        """
         from .serializers import SessionIdSerializer, SessionFilteringSerializer
         try:
             filtering_serializer = SessionFilteringSerializer(data=request.data)
@@ -1409,9 +1969,31 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-
+    @swagger_auto_schema(
+        operation_summary="Set Session Status",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'status': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="The new status to set for the session (e.g., active, completed, error).",
+                    example="completed"
+                )
+            },
+            required=['status'],
+        ),
+        responses={
+            200: openapi.Response("Success - Session status set successfully."),
+            400: openapi.Response("Bad Request - Invalid session data."),
+            404: openapi.Response("Not Found - Session not found."),
+            500: openapi.Response("Internal Server Error - Could not set session status."),
+        }
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAdmin | IsBackend])
     def set_session_status(self, request, pk):
+        """
+        Set Session Status.
+        """
         from .serializers import SessionStatusSerializer
         try:
             if pk == 'undefined':
@@ -1440,19 +2022,32 @@ class SessionViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-
 ## Processing machine:
 # A worker asks whether there is any trial to process
 # - if no it asks again in 5 sec
 # - if yes it runs processing and sends back the results
 class TrialViewSet(viewsets.ModelViewSet):
+    """
+    A view set for viewing and editing trials.
+    """
     queryset = Trial.objects.all().order_by("created_at")
     serializer_class = TrialSerializer
 
     permission_classes = [IsPublic | (IsOwner | IsAdmin | IsBackend)]
-    
-    @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
+
+    @swagger_auto_schema(
+        operation_summary="Dequeue a trial for processing",
+        responses={
+            200: openapi.Response("Success - Trial dequeued successfully."),
+            400: openapi.Response("Bad Request - Invalid trial data."),
+            404: openapi.Response("Not Found - Trial not found."),
+        },
+    )
+    @action(detail=False, permission_classes=[(IsAdmin | IsBackend)])
     def dequeue(self, request):
+        """
+        Dequeue a trial and set its status to 'processing' if available.
+        """
         try:
             ip = get_client_ip(request)
             hostname = get_client_hostname(request)
@@ -1461,44 +2056,45 @@ class TrialViewSet(viewsets.ModelViewSet):
 
             # find trials with some videos not uploaded
             not_uploaded = Video.objects.filter(video='',
-                                                updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
+                                                updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list(
+                "trial__id", flat=True)
 
             print(not_uploaded)
 
             uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
-    #       uploaded_trials = Trial.objects.all()
+            #       uploaded_trials = Trial.objects.all()
 
             if workerType != 'dynamic':
                 # Priority for 'calibration' and 'neutral'
                 trials = uploaded_trials.filter(status="stopped",
-                                          name__in=["calibration","neutral"],
-                                          result=None)
+                                                name__in=["calibration", "neutral"],
+                                                result=None)
 
                 trialsReprocess = uploaded_trials.filter(status="reprocess",
-                                          name__in=["calibration","neutral"],
-                                          result=None)
+                                                         name__in=["calibration", "neutral"],
+                                                         result=None)
 
                 if trials.count() == 0 and workerType != 'calibration':
                     trials = uploaded_trials.filter(status="stopped",
-                                              result=None)
+                                                    result=None)
 
-                if trials.count()==0 and trialsReprocess.count() == 0 and workerType != 'calibration':
+                if trials.count() == 0 and trialsReprocess.count() == 0 and workerType != 'calibration':
                     trialsReprocess = uploaded_trials.filter(status="reprocess",
-                                              result=None)
+                                                             result=None)
 
             else:
                 trials = uploaded_trials.filter(status="stopped",
                                                 result=None).exclude(name__in=["calibration", "neutral"])
 
                 trialsReprocess = uploaded_trials.filter(status="reprocess",
-                                                result=None).exclude(name__in=["calibration", "neutral"])
-
+                                                         result=None).exclude(name__in=["calibration", "neutral"])
 
             if trials.count() == 0 and trialsReprocess.count() == 0:
                 raise Http404
 
-            # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
-            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
+            # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same
+            # priv. as user)
+            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin", "priority"])
             # if not priority trials, go to normal trials
             if trialsPrioritized.count() == 0:
                 trialsPrioritized = trials
@@ -1524,34 +2120,58 @@ class TrialViewSet(viewsets.ModelViewSet):
 
 
         except Exception:
-            if Http404: # we use the 404 to tell app.py that there are no trials, so need to pass this thru
+            if Http404:  # we use the 404 to tell app.py that there are no trials, so need to pass this thru
                 raise Http404
             if settings.DEBUG:
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_dequeue_error'))
 
         return Response(serializer.data)
-    
+
+    @swagger_auto_schema(
+        operation_summary="Get Trials by Status",
+        responses={
+            200: openapi.Response("Success - Trial list retrieved successfully."),
+            400: openapi.Response("Bad Request - Invalid search data."),
+        },
+    )
     @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
     def get_trials_with_status(self, request):
         """
-        This view returns a list of all the trials with the specified status
-        that was updated more than hoursSinceUpdate hours ago.
+        Returns a list of trials with the specified status that were updated more than 'hoursSinceUpdate' hours ago.
         """
         hours_since_update = request.query_params.get('hoursSinceUpdate', 0)
-        hours_since_update = float(hours_since_update) if hours_since_update else 0 
+        hours_since_update = float(hours_since_update) if hours_since_update else 0
 
         status = self.request.query_params.get('status')
         # trials with given status and updated_at more than n hours ago
         trials = Trial.objects.filter(status=status,
-                                     updated_at__lte=(datetime.now() - timedelta(hours=hours_since_update))).order_by("-created_at")
-        
+                                      updated_at__lte=(datetime.now() - timedelta(hours=hours_since_update))).order_by(
+            "-created_at")
+
         serializer = TrialSerializer(trials, many=True)
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Rename a specific trial by ID",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'trialNewName': openapi.Schema(type=openapi.TYPE_STRING, description='New name for the trial'),
+            }
+        ),
+        responses={
+            200: openapi.Response("Success - Trial renamed successfully."),
+            400: openapi.Response("Bad Request - Invalid trial data."),
+            404: openapi.Response("Not Found - Trial not found."),
+        },
+    )
     @action(detail=True, methods=['post'])
     def rename(self, request, pk):
+        """
+        Rename a specific trial by its ID.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1584,8 +2204,19 @@ class TrialViewSet(viewsets.ModelViewSet):
             'data': serializer.data
         })
 
+    @swagger_auto_schema(
+        operation_summary="Permanently Remove a Trial",
+        responses={
+            204: openapi.Response("Deleted - Trial deleted successfully."),
+            400: openapi.Response("Bad Request - Invalid trial data."),
+            404: openapi.Response("Not Found - Trial not found."),
+        },
+    )
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
+        """
+        Permanently delete a trial by its ID.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1608,8 +2239,24 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         return Response({})
 
+    @swagger_auto_schema(
+        operation_summary="Trash trial",
+        operation_description="Move a trial to the trash.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={"pk": openapi.Schema(type=openapi.TYPE_STRING)},
+            required=["pk"]
+        ),
+        responses={
+            200: openapi.Response("Succes - Trial trashed successfully."),
+            404: openapi.Response("Not Found - Trial not found."),
+        }
+    )
     @action(detail=True, methods=['post'])
     def trash(self, request, pk):
+        """
+        Move a specific trial to the trash.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1636,8 +2283,19 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Restore a Trial from Trash",
+        responses={
+            200: openapi.Response("Success - Trial restored from trash successfully."),
+            400: openapi.Response("Bad Request - Invalid trial data."),
+            404: openapi.Response("Not Found - Trial not found."),
+        },
+    )
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
+        """
+        Restore a specific trial from the trash.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1664,7 +2322,87 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="List Trials",
+        responses={
+            200: openapi.Response("Success - List of trials retrieved successfully."),
+        },
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        Retrieve a list of trials.
+        """
+        return super().list(request, *args, **kwargs)
 
+    @swagger_auto_schema(
+        operation_summary="Create a Trial",
+        request_body=VideoSerializer,
+        responses={
+            201: openapi.Response("Created - Trial created successfully."),
+            404: openapi.Response("Not Found - Trial not found."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+        },
+    )
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new trial instance.
+        """
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve Trial",
+        responses={
+            200: openapi.Response("Success - Trial retrieved successfully."),
+            404: openapi.Response("Not Found - Trial not found."),
+        },    )
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific trial instance by ID.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update Trial",
+        request_body=VideoSerializer,
+        responses={
+            200: openapi.Response("Success - Trial updated successfully."),
+            400: openapi.Response("Bad Request - Invalid trial data."),
+            404: openapi.Response("Not Found - Trial not found."),
+        },
+    )
+    def update(self, request, *args, **kwargs):
+        """
+        Update a specific trial instance by ID.
+        """
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partial Update Trial",
+        request_body=VideoSerializer,
+        responses={
+            200: openapi.Response("Success - Trial partially updated successfully."),
+            400: openapi.Response("Bad Request - Invalid trial data."),
+            404: openapi.Response("Not Found - Trial not found."),
+        },
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update a specific trial instance by ID.
+        """
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete Trial",
+        responses={
+            204: openapi.Response("Deleted - Trial deleted successfully."),
+            404: openapi.Response("Not Found - Trial not found."),
+        },
+    )
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a specific trial instance by ID.
+        """
+        return super().destroy(request, *args, **kwargs)
 
 
 ## Upload a video:
@@ -1672,11 +2410,14 @@ class TrialViewSet(viewsets.ModelViewSet):
 # Logic: Find the Video model within this session with
 # device_id. Upload Video to that model
 class VideoViewSet(viewsets.ModelViewSet):
+    """
+    A view set for viewing and editing videos.
+    """
     queryset = Video.objects.all().order_by("-created_at")
     serializer_class = VideoSerializer
 
     permission_classes = [AllowPublicCreate | ((IsOwner | IsAdmin | IsBackend))]
-    
+
     def perform_update(self, serializer):
         if ("video_url" in serializer.validated_data) and (serializer.validated_data["video_url"]):
             serializer.validated_data["video"] = serializer.validated_data["video_url"]
@@ -1684,13 +2425,112 @@ class VideoViewSet(viewsets.ModelViewSet):
 
         super().perform_update(serializer)
 
+    @swagger_auto_schema(
+        operation_summary="List Videos",
+        responses={
+            200: openapi.Response("Success - List of videos retrieved successfully."),
+        },
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        Retrieve a list of videos.
+        """
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Create Video",
+        request_body=VideoSerializer,
+        responses={
+            201: openapi.Response("Created - Video created successfully."),
+            404: openapi.Response("Not Found - Video not found."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+        },
+    )
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new video instance.
+        """
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve Video",
+        responses={
+            200: openapi.Response("Success - Video retrieved successfully."),
+            404: openapi.Response("Not Found - Video not found."),
+        },
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific video instance by ID.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update Video",
+        request_body=VideoSerializer,
+        responses={
+            200: openapi.Response("Success - Video updated successfully."),
+            400: openapi.Response("Bad Request - Invalid video data."),
+            404: openapi.Response("Not Found - Video not found."),
+        },
+    )
+    def update(self, request, *args, **kwargs):
+        """
+        Update a specific video instance by ID.
+        """
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partial Update Video",
+        request_body=VideoSerializer,
+        responses={
+            200: openapi.Response("Success - Video partially updated successfully."),
+            400: openapi.Response("Bad Request - Invalid video data."),
+            404: openapi.Response("Not Found - Video not found."),
+        },
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update a specific video instance by ID.
+        """
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete Video",
+        responses={
+            204: openapi.Response("Deleted - Video deleted successfully."),
+            404: openapi.Response("Not Found - Video not found."),
+        },
+    )
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a specific video instance by ID.
+        """
+        return super().destroy(request, *args, **kwargs)
+
+
 class ResultViewSet(viewsets.ModelViewSet):
+    """
+    A view set for viewing and editing results.
+    """
     queryset = Result.objects.all().order_by("-created_at")
     serializer_class = ResultSerializer
 
     permission_classes = [IsOwner | IsAdmin | IsBackend]
 
+    @swagger_auto_schema(
+        operation_summary="Create Result",
+        request_body=ResultSerializer,
+        responses={
+            201: openapi.Response("Created - Result created successfully."),
+            400: openapi.Response("Bad Request - Invalid Result data."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+        },
+    )
     def create(self, request):
+        """
+        Create a new result instance.
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -1708,23 +2548,114 @@ class ResultViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    @swagger_auto_schema(
+        operation_summary="List Results",
+        responses={
+            200: openapi.Response("Success - List of results retrieved successfully."),
+        },
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        Retrieve a list of results.
+        """
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve Result",
+        responses={
+            200: openapi.Response("Success - Rrsult retrieved successfully."),
+            404: openapi.Response("Not Found - Result not found."),
+        },
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific result instance by ID.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update Result",
+        request_body=ResultSerializer,
+        responses={
+            200: openapi.Response("Success - Result updated successfully."),
+            400: openapi.Response("Bad Request - Invalid Result data."),
+            404: openapi.Response("Not Found - Result not found."),
+        },
+    )
+    def update(self, request, *args, **kwargs):
+        """
+        Update a specific result instance by ID.
+        """
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partial Update Result",
+        request_body=ResultSerializer,
+        responses={
+            200: openapi.Response("Success - Result partially updated successfully."),
+            400: openapi.Response("Bad Request - Invalid result data."),
+            404: openapi.Response("Not Found - Result not found."),
+        },
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update a specific result instance by ID.
+        """
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete Result",
+        responses={
+            204: openapi.Response("Deleted - Result deleted successfully."),
+            404: openapi.Response("Not Found - Result not found."),
+        },
+    )
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a specific result instance by ID.
+        """
+        return super().destroy(request, *args, **kwargs)
+
 
 class SubjectViewSet(viewsets.ModelViewSet):
+    """
+    A view set for viewing and editing subjects.
+    """
     permission_classes = [IsOwner | IsAdmin | IsBackend]
 
     def get_queryset(self):
         """
-        This view should return a list of all the subjects
-        for the currently authenticated user.
+        Returns a list of subjects for the currently authenticated user.
+
+        - Admin users get all subjects.
+        - Regular users get only their own subjects.
         """
         user = self.request.user
+        # If user is authenticated, and it has privileges (e.g., is admin) return all.
         if (user.is_authenticated and user.id == 1) or (user.is_authenticated and user.id == 2):
             return Subject.objects.all().prefetch_related('subjecttags_set')
+        # If user is authenticated, but has no privileges, return only its own data.
+        elif user.is_authenticated and type(user) is not AnonymousUser:
+            return Subject.objects.filter(user=user).prefetch_related('subjecttags_set')
+        else:
+            return []
         # public_subject_ids = Session.objects.filter(public=True).values_list('subject_id', flat=True).distinct()
         # return Subject.objects.filter(Q(user=user) | Q(id__in=public_subject_ids)).prefetch_related('subjecttags_set')
-        return Subject.objects.filter(user=user).prefetch_related('subjecttags_set')
+        # return Subject.objects.filter(user=user).prefetch_related('subjecttags_set')
 
+    @swagger_auto_schema(
+        operation_summary="List subjects",
+        responses={
+            200: openapi.Response("Success - List of subjects retrieved successfully."),
+            400: openapi.Response("Bad Request - Invalid search parameters."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+        }
+    )
     def list(self, request):
+        """
+        Retrieves a list of subjects based on the user's permissions and provided query parameters.
+        The list can be filtered, sorted, and paginated using the provided options.
+        """
         queryset = self.get_queryset()
         # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
         # print(request.query_params)
@@ -1767,12 +2698,37 @@ class SubjectViewSet(viewsets.ModelViewSet):
             return NewSubjectSerializer
         return SubjectSerializer
 
+    @swagger_auto_schema(
+        operation_summary="Health check",
+        responses={
+            200: openapi.Response("Success - API health retrieved successfully."),
+        }
+    )
     @action(detail=False)
     def api_health_check(self, request):
+        """
+        Check the health of the API.
+        """
         return Response({"status": "True"})
 
+    @swagger_auto_schema(
+        operation_summary="Trash subject",
+        operation_description="Move a subject to the trash.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={"pk": openapi.Schema(type=openapi.TYPE_STRING)},
+            required=["pk"]
+        ),
+        responses={
+            200: openapi.Response("Success - Subject trashed successfully."),
+            404: openapi.Response("Not Found - Subject not found."),
+        }
+    )
     @action(detail=True, methods=['post'])
     def trash(self, request, pk):
+        """
+        Move a specific subject to the trash.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1799,8 +2755,24 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Restore subject",
+        operation_description="Restore a subject from the trash.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={"pk": openapi.Schema(type=openapi.TYPE_STRING)},
+            required=["pk"]
+        ),
+        responses={
+            200: openapi.Response("Success - Subject restored successfully."),
+            404: openapi.Response("Not Found - Subject not found."),
+        }
+    )
     @action(detail=True, methods=['post'])
     def restore(self, request, pk):
+        """
+        Restores a previously trashed subject.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1826,8 +2798,18 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Download subject",
+        responses={
+            200: openapi.Response("Success - Subject archive downloaded successfully."),
+            404: openapi.Response("Not Found - Subject not found."),
+        }
+    )
     @action(detail=True)
     def download(self, request, pk):
+        """
+        Downloads a zip file containing the data for the specified subject.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1854,13 +2836,19 @@ class SubjectViewSet(viewsets.ModelViewSet):
             raise APIException(_('subject_create_error'))
 
         return FileResponse(open(subject_zip, "rb"))
-    
-    @action(
-        detail=True,
-        url_path="async-download",
-        url_name="async_subject_download"
+
+    @swagger_auto_schema(
+        operation_summary="Async download",
+        responses={
+            200: openapi.Response("Success - Subject archive downloaded successfully."),
+            404: openapi.Response("Not Found - Subject not found."),
+        }
     )
+    @action(detail=True, url_path="async-download", url_name="async_subject_download")
     def async_download(self, request, pk):
+        """
+        Download a subject archive.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1883,8 +2871,23 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
         return Response({"task_id": task.id}, status=200)
 
+    @swagger_auto_schema(
+        operation_summary="Permanently remove subject",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={"pk": openapi.Schema(type=openapi.TYPE_STRING)},
+            required=["pk"]
+        ),
+        responses={
+            200: openapi.Response("Success - Subject removed successfully."),
+            404: openapi.Response("Not Found - Subject not found."),
+        }
+    )
     @action(detail=True, methods=['post'])
     def permanent_remove(self, request, pk):
+        """
+        Permanently deletes a subject.
+        """
         try:
             if pk == 'undefined':
                 raise ValueError(_("undefined_uuid"))
@@ -1935,25 +2938,107 @@ class SubjectViewSet(viewsets.ModelViewSet):
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('subject_update_error'))
 
+    @swagger_auto_schema(
+        operation_summary="Retrieve Subject",
+        responses={
+            200: openapi.Response("Success - Subject retrieved successfully."),
+            404: openapi.Response("Not Found - Subject not found."),
+        },
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific subject instance by ID.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update Subject",
+        request_body=VideoSerializer,
+        responses={
+            200: openapi.Response("Success - Subject updated successfully."),
+            400: openapi.Response("Bad Request - Invalid subject data."),
+            404: openapi.Response("Not Found - Subject not found."),
+        },
+    )
+    def update(self, request, *args, **kwargs):
+        """
+        Update a specific subject instance by ID.
+        """
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partial Update Subject",
+        request_body=VideoSerializer,
+        responses={
+            200: openapi.Response("Success - Subject partially updated successfully."),
+            400: openapi.Response("Bad Request - Invalid Subject data."),
+            404: openapi.Response("Not Found - Subject not found."),
+        },
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update a specific subject instance by ID.
+        """
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete Subject",
+        responses={
+            204: openapi.Response("Deleted - Subject deleted successfully."),
+            404: openapi.Response("Not Found - Subject not found."),
+        },
+    )
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a specific subject instance by ID.
+        """
+        return super().destroy(request, *args, **kwargs)
+
+
 class SubjectTagViewSet(viewsets.ModelViewSet):
+    """
+    A view set for viewing and editing subject tags.
+    """
     permission_classes = [IsOwner | IsAdmin | IsBackend]
     serializer_class = TagSerializer
 
     def get_queryset(self):
         """
-        This view should return a list of all the subjects tags
-        for the currently authenticated user.
-        """
-        # Get all subjects associated to a user.
-        subject = Subject.objects.filter(user=self.request.user)
+        Retrieve a list of all the subject tags for the currently authenticated user.
 
-        # Get tags associated to those subjects.
-        tags = SubjectTags.objects.filter(subject__in=list(subject))
+        - If the user is authenticated, returns the tags associated with their subjects.
+        - If the user is not authenticated, returns an empty list.
+        """
+        user = self.request.user
+        if user.is_authenticated:
+            # Get all subjects associated to a user.
+            subject = Subject.objects.filter(user=self.request.user)
+
+            # Get tags associated to those subjects.
+            tags = SubjectTags.objects.filter(subject__in=list(subject))
+        else:
+            tags = []
 
         return tags
 
+    @swagger_auto_schema(
+        operation_summary="Get tags for a specific subject",
+        operation_description="Retrieve tags associated with a specific subject identified by its ID.",
+        manual_parameters=[
+            openapi.Parameter('subject_id', openapi.IN_PATH, description="ID of the subject to retrieve tags for.",
+                              type=openapi.TYPE_INTEGER),
+        ],
+        responses={
+            200: openapi.Response("Success - Subject tags retrieved successfully."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            404: openapi.Response("Not Found - Subject tags not found."),
+        }
+    )
     @action(detail=False, methods=['get'])
     def get_tags_subject(self, request, subject_id):
+        """
+        Retrieves the tags associated with a specific subject.
+        """
         # Get subject associated to that id.
         subject = Subject.objects.filter(id=subject_id).first()
 
@@ -1963,16 +3048,112 @@ class SubjectTagViewSet(viewsets.ModelViewSet):
 
             return Response(tags, status=200)
         else:
-            return Response(_("Subject with id: ") + str(subject_id) + _(" does not exist for user ") + self.request.user.username, status=404)
+            return Response(
+                _("Subject with id: ") + str(subject_id) + _(" does not exist for user ") + self.request.user.username,
+                status=404)
 
+    @swagger_auto_schema(
+        operation_summary="List Subject Tags",
+        responses={
+            200: openapi.Response("Success - List of subject tags retrieved successfully."),
+        },
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        Retrieve a list of subject tags.
+        """
+        return super().list(request, *args, **kwargs)
 
+    @swagger_auto_schema(
+        operation_summary="Create Subject Tag",
+        request_body=UserSerializer,
+        responses={
+            201: openapi.Response("Created - Subject tag created successfully."),
+            400: openapi.Response("Bad Request - Invalid subject tag data."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+        },
+    )
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new subject tag instance.
+        """
+        return super().create(request, *args, **kwargs)
 
+    @swagger_auto_schema(
+        operation_summary="Retrieve Subject Tag",
+        responses={
+            200: openapi.Response("Success - Subject tag retrieved successfully."),
+            404: openapi.Response("Not Found - Subject tag not found."),
+        },
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific subject tag instance by ID.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update Subject Tag",
+        request_body=VideoSerializer,
+        responses={
+            200: openapi.Response("Success - Subject tag updated successfully."),
+            400: openapi.Response("Bad Request - Invalid subject tag data."),
+            404: openapi.Response("Not Found - Subject tag not found."),
+        },
+    )
+    def update(self, request, *args, **kwargs):
+        """
+        Update a specific subject tag instance by ID.
+        """
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partial Update Subject Tag",
+        request_body=VideoSerializer,
+        responses={
+            200: openapi.Response("Success - Subject tag partially updated successfully."),
+            400: openapi.Response("Bad Request - Invalid subject tag data."),
+            404: openapi.Response("Not Found - Subject tag not found."),
+        },
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update a specific subject tag instance by ID.
+        """
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete Subject Tag",
+        responses={
+            204: openapi.Response("Deleted - Subject tag deleted successfully."),
+            404: openapi.Response("Not Found - Subject tag not found."),
+        },
+    )
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a specific subject tag instance by ID.
+        """
+        return super().destroy(request, *args, **kwargs)
 
 
 class DownloadFileOnReadyAPIView(APIView):
+    """
+    Retrieves the download URL for a file if it is ready.
+    If the file is not ready, returns a 202 status to indicate processing.
+    """
     permission_classes = (AllowAny,)
 
+    @swagger_auto_schema(
+        operation_summary="Get Download URL",
+        responses={
+            200: openapi.Response("Success - File URL for download retrieved successfully."),
+            202: openapi.Response("Accepted - The file was accepted and its being processed."),
+        }
+    )
     def get(self, request, *args, **kwargs):
+        """
+        Check if the download file is ready.
+        """
         log = DownloadLog.objects.filter(task_id=self.kwargs["task_id"]).first()
         if log and log.media:
             return Response({"url": log.media.url})
@@ -1980,19 +3161,127 @@ class DownloadFileOnReadyAPIView(APIView):
 
 
 class UserViewSet(viewsets.ModelViewSet):
+    """
+    A view set for viewing and editing users.
+    """
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
     permission_classes = [IsAdmin]
-    
-    
+
+    @swagger_auto_schema(
+        operation_summary="List Users",
+        responses={
+            200: openapi.Response("Success - User retrieved successfully."),
+        },
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        Retrieve a list of users.
+        """
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Create User",
+        request_body=UserSerializer,
+        responses={
+            201: openapi.Response("Created - User created successfully."),
+            400: openapi.Response("Bad Request - Invalid user data."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+        },
+    )
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new user instance.
+        """
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve User",
+        responses={
+            200: openapi.Response("Success - User retrieved successfully."),
+            404: openapi.Response("Not Found - User not found."),
+        },
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific user instance by ID.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update User",
+        request_body=UserSerializer,
+        responses={
+            200: openapi.Response("Success - User updated successfully."),
+            400: openapi.Response("Bad Request - Invalid user data."),
+            404: openapi.Response("Not Found - User not found."),
+        },
+    )
+    def update(self, request, *args, **kwargs):
+        """
+        Update a specific user instance by ID.
+        """
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partial Update User",
+        request_body=UserSerializer,
+        responses={
+            200: openapi.Response("Success - User partially updated successfully."),
+            400: openapi.Response("Bad Request - Invalid user data."),
+            404: openapi.Response("Not Found - User not found."),
+        },
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update a specific user instance by ID.
+        """
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete User",
+        responses={
+            204: openapi.Response("Deleted - User deleted successfully."),
+            404: openapi.Response("Not Found - User not found."),
+
+        },
+    )
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a specific user instance by ID.
+        """
+        return super().destroy(request, *args, **kwargs)
+
+
 class UserCreate(APIView):
     """ 
-    Creates the user. 
+    Creates a new user and returns the user data along with an authentication token.
     """
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="Create User",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'username': openapi.Schema(type=openapi.TYPE_STRING, description='Username of the user'),
+                'email': openapi.Schema(type=openapi.TYPE_STRING, description='Email of the user'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='Password for the user'),
+                # Add additional fields as necessary based on your UserSerializer
+            },
+            required=['username', 'email', 'password'],
+        ),
+        responses={
+            201: openapi.Response("Created - User created successfully."),
+            400: openapi.Response("Bad Request - Invalid user information."),
+            500: openapi.Response("Internal Server Error - Could not create user.")
+        }
+    )
     def post(self, request, format='json'):
+        """
+        Handles the POST request to create a new user.
+        """
         try:
             serializer = UserSerializer(data=request.data)
             if serializer.is_valid():
@@ -2009,13 +3298,32 @@ class UserCreate(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class UserDelete(APIView):
     """
-    Deletes the user.
+    Deletes a user. Requires confirmation by providing the username in the request data.
     """
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="Delete User Account",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'confirm': openapi.Schema(type=openapi.TYPE_STRING, description="Username for confirmation"),
+            },
+            required=['confirm'],
+        ),
+        responses={
+            200: openapi.Response("Success - User deleted successfully."),
+            400: openapi.Response("Bad Request - Invalid username confirmation."),
+            401: openapi.Response("Unauthorized - User must be authenticated.")
+        }
+    )
     def post(self, request, format='json'):
+        """
+        Handle POST requests to delete the user account.
+        """
         try:
             if "confirm" not in request.data:
                 return Response(_('user_delete_error'), status=status.HTTP_400_BAD_REQUEST)
@@ -2035,13 +3343,27 @@ class UserDelete(APIView):
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('user_delete_error'))
 
+
 class UserUpdate(APIView):
     """
-    Updates the user.
+    Updates a user.
     """
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="Update User",
+        request_body=UserUpdateSerializer,
+        responses={
+            200: openapi.Response("Success - User information updated successfully."),
+            400: openapi.Response("Bad Request - Invalid user information."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+            500: openapi.Response("Internal Server Error - Could not update user information.")
+        },
+    )
     def post(self, request, format='json'):
+        """
+        Updates the authenticated user's information.
+        """
         try:
             user = request.user
             serializer = UserUpdateSerializer(user, data=request.data, partial=True)
@@ -2062,7 +3384,20 @@ class UpdateProfilePicture(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="Update Profile Picture",
+        request_body=ProfilePictureSerializer,
+        responses={
+            200: openapi.Response("Success - Profile picture updated successfully."),
+            400: openapi.Response("Bad Request - Invalid profile picture."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+            500: openapi.Response("Internal Server Error - Could not update profile picture.")
+        },
+    )
     def post(self, request, format='json'):
+        """
+        Updates the profile picture for the authenticated user.
+        """
         try:
             user = request.user
             serializer = ProfilePictureSerializer(user, data=request.data, partial=True)
@@ -2076,13 +3411,32 @@ class UpdateProfilePicture(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class GetUserInfo(APIView):
     """
-    Retrieves info about a user.
+    Retrieves information about a user based on a username.
     """
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="Get User Info",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'username': openapi.Schema(type=openapi.TYPE_STRING,
+                                           description="The username of the user to retrieve information for."),
+            },
+            required=['username'],
+        ),
+        responses={
+            200: openapi.Response("Success - User information retrieved successfully."),
+            404: openapi.Response("Not Found - The requested user does not exist."),
+        }
+    )
     def post(self, request, format='json'):
+        """
+        Handle POST requests to retrieve user information based on username.
+        """
         username = request.data["username"]
         user = get_object_or_404(User, username__exact=username)
 
@@ -2108,8 +3462,29 @@ class GetUserInfo(APIView):
 
 
 class CustomAuthToken(ObtainAuthToken):
+    """
+    Custom authentication token view that handles user login and OTP verification.
+    """
 
+    @swagger_auto_schema(
+        operation_summary="Obtain Auth Token",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'username': openapi.Schema(type=openapi.TYPE_STRING, description="Username of the user."),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description="Password of the user."),
+            },
+            required=['username', 'password'],
+        ),
+        responses={
+            200: openapi.Response("Success - Logged in successfully."),
+            400: openapi.Response("Bad Request - Invalid credentials or other login error."),
+        }
+    )
     def post(self, request, *args, **kwargs):
+        """
+        Handles POST requests for user authentication and OTP verification.
+        """
         try:
             serializer = self.serializer_class(data=request.data,
                                                context={'request': request})
@@ -2122,7 +3497,7 @@ class CustomAuthToken(ObtainAuthToken):
             # Skip OTP verification if specified
             otp_challenge_sent = False
 
-            if not(user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
+            if not (user.otp_verified and user.otp_skip_till and user.otp_skip_till > timezone.now()):
                 user.otp_verified = False
 
             user.save()
@@ -2149,15 +3524,41 @@ class CustomAuthToken(ObtainAuthToken):
             'institutional_use': user.institutional_use,
         })
 
+
 class ResetPasswordView(APIView):
+    """
+    Initiates the password reset process by sending a reset email.
+    """
     permission_classes = [AllowAny]
     authentication_classes = []
 
+    @swagger_auto_schema(
+        operation_summary="Reset Password",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING,
+                                        description='Email of the user requesting a password reset'),
+                'host': openapi.Schema(type=openapi.TYPE_STRING, description='Host URL for generating the reset link'),
+            },
+            required=['email', 'host'],
+        ),
+        responses={
+            200: openapi.Response("Success - Email sent successfully."),
+            404: openapi.Response("Not Found - Email not found."),
+            500: openapi.Response("Internal Server Error - Could not initiate password reset.")
+        }
+    )
     def post(self, request, format='json'):
+        """
+        Handles the POST request to send a password reset email.
+
+        Validates the input data and sends a reset password email if valid.
+        """
         try:
             error_message = "success"
             serializer = ResetPasswordSerializer(data=request.data,
-                                            context={'request': request})
+                                                 context={'request': request})
             serializer.is_valid(raise_exception=True)
             email = serializer.validated_data['email']
 
@@ -2204,9 +3605,32 @@ class ResetPasswordView(APIView):
 
 
 class NewPasswordView(APIView):
+    """
+    Allows users to set a new password using a reset token.
+    """
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="Reset Password",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'token': openapi.Schema(type=openapi.TYPE_STRING, description='Reset token'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='New password'),
+            },
+            required=['token', 'password'],
+        ),
+        responses={
+            200: openapi.Response("Success - Password sent successfully."),
+            404: openapi.Response("Not Found - The reset password link is expired or invalid.")
+        }
+    )
     def post(self, request, format='json'):
+        """
+        Handles the POST request to set a new password.
+
+        Validates the provided token and sets the new password if valid.
+        """
         try:
             serializer = NewPasswordSerializer(data=request.data,
                                                context={'request': request})
@@ -2254,10 +3678,18 @@ class NewPasswordView(APIView):
         # Return message. At this point no error have been thrown and this should return success.
         return Response({})
 
+
 @api_view(('POST',))
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 @csrf_exempt
 def verify(request):
+    """
+    Verify the OTP token provided by the user.
+
+    This endpoint allows users to verify their one-time password (OTP) using the token sent to their device.
+    If the OTP is verified successfully, the user’s OTP verification status is updated.
+    Optionally, users can choose to remember the device for 90 days.
+    """
     try:
         device = request.user.emaildevice_set.all()[0]
         data = json.loads(request.body.decode('utf-8'))
@@ -2286,6 +3718,11 @@ def verify(request):
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 @csrf_exempt
 def set_institutional_use(request):
+    """
+    Set the user's institutional use status.
+
+    This endpoint allows users to specify whether their account is being used for institutional purposes.
+    """
     try:
         data = json.loads(request.body.decode('utf-8'))
         request.user.institutional_use = data['institutional_use']
@@ -2302,6 +3739,11 @@ def set_institutional_use(request):
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
 @csrf_exempt
 def reset_otp_challenge(request):
+    """
+    Reset the OTP verification challenge for the user.
+
+    This endpoint sends a new OTP challenge to the user's registered device and resets their verification status.
+    """
     from mcserver.utils import send_otp_challenge
 
     send_otp_challenge(request.user)
@@ -2312,19 +3754,37 @@ def reset_otp_challenge(request):
     return Response({'otp_challenge_sent': True})
 
 
+@csrf_exempt
 @api_view(('GET',))
 @renderer_classes((TemplateHTMLRenderer, JSONRenderer))
-@csrf_exempt
 def check_otp_verified(request):
+    """
+    Check if the user has verified their OTP.
+
+    This endpoint returns the current OTP verification status of the user.
+    """
     return Response({'otp_verified': request.user.otp_verified})
 
 
 class UserInstitutionalUseView(APIView):
+    """
+    A view for handling user institutional use information.
+    """
     permission_classes = [IsAuthenticated]
     serializer_class = UserInstitutionalUseSerializer
 
-
+    @swagger_auto_schema(
+        operation_summary="Retrieve User Institutional Use",
+        responses={
+            200: openapi.Response("Success - Institutional use retrieved successfully."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+            500: openapi.Response("Internal Server Error - Could not retrieve institutional use.")
+        },
+    )
     def get(self, request, format='json'):
+        """
+        Retrieve the institutional use data for the authenticated user.
+        """
         try:
             user = request.user
             serializer = UserInstitutionalUseSerializer(user)
@@ -2335,7 +3795,19 @@ class UserInstitutionalUseView(APIView):
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Update User Institutional Use",
+        responses={
+            200: openapi.Response("Success - Institutional use set successfully."),
+            400: openapi.Response("Bad Request - Invalid input data."),
+            401: openapi.Response("Unauthorized - User must be authenticated."),
+            500: openapi.Response("Internal Server Error - Could not set institutional use.")
+        },
+    )
     def post(self, request, format='json'):
+        """
+        Update the institutional use data for the authenticated user.
+        """
         try:
             user = request.user
             serializer = UserInstitutionalUseSerializer(user, data=request.data)
@@ -2350,25 +3822,51 @@ class UserInstitutionalUseView(APIView):
 
 
 class AnalysisFunctionsListAPIView(ListAPIView):
-    """ Returns active AnalysisFunction's.
     """
-    permission_classes = (IsAuthenticated, )
+    Returns a list of active AnalysisFunctions that are available
+    to the authenticated user.
+    """
+    permission_classes = (IsAuthenticated,)
     serializer_class = AnalysisFunctionSerializer
 
     def get_queryset(self):
         user = self.request.user
         queryset = AnalysisFunction.objects.filter(
             Q(is_active=True) & (
-                Q(only_for_users__isnull=True) | Q(only_for_users=user)
+                    Q(only_for_users__isnull=True) | Q(only_for_users=user)
             ))
         return queryset
 
+    @swagger_auto_schema(
+        operation_summary="List active Analysis Functions",
+        responses={
+            200: openapi.Response("Success - Analysis functions retrieved successfully."),
+            403: openapi.Response("Forbidden - Authentication is required.")
+        }
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        List all active Analysis Functions.
+        This method overrides the default list method to provide
+        additional documentation.
+        """
+        return super().list(request, *args, **kwargs)
+
 
 class InvokeAnalysisFunctionAPIView(APIView):
-    """ Invokes AnalysisFunction asynchronously with Celery.
     """
-    permission_classes = (IsAuthenticated, )
+    Invokes an Analysis Function asynchronously using Celery.
+    """
+    permission_classes = (IsAuthenticated,)
 
+    @swagger_auto_schema(
+        operation_summary="Invoke an Analysis Function",
+        responses={
+            201: openapi.Response("Created - Analysis function created successfully."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            404: openapi.Response("Not Found - Analysis fuction not found.")
+        }
+    )
     def post(self, request, *args, **kwargs):
         function = get_object_or_404(
             AnalysisFunction, pk=self.kwargs['pk'], is_active=True
@@ -2378,11 +3876,23 @@ class InvokeAnalysisFunctionAPIView(APIView):
 
 
 class AnalysisFunctionTaskIdAPIView(APIView):
-    """ Returns the Celery task id for the analysis function for given trial id.
     """
-    permission_classes = (IsAuthenticated, )
+    Returns the Celery task ID for the analysis function associated with the given trial ID.
+    """
+    permission_classes = (IsAuthenticated,)
 
+    @swagger_auto_schema(
+        operation_summary="Get Task ID for Analysis Function",
+        responses={
+            200: openapi.Response("Success - Task ID retrieved successfully."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            404: openapi.Response("Not Found - Analysis function or task ID not found.")
+        }
+    )
     def get(self, request, *args, **kwargs):
+        """
+        Retrieve the task ID associated with the given trial ID for the specified AnalysisFunction.
+        """
         function = get_object_or_404(
             AnalysisFunction, pk=self.kwargs['pk'], is_active=True
         )
@@ -2394,18 +3904,30 @@ class AnalysisFunctionTaskIdAPIView(APIView):
 
 
 class AnalysisResultOnReadyAPIView(APIView):
-    """ Returns AnalysisResult if it has been proccessed,
-        otherwise responses with 202 status and makes FE
-        wait for completion.
     """
-    permission_classes = (IsAuthenticated, )
+    Returns the AnalysisResult if it has been processed;
+    otherwise, responds with a 202 status, indicating that
+    the frontend should wait for completion.
+    """
+    permission_classes = (IsAuthenticated,)
 
+    @swagger_auto_schema(
+        operation_summary="Check Analysis Result Status",
+        responses={
+            202: openapi.Response("Accepted - The analysis result was accepted and is being processed."),
+            404: openapi.Response("Not Found - Analysis result not found."),
+            403: openapi.Response("Forbidden - Authentication is required.")
+        }
+    )
     def get(self, request, *args, **kwargs):
+        """
+        Retrieve the AnalysisResult for a given task ID associated with the authenticated user.
+        """
         result = AnalysisResult.objects.filter(
             task_id=self.kwargs["task_id"], user=request.user
         ).first()
         if result and result.state in (
-            AnalysisResultState.SUCCESSFULL, AnalysisResultState.FAILED
+                AnalysisResultState.SUCCESSFULL, AnalysisResultState.FAILED
         ):
             serializer = AnalysisResultSerializer(result)
             dashboard = AnalysisDashboard.objects.filter(
@@ -2423,10 +3945,27 @@ class AnalysisResultOnReadyAPIView(APIView):
             return Response(data)
         return Response(status=202)
 
-class AnalysisFunctionsPendingForTrialsAPIView(APIView):
-    permission_classes = (IsAuthenticated, )
 
+class AnalysisFunctionsPendingForTrialsAPIView(APIView):
+    """
+    Returns a list of pending AnalysisResults for trials associated
+    with the authenticated user. The response includes a mapping
+    of function IDs to the trial IDs that are pending.
+    """
+    permission_classes = (IsAuthenticated,)
+
+    @swagger_auto_schema(
+        operation_summary="Get Pending Trials for Analysis Functions",
+        responses={
+            200: openapi.Response("Success - Pending trials for analysis functionsretrieved successfully."),
+            403: openapi.Response("Forbidden - Authentication is required.")
+        }
+    )
     def get(self, request, *args, **kwargs):
+        """
+        Retrieve pending AnalysisResults for trials associated
+        with the authenticated user.
+        """
         from collections import defaultdict
         results = AnalysisResult.objects.filter(
             user=request.user,
@@ -2443,9 +3982,25 @@ class AnalysisFunctionsPendingForTrialsAPIView(APIView):
 
 
 class AnalysisFunctionsStatesForTrialsAPIView(APIView):
-    permission_classes = (IsAuthenticated, )
+    """
+    Returns the state of AnalysisResults for trials associated
+    with the authenticated user, including task IDs and dashboard IDs.
+    Each function ID maps to a dictionary of trial IDs with their states.
+    """
+    permission_classes = (IsAuthenticated,)
 
+    @swagger_auto_schema(
+        operation_summary="Get Analysis Function States for Trials",
+        responses={
+            200: openapi.Response("Success - Analysis results retrieved successfully."),
+            403: openapi.Response("Forbidden - Authentication is required.")
+        }
+    )
     def get(self, request, *args, **kwargs):
+        """
+        Retrieve the states of AnalysisResults for trials associated
+        with the authenticated user.
+        """
         from collections import defaultdict
         results = AnalysisResult.objects.filter(user=request.user).order_by('-id')
         data = defaultdict(dict)
@@ -2463,7 +4018,7 @@ class AnalysisFunctionsStatesForTrialsAPIView(APIView):
                 session_id=result.data['session_id'],
                 name__in=result.data['specific_trial_names']).values_list('id', flat=True)
             for t_id in trial_ids:
-                data[result.function_id][str(t_id)] =  {
+                data[result.function_id][str(t_id)] = {
                     'state': result.state,
                     'task_id': result.task_id,
                     'dashboard_id': dashboard_id,
@@ -2474,13 +4029,17 @@ class AnalysisFunctionsStatesForTrialsAPIView(APIView):
 
 
 class AnalysisDashboardViewSet(viewsets.ModelViewSet):
+    """
+    Allows authenticated users to retrieve data from the Analysis Dashboard,
+    including both public and private sessions. It includes actions for retrieving detailed
+    data related to a specific dashboard.
+    """
     serializer_class = AnalysisDashboardSerializer
-    permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
+    permission_classes = [IsPublic | (IsOwner | IsAdmin | IsBackend)]
 
     def get_queryset(self):
         """
-        This view should return a list of all the sessions
-        for the currently authenticated user.
+        Retrieve the list of sessions for the current user or public sessions.
         """
         user = self.request.user
         if user.is_authenticated:
@@ -2489,11 +4048,104 @@ class AnalysisDashboardViewSet(viewsets.ModelViewSet):
             users_have_public_sessions = User.objects.filter(session__public=True).distinct()
         return AnalysisDashboard.objects.filter(user__in=users_have_public_sessions)
 
+    @swagger_auto_schema(
+        operation_summary="Get dashboard data",
+        responses={
+            200: openapi.Response("Success - Analysis dashboard retrieved successfully."),
+            403: openapi.Response("Forbidden - Authentication is required."),
+            404: openapi.Response("Not Found - Analysis dashboard not found.")
+        }
+    )
     @action(detail=True)
     def data(self, request, pk):
+        """
+        Retrieve data for a specific dashboard.
+        """
         dashboard = get_object_or_404(AnalysisDashboard, pk=pk)
         if request.user.is_authenticated and request.user == dashboard.user:
             return Response(dashboard.get_available_data())
 
         return Response(dashboard.get_available_data(
             only_public=True, subject_id=request.GET.get('subject_id'), share_token=request.GET.get('share_token')))
+
+    @swagger_auto_schema(
+        operation_summary="List dashboards",
+        responses={
+            200: openapi.Response("Success - List of analysis dashboard retrieved successfully.")
+        }
+    )
+    def list(self, request, *args, **kwargs):
+        """
+        List available dashboards.
+        """
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Create a dashboard",
+        request_body=AnalysisDashboardSerializer,
+        responses={
+            201: openapi.Response('Created - Analysis dashboard created successfully.'),
+            400: openapi.Response("Bad Request - Invalid analysis dashboard.")
+        }
+    )
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new dashboard.
+        """
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve a dashboard",
+        responses={
+            200: openapi.Response("Success - Analysis dashboard retrieved successfully."),
+            404: openapi.Response("Not Found - Analysis dashboard not found.")
+        }
+    )
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific dashboard.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update a dashboard",
+        request_body=AnalysisDashboardSerializer,
+        responses={
+            200: openapi.Response("Success - Analysis dashboard updated successfully."),
+            400: openapi.Response("Bad Request - Invalid analysis dashboard."),
+            404: openapi.Response("Not Found - Analysis dashboard not found.")
+        }
+    )
+    def update(self, request, *args, **kwargs):
+        """
+        Update an existing dashboard.
+        """
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partially update a dashboard",
+        request_body=AnalysisDashboardSerializer,
+        responses={
+            200: openapi.Response("Success - Dashboard partially updated successfully."),
+            400: openapi.Response("Bad Request - Invalid analysis dashboard."),
+            404: openapi.Response("Not Found - Analysis dashboard not found.")
+        }
+    )
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update a dashboard.
+        """
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete a dashboard",
+        responses={
+            204: openapi.Response("Deleted - Analysis dashboard deleted successfully."),
+            404: openapi.Response("Not Found - Analysis dashboard not found.")
+        }
+    )
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete a dashboard.
+        """
+        return super().destroy(request, *args, **kwargs)

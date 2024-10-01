@@ -129,8 +129,6 @@ urlpatterns = [
         AnalysisFunctionsStatesForTrialsAPIView.as_view(),
         name='analysis-results-statuses-for-trials'
     ),
-    path('subject-tags/<int:subject_id>/get_tags_subject/', SubjectTagViewSet.as_view({'get': 'get_tags_subject'}),
-         name='get_tags_subject'),
 
     #    path('accounts/login/', OTPAuthenticationForm.as_view(authentication_form=OTPAuthenticationForm)),
 ]
