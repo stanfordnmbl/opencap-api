@@ -109,8 +109,6 @@ class TrialAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ('session',)
     inlines = [ResultInline]
-    formatted_duration.short_description = 'duration'
-    processed_count.short_description = 'count'
 
     def is_meta_null(self, obj):
         return obj.meta is None
@@ -119,6 +117,9 @@ class TrialAdmin(admin.ModelAdmin):
         hours, remainder = divmod(int(obj.duration.total_seconds()), 3600)
         minutes, seconds = divmod(remainder, 60)
         return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+    formatted_duration.short_description = 'duration'
+    processed_count.short_description = 'count'
 
 
 @admin.register(Result)
