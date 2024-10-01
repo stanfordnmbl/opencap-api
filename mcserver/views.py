@@ -1455,7 +1455,6 @@ class TrialViewSet(viewsets.ModelViewSet):
     def dequeue(self, request):
         try:
             ip = get_client_ip(request)
-            hostname = get_client_hostname(request)
 
             workerType = self.request.query_params.get('workerType')
 
