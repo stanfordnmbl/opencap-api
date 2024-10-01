@@ -481,30 +481,73 @@ class SessionViewSet(viewsets.ModelViewSet):
 
     @swagger_auto_schema(
         method="get",
-        operation_summary="Retrieve and validate user sessions.",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'include_trashed': openapi.Schema(type=openapi.TYPE_BOOLEAN,
-                                                  description="Whether to include trashed sessions."),
-                'only_trashed': openapi.Schema(type=openapi.TYPE_BOOLEAN,
-                                               description="Whether to include only trashed sessions."),
-                'sort': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_STRING),
-                                       description="Fields to sort by."),
-                'sort_desc': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_BOOLEAN),
-                                            description="Sort descending for each field."),
-                'quantity': openapi.Schema(type=openapi.TYPE_INTEGER,
-                                           description="Number of sessions to retrieve. Use -1 for all."),
-                'start': openapi.Schema(type=openapi.TYPE_INTEGER, description="Start index for pagination."),
-                'subject_id': openapi.Schema(type=openapi.TYPE_STRING, description="Filter by subject ID.")
-            },
-            description="Object containing filters, sorting, and pagination options."
-        ),
+        operation_summary="Retrieve valid sessions.",
+        manual_parameters=[
+            openapi.Parameter('quantity', openapi.IN_QUERY,
+                              description="Number of sessions to retrieve.",
+                              type=openapi.TYPE_INTEGER),
+            openapi.Parameter('start', openapi.IN_QUERY,
+                              description="Starting index for session retrieval.",
+                              type=openapi.TYPE_INTEGER),
+            openapi.Parameter('subject_id', openapi.IN_QUERY, description="Filter sessions by subject ID.", type=openapi.TYPE_INTEGER),
+            openapi.Parameter('sort', openapi.IN_QUERY, description="Sort options for the sessions.", type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_STRING)),
+            openapi.Parameter('sort_desc', openapi.IN_QUERY, description="Sort descending flags for each sort field.", type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_BOOLEAN)),
+            openapi.Parameter('include_trashed', openapi.IN_QUERY, description="Include trashed sessions in the results.", type=openapi.TYPE_BOOLEAN),
+            openapi.Parameter('only_trashed', openapi.IN_QUERY, description="Retrieve only trashed sessions.", type=openapi.TYPE_BOOLEAN),
+        ],
         responses={
-            200: openapi.Response("Success - Session retrieved and validated successfully."),
+            200: openapi.Response("Success - Session retrieved and validated successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'sessions': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=openapi.Schema(type=openapi.TYPE_OBJECT)
+                        ),
+                        'total': openapi.Schema(type=openapi.TYPE_INTEGER, description="Total count of valid sessions.")
+                    },
+                )
+            ),
+            400: openapi.Response("Bad Request - Invalid subject data."),
+            404: openapi.Response("Not Found - Session not found."),
+        }
+    )
+    @swagger_auto_schema(
+        method="post",
+        operation_summary="Validate and retrieve user sessions.",
+        responses={
+            200: openapi.Response("Success - Session retrieved and validated successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'sessions': openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=openapi.Schema(type=openapi.TYPE_OBJECT)
+                        ),
+                        'total': openapi.Schema(type=openapi.TYPE_INTEGER, description="Total count of valid sessions.")
+                    },
+                )),
             400: openapi.Response("Bad Request - Invalid subject data."),
             404: openapi.Response("Not Found - Session not found."),
         },
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["quantity"],
+            properties={
+                'quantity': openapi.Schema(type=openapi.TYPE_INTEGER,
+                                           description="Number of sessions to retrieve. Set to -1 to retrieve all."),
+                'start': openapi.Schema(type=openapi.TYPE_INTEGER, description="Starting index for session retrieval."),
+                'subject_id': openapi.Schema(type=openapi.TYPE_INTEGER, description="Filter sessions by subject ID."),
+                'sort': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING),
+                                       description="Sort options for the sessions."),
+                'sort_desc': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                                            description="Sort descending flags for each sort field."),
+                'include_trashed': openapi.Schema(type=openapi.TYPE_BOOLEAN,
+                                                  description="Include trashed sessions in the results."),
+                'only_trashed': openapi.Schema(type=openapi.TYPE_BOOLEAN,
+                                               description="Retrieve only trashed sessions."),
+            }
+        ),
     )
     @action(detail=False, methods=["get", "post"], )
     def valid(self, request):
@@ -992,21 +1035,6 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return res
 
-    @swagger_auto_schema(
-        operation_summary="Generate S3 Presigned URL",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'fileName': openapi.Schema(type=openapi.TYPE_STRING, description='The name of the file to upload')
-            },
-            required=['fileName'],
-            description="Provide a file name for generating the S3 presigned URL."
-        ),
-        responses={
-            200: openapi.Response("Success - Presigned URL retrieved successfully."),
-            400: openapi.Response("Bad Request - Invalid request data."),
-        }
-    )
     @action(detail=True)
     def get_presigned_url(self, request, pk):
         """
@@ -1066,15 +1094,6 @@ class SessionViewSet(viewsets.ModelViewSet):
     # Start recording POST '<id>/record/'
     @swagger_auto_schema(
         operation_summary="Start a New Recording Session",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'name': openapi.Schema(type=openapi.TYPE_STRING, description='The name of the trial to be created.')
-            },
-            required=['name'],
-            description="Provide the name for the new trial. If the name already exists, a new one will be created "
-                        "with a unique suffix."
-        ),
         responses={
             200: openapi.Response("Success - Recording session started successfully."),
             404: openapi.Response("Not Found - Session not found."),
@@ -1169,20 +1188,6 @@ class SessionViewSet(viewsets.ModelViewSet):
 
         return FileResponse(open(session_zip, "rb"))
 
-    @swagger_auto_schema(
-        operation_summary="Initiate Asynchronous Session Download",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={},
-            required=[]
-        ),
-        responses={
-            200: openapi.Response("Success - Async download started successfully."),
-            400: openapi.Response("Bad Request - Invalid session data."),
-            403: openapi.Response("Forbidden - Authentication is required."),
-            500: openapi.Response("Internal Server Error - Could not initialize async download."),
-        }
-    )
     @action(detail=True, url_path="async-download", url_name="async_session_download")
     def async_download(self, request, pk):
         try:
