@@ -114,9 +114,12 @@ class TrialAdmin(admin.ModelAdmin):
         return obj.meta is None
 
     def formatted_duration(self, obj):
-        hours, remainder = divmod(int(obj.processed_duration.total_seconds()), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        return f"{hours:02}:{minutes:02}:{seconds:02}"
+        if obj.processed_duration:
+            hours, remainder = divmod(int(obj.processed_duration.total_seconds()), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
+        else:
+            return obj.processed_duration
 
     def processed_count(self, obj):
         return obj.processed_count
