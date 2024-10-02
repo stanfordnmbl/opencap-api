@@ -118,6 +118,9 @@ class TrialAdmin(admin.ModelAdmin):
         minutes, seconds = divmod(remainder, 60)
         return f"{hours:02}:{minutes:02}:{seconds:02}"
 
+    def processed_count(self, obj):
+        return obj.processed_count
+
     formatted_duration.short_description = 'duration'
     processed_count.short_description = 'count'
 
