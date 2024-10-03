@@ -1508,7 +1508,6 @@ class TrialViewSet(viewsets.ModelViewSet):
             trial = trialsPrioritized[0]
             trial.status = "processing"
             trial.server = ip
-            trial.hostname = hostname
             trial.processed_count += 1
             trial.save()
 
