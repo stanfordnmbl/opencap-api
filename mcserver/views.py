@@ -1521,10 +1521,9 @@ class TrialViewSet(viewsets.ModelViewSet):
 
             serializer = TrialSerializer(trial, many=False)
 
-
+        except Http404:
+            raise Http404 # we use the 404 to tell app.py that there are no trials, so need to pass this thru
         except Exception:
-            if Http404: # we use the 404 to tell app.py that there are no trials, so need to pass this thru
-                raise Http404
             if settings.DEBUG:
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_dequeue_error'))
