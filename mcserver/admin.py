@@ -103,7 +103,7 @@ class TrialAdmin(admin.ModelAdmin):
         'status',
         'created_at', 'updated_at',
         'server', 'git_commit',
-        'formatted_duration', 'processed_count',
+        'formatted_duration', 'formatted_count',
         'is_meta_null',
         'trashed', 'trashed_at',
     )
@@ -121,11 +121,11 @@ class TrialAdmin(admin.ModelAdmin):
         else:
             return obj.processed_duration
 
-    def processed_count(self, obj):
+    def formatted_count(self, obj):
         return obj.processed_count
 
     formatted_duration.short_description = 'duration'
-    processed_count.short_description = 'count'
+    formatted_count.short_description = 'count'
 
 
 @admin.register(Result)
