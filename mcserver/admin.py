@@ -19,6 +19,7 @@ from mcserver.models import (
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.admin.models import LogEntry
+from datetime import timedelta
 
 
 #admin.site.unregister(Group)
@@ -102,7 +103,7 @@ class TrialAdmin(admin.ModelAdmin):
         'status',
         'created_at', 'updated_at',
         'server', 'git_commit',
-        'processed_duration', 'processed_count',
+        'formatted_duration', 'processed_count',
         'is_meta_null',
         'trashed', 'trashed_at',
     )
@@ -111,6 +112,20 @@ class TrialAdmin(admin.ModelAdmin):
 
     def is_meta_null(self, obj):
         return obj.meta is None
+
+    def formatted_duration(self, obj):
+        if obj.processed_duration:
+            hours, remainder = divmod(int(obj.processed_duration.total_seconds()), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
+        else:
+            return obj.processed_duration
+
+    def processed_count(self, obj):
+        return obj.processed_count
+
+    formatted_duration.short_description = 'duration'
+    processed_count.short_description = 'count'
 
 
 @admin.register(Result)
