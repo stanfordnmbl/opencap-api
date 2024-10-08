@@ -157,6 +157,7 @@ class TrialSerializer(serializers.ModelSerializer):
             'results', 'meta', 'created_at', 'updated_at',
             'server', 'is_docker', 'hostname',
             'processed_duration', 'processed_count',
+            'git_commit',
             'trashed', 'trashed_at',
         ]
 
