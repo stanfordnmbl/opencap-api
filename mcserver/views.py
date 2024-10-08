@@ -7,6 +7,7 @@ import json
 import time
 import platform
 import traceback
+import socket
 
 from datetime import datetime, timedelta
 
@@ -20,6 +21,7 @@ from django.db.models import Q
 from django.utils.translation import gettext as _
 from django.http import FileResponse
 from django.db.models import Count
+from django.db.models import F
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.core.mail import EmailMessage
@@ -145,6 +147,14 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+def get_client_hostname(request):
+    ip = get_client_ip(request)
+    try:
+        hostname = socket.gethostbyaddr(ip)
+        return hostname[0]
+    except socket.herror:
+        return None
 
 def zipdir(path, ziph):
     # ziph is zipfile handle
@@ -1499,6 +1509,8 @@ class TrialViewSet(viewsets.ModelViewSet):
 
             trial = trialsPrioritized[0]
             trial.status = "processing"
+            trial.server = ip
+            trial.processed_count += 1
             trial.save()
 
             print(ip)
@@ -1510,10 +1522,9 @@ class TrialViewSet(viewsets.ModelViewSet):
 
             serializer = TrialSerializer(trial, many=False)
 
-
+        except Http404:
+            raise Http404 # we use the 404 to tell app.py that there are no trials, so need to pass this thru
         except Exception:
-            if Http404: # we use the 404 to tell app.py that there are no trials, so need to pass this thru
-                raise Http404
             if settings.DEBUG:
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise APIException(_('trial_dequeue_error'))

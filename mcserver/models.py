@@ -108,6 +108,12 @@ class Trial(models.Model):
     meta = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
+    server = models.GenericIPAddressField(null=True, blank=True)
+    is_docker = models.BooleanField(null=True, blank=True)
+    hostname = models.CharField(max_length=64, null=True, blank=True)
+    processed_duration = models.DurationField(null=True, blank=True)
+    processed_count = models.IntegerField(default=0)
+    git_commit = models.CharField(max_length=64, null=True, blank=True)
 
     trashed = models.BooleanField(default=False)
     trashed_at = models.DateTimeField(blank=True, null=True)
