@@ -139,6 +139,8 @@ urlpatterns = [
     ),
     path('subject-tags/<int:subject_id>/get_tags_subject/', SubjectTagViewSet.as_view({'get': 'get_tags_subject'}),
          name='get_tags_subject'),
+    path('trial-tags/<uuid:trial_id>/get_tags_trial/', TrialTagViewSet.as_view({'get': 'get_tags_trial'}),
+         name='get_tags_trial'),
 
     #    path('accounts/login/', OTPAuthenticationForm.as_view(authentication_form=OTPAuthenticationForm)),
 ]
