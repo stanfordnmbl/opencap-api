@@ -14,7 +14,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import include, path
+from drf_yasg import openapi
+from drf_yasg.views import get_schema_view
+from rest_framework import permissions
+from rest_framework import routers
+
 from mcserver.views import (
     SessionViewSet,
     VideoViewSet,
@@ -46,18 +52,6 @@ from mcserver.views import (
     UserUpdate,
     UpdateProfilePicture
 )
-from rest_framework import routers, serializers, viewsets
-from rest_framework.authtoken.views import obtain_auth_token
-
-from django_otp.forms import OTPAuthenticationForm
-from django.http import HttpResponse
-
-from django.conf.urls.static import static
-from rest_framework_swagger.views import get_swagger_view
-from drf_yasg.views import get_schema_view
-from drf_yasg import openapi
-from rest_framework import permissions
-from django.conf import settings
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -80,10 +74,10 @@ router.register(r'users', UserViewSet)
 router.register(r'analysis-dashboards', AnalysisDashboardViewSet, "analysis-dashboard")
 
 urlpatterns = [
-#    path('session/', new_session),
+    # path('session/', new_session),
     path('', include(router.urls)),
     path("health/", lambda x: HttpResponse("OK"), name="health"),
-#    path('session/<id>/status/', status),
+    # path('session/<id>/status/', status),
     path('login/', CustomAuthToken.as_view()),
     path('verify/', verify),
     path('set-institutional-use/', set_institutional_use),
@@ -137,6 +131,7 @@ urlpatterns = [
         AnalysisFunctionsStatesForTrialsAPIView.as_view(),
         name='analysis-results-statuses-for-trials'
     ),
+
     path('subject-tags/<int:subject_id>/get_tags_subject/', SubjectTagViewSet.as_view({'get': 'get_tags_subject'}),
          name='get_tags_subject'),
     path('trial-tags/<uuid:trial_id>/get_tags_trial/', TrialTagViewSet.as_view({'get': 'get_tags_trial'}),

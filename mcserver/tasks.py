@@ -1,13 +1,13 @@
-import os
 import json
-import requests
-from http import HTTPStatus
-from django.conf import settings
-from django.core.files import File
-from django.core.files.base import ContentFile
-from celery import shared_task
-from django.utils import timezone
+import os
 from datetime import timedelta
+from http import HTTPStatus
+
+import requests
+from celery import shared_task
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.utils import timezone
 
 from mcserver.models import (
     DownloadLog,
@@ -73,6 +73,7 @@ def download_session_archive(self, session_id, user_id=None):
             sentry_sdk.capture_exception(e)
         else:
             print(e)
+
 
 @shared_task(bind=True)
 def download_subject_archive(self, subject_id, user_id):
@@ -175,7 +176,7 @@ def invoke_aws_lambda_function(self, user_id, function_id, data):
         analysis_result.response = function_response
     analysis_result.save(update_fields=['result', 'status', 'state', 'response'])
 
-    # Crreate analysis dashboard if available
+    # Create analysis dashboard if available
     try:
         AnalysisDashboard.objects.get(user_id=user_id, function_id=function_id)
     except AnalysisDashboard.DoesNotExist:

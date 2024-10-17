@@ -1,6 +1,8 @@
 from django.contrib import admin
+from django.contrib.admin.models import LogEntry
+from django.contrib.auth.admin import UserAdmin
 from django.shortcuts import render, redirect
-from django.contrib.auth.admin import UserAdmin, GroupAdmin
+
 from mcserver.models import (
     User,
     Session,
@@ -17,14 +19,14 @@ from mcserver.models import (
     SubjectTags,
     TrialTags
 )
+
 from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.admin.models import LogEntry
 from datetime import timedelta
 
-
-#admin.site.unregister(Group)
-#admin.site.register(Group, GroupAdmin)
+# admin.site.unregister(Group)
+# admin.site.register(Group, GroupAdmin)
 
 
 @admin.register(User)
@@ -165,6 +167,7 @@ class SubjectAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ('user',)
 
+
 @admin.register(SubjectTags)
 class SubjectTagsAdmin(admin.ModelAdmin):
     search_fields = ['tag', 'subject__name']
@@ -191,7 +194,7 @@ class ResetPasswordAdmin(admin.ModelAdmin):
 
 @admin.register(LogEntry)
 class LogEntryAdmin(admin.ModelAdmin):
-    # to have a date-based drilldown navigation in the admin page
+    # to have a date-based drill-down navigation in the admin page
     date_hierarchy = 'action_time'
 
     # to filter the resultes by users, content types and action flags

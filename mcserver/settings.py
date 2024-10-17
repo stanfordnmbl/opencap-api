@@ -12,11 +12,13 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 
 from pathlib import Path
 from decouple import config
+from datetime import timedelta
+from celery.schedules import crontab
+
 import os.path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
@@ -31,7 +33,7 @@ HOST = config("HOST", "127.0.0.1")
 PROTOCOL = config("PROTOCOL", "http")
 HOST_URL = "{}://{}".format(PROTOCOL, HOST)
 
-ALLOWED_HOSTS = [HOST,"*"]
+ALLOWED_HOSTS = [HOST, "*"]
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -85,7 +87,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django_otp.middleware.OTPMiddleware',    
+    'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -110,28 +112,26 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'mcserver.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'data/db.sqlite3',
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'data/db.sqlite3',
+#     }
+# }
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config("DB_NAME",default="opencap"),
+        'NAME': config("DB_NAME", default="opencap"),
         'USER': config("DB_USER"),
         'PASSWORD': config("DB_PASS"),
         'HOST': config("DB_HOST"),
         'PORT': '5432',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators
@@ -151,7 +151,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
@@ -164,7 +163,6 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
@@ -183,15 +181,15 @@ DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 AWS_S3_REGION_NAME = config("REGION", default="us-west-2")
 
 AWS_S3_ENDPOINT_URL = config('AWS_S3_ENDPOINT_URL', default=None)
-#AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+# AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
 
 # s3 static settings
 # STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
-#MEDIA_LOCATION = 'media'
-#MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
-#DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+# MEDIA_LOCATION = 'media'
+# MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIA_LOCATION}/'
+# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 ARCHIVES_ROOT = config('ARCHIVES_ROOT', default=os.path.join(MEDIA_ROOT, 'archives'))
 
@@ -209,8 +207,6 @@ DEFAULT_FROM_EMAIL = "noreply@opencap.ai"
 
 LOGO_LINK = "https://app.opencap.ai/images/opencap-logo.png"
 
-from datetime import timedelta
-
 AUTH_TOKEN_VALIDITY = timedelta(days=90)
 
 OTP_EMAIL_SENDER = DEFAULT_FROM_EMAIL
@@ -219,7 +215,6 @@ OTP_EMAIL_TOKEN_VALIDITY = int(timedelta(days=90).total_seconds())
 OTP_EMAIL_BODY_TEMPLATE_PATH = 'email/verification_email.html'
 OTP_EMAIL_SUBJECT = ""
 OTP_EMAIL_BODY_TEMPLATE = ""
-
 
 # Sentry support
 
@@ -234,7 +229,7 @@ if SENTRY_DSN:
 
     def strip_sensitive_data(event, hint):
         """ This function removes the DisallowedHost errors from
-        the Sentry logs for avoiding excedding the quota.
+        the Sentry logs for avoiding exceeding the quota.
         """
         if 'log_record' in hint:
             if hint['log_record'].name == 'django.security.DisallowedHost':
@@ -265,8 +260,6 @@ CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_BEAT_SCHEDULER = 'redbeat.RedBeatScheduler'
 CELERY_IMPORTS = ['mcserver.tasks']
-
-from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
     'cleanup_trashed_sessions': {
@@ -301,7 +294,9 @@ CELERY_BEAT_SCHEDULE = {
     # },
 }
 
-GRAPH_MODELS ={
+GRAPH_MODELS = {
     'all_applications': True,
     'graph_models': True,
 }
+
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
