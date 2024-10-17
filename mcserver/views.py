@@ -53,6 +53,7 @@ from mcserver.models import (
     ResetPassword,
     Subject,
     SubjectTags,
+    TrialTags,
     DownloadLog,
     AnalysisFunction,
     AnalysisResult,
@@ -77,7 +78,9 @@ from mcserver.serializers import (
     ProfilePictureSerializer,
     UserInstitutionalUseSerializer,
     TagSerializer,
-    ValidSessionLightSerializer
+    ValidSessionLightSerializer,
+    SubjectTagSerializer,
+    TrialTagSerializer
 )
 from mcserver.tasks import (
     download_session_archive,
@@ -2406,6 +2409,43 @@ class TrialViewSet(viewsets.ModelViewSet):
         """
         return super().destroy(request, *args, **kwargs)
 
+    @action(detail=True, methods=['post'])
+    def modifyTags(self, request, pk):
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            tags = request.data['trialNewTags']
+
+            # Get trial.
+            trial = get_object_or_404(Trial, pk=pk, session__user=request.user)
+
+            # Remove previous tags.
+            if TrialTags.objects.filter(trial=trial).exists():
+                TrialTags.objects.filter(trial=trial).delete()
+
+            # Insert new tags.
+            for tag in tags:
+                TrialTags.objects.create(trial=trial, tag=tag)
+
+            print(tags)
+
+            # Serialize trial.
+            serializer = TrialSerializer(trial)
+
+        except Http404:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise Exception(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("trial_uuid_not_valid") % {"uuid": str(pk)})
+
+        # Return error message and data.
+        return Response({
+            'data': serializer.data
+        })
 
 ## Upload a video:
 # Input: video and phone_id
@@ -3002,7 +3042,7 @@ class SubjectTagViewSet(viewsets.ModelViewSet):
     A view set for viewing and editing subject tags.
     """
     permission_classes = [IsOwner | IsAdmin | IsBackend]
-    serializer_class = TagSerializer
+    serializer_class = SubjectTagSerializer
 
     def get_queryset(self):
         """
@@ -3136,6 +3176,38 @@ class SubjectTagViewSet(viewsets.ModelViewSet):
         Delete a specific subject tag instance by ID.
         """
         return super().destroy(request, *args, **kwargs)
+
+class TrialTagViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsOwner | IsAdmin | IsBackend]
+    serializer_class = TrialTagSerializer
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the trial tags
+        for the currently authenticated user.
+        """
+
+        # Get all sessions associated to user.
+        sessions = Session.objects.filter(user=self.request.user)
+
+        # Get all subjects associated to a user.
+        trials = Trial.objects.filter(session__in=list(sessions))
+
+        # Get tags associated to those subjects.
+        tags = TrialTags.objects.filter(trial__in=list(trials))
+
+        return tags
+
+    @action(detail=False, methods=['get'])
+    def get_tags_trial(self, request, trial_id):
+        # Get subject associated to that id.
+        trial = Trial.objects.get(id=trial_id)
+
+        # Get tags associated to the subject.
+        tags = list(TrialTags.objects.filter(trial=trial).values())
+
+        return Response(tags, status=200)
+
 
 
 class DownloadFileOnReadyAPIView(APIView):
@@ -4076,11 +4148,15 @@ class AnalysisDashboardViewSet(viewsets.ModelViewSet):
             200: openapi.Response("Success - List of analysis dashboard retrieved successfully.")
         }
     )
-    def list(self, request, *args, **kwargs):
-        """
-        List available dashboards.
-        """
-        return super().list(request, *args, **kwargs)
+    def list(self, request):
+        queryset = self.get_queryset()
+        if self.request.user.is_authenticated:
+            queryset = queryset.filter(user=self.request.user)
+        else:
+            queryset = queryset.none()
+        serializer = AnalysisDashboardSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
 
     @swagger_auto_schema(
         operation_summary="Create a dashboard",

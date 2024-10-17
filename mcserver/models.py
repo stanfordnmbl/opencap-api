@@ -352,6 +352,20 @@ class SubjectTags(models.Model):
     verbose_name_plural = 'Subject Tags'
 
 
+class TrialTags(models.Model):
+    tag = models.TextField(blank=False, null=False)
+    trial = models.ForeignKey(to=Trial, on_delete=models.CASCADE, blank=False, null=False)
+
+    class Meta:
+        ordering = ['trial', 'tag']
+
+    def __str__(self):
+        return self.trial.name + " - " + self.tag
+
+    verbose_name = 'Trial Tag'
+    verbose_name_plural = 'Trial Tags'
+
+
 class AnalysisFunction(models.Model):
     """ This model describes AWS Lambda function object.
     """

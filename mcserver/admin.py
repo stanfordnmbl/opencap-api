@@ -16,7 +16,8 @@ from mcserver.models import (
     AnalysisResult,
     AnalysisDashboardTemplate,
     AnalysisDashboard,
-    SubjectTags
+    SubjectTags,
+    TrialTags
 )
 
 from django.contrib.auth.models import Group
@@ -176,6 +177,14 @@ class SubjectTagsAdmin(admin.ModelAdmin):
         'subject',
     )
 
+@admin.register(TrialTags)
+class TrialTagsAdmin(admin.ModelAdmin):
+    search_fields = ['tag', 'trial__name']
+    list_display = (
+        'id',
+        'tag',
+        'trial',
+    )
 
 @admin.register(ResetPassword)
 class ResetPasswordAdmin(admin.ModelAdmin):

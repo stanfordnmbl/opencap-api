@@ -28,6 +28,7 @@ from mcserver.views import (
     ResultViewSet,
     SubjectViewSet,
     SubjectTagViewSet,
+    TrialTagViewSet,
     DownloadFileOnReadyAPIView,
     UserCreate,
     UserDelete,
@@ -68,6 +69,7 @@ router.register(r'trials', TrialViewSet)
 router.register(r'results', ResultViewSet)
 router.register(r'subjects', SubjectViewSet, "subject")
 router.register(r'subject-tags', SubjectTagViewSet, "subject-tags")
+router.register(r'trial-tags', TrialTagViewSet, "trial-tags")
 router.register(r'users', UserViewSet)
 router.register(r'analysis-dashboards', AnalysisDashboardViewSet, "analysis-dashboard")
 
@@ -129,6 +131,11 @@ urlpatterns = [
         AnalysisFunctionsStatesForTrialsAPIView.as_view(),
         name='analysis-results-statuses-for-trials'
     ),
+
+    path('subject-tags/<int:subject_id>/get_tags_subject/', SubjectTagViewSet.as_view({'get': 'get_tags_subject'}),
+         name='get_tags_subject'),
+    path('trial-tags/<uuid:trial_id>/get_tags_trial/', TrialTagViewSet.as_view({'get': 'get_tags_trial'}),
+         name='get_tags_trial'),
 
     #    path('accounts/login/', OTPAuthenticationForm.as_view(authentication_form=OTPAuthenticationForm)),
 ]
