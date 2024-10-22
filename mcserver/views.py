@@ -2557,6 +2557,15 @@ class AnalysisDashboardViewSet(viewsets.ModelViewSet):
             users_have_public_sessions = User.objects.filter(session__public=True).distinct()
         return AnalysisDashboard.objects.filter(user__in=users_have_public_sessions)
 
+    def list(self, request):
+        queryset = self.get_queryset()
+        if self.request.user.is_authenticated:
+            queryset = queryset.filter(user=self.request.user)
+        else:
+            queryset = queryset.none()
+        serializer = AnalysisDashboardSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
     @action(detail=True)
     def data(self, request, pk):
         dashboard = get_object_or_404(AnalysisDashboard, pk=pk)
