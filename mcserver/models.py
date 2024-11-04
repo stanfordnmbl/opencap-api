@@ -290,9 +290,9 @@ class Subject(models.Model):
         ('prefer-not-respond', 'Prefer Not to Respond'),
     )
     SEX_AT_BIRTH_CHOICES = (
-        ('woman', 'Woman'),
-        ('man', 'Man'),
-        ('intersect', 'Intersect'),
+        ('woman', 'Female'),
+        ('man', 'Male'),
+        ('intersect', 'Intersex'),
         ('not-listed', 'Not Listed'),
         ('prefer-not-respond', 'Prefer Not to Respond'),
     )
