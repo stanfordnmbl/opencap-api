@@ -344,7 +344,11 @@ class SimpleSubjectSerializer(serializers.ModelSerializer):
         ]
 
     def get_display_name(self, obj):
-        return f'{obj.name} ({obj.weight} Kg, {obj.height} m, {obj.birth_year})'
+        result = f'{obj.name} ({obj.weight} Kg, {obj.height} m, {obj.birth_year})'
+        tags = list(obj.subjecttags_set.all().values_list('tag', flat=True))
+        if tags:
+            result += f' [{", ".join(tags)}]'
+        return result
 
 
 class NewSubjectSerializer(serializers.ModelSerializer):

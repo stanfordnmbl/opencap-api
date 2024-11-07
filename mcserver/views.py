@@ -1780,7 +1780,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
         if not include_trashed:
             queryset = queryset.exclude(trashed=True)
         if search:
-            queryset = queryset.filter(name__icontains=search)
+            queryset = queryset.filter(Q(name__icontains=search) | Q(subjecttags__tag__icontains=search))
 
         sort_options = {
             'sex_display': 'sex_at_birth',
