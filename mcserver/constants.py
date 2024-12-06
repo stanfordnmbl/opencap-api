@@ -5,7 +5,7 @@ from enum import Enum
 class ResultTag(Enum):
     CALIBRATION_IMAGE = "calibration-img"
     CAMERA_CALIBRATION_OPTS = "calibration_parameters_options"
-    IK_RESULTS= "ik_results"
+    IK_RESULTS = "ik_results"
     MARKER_DATA = "marker_data"
     OPENSIM_MODEL = "opensim_model"
     POSE_PICKLE = "pose_pickle"

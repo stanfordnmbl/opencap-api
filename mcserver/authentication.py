@@ -40,4 +40,4 @@ class ExpiringTokenAuthentication(TokenAuthentication):
             Token.objects.create(user=token.user)
             raise AuthenticationFailed("Token has expired")
 
-        return (token.user, token)
+        return token.user, token
