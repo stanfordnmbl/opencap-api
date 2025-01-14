@@ -40,7 +40,7 @@ Then for deploying to production we pull all the updated code and run the step 3
 
 Instructions in this [Link](https://docs.djangoproject.com/en/4.2/topics/i18n/translation/).
 
-**Note:** You must also install gettext. After install, restart your IDE/Terminal).
+**Note:** You must also install [gettext](https://www.gnu.org/software/gettext/). After install, restart your IDE/Terminal).
 
 Inside of mcserver folder:
 
