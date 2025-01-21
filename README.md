@@ -14,7 +14,7 @@
 
 ## Installation
 
-Clone this repo, then 
+Clone this repo, then:
 ```
 conda create -n opencap python=3.7 
 pip install -r requirements.txt
