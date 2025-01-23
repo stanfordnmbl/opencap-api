@@ -19,7 +19,7 @@ Clone this repo, then:
 conda create -n opencap python=3.7 
 pip install -r requirements.txt
 ```
-Create the `.env` file with all env variables and credentials.
+Create the `.env` file with all env variables and credentials
 
 ## Running the server locally 
 
