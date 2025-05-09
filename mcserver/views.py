@@ -1465,10 +1465,13 @@ class TrialViewSet(viewsets.ModelViewSet):
             # find trials with some videos not uploaded
             not_uploaded = Video.objects.filter(video='',
                                                 updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
+            
+            # Trials that have only one video
+            only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("id", flat=True)
 
-            print(not_uploaded)
+            # Exclude both: trials with not-uploaded videos and trials with only one video
+            uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(id__in=only_one_video)
 
-            uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
     #       uploaded_trials = Trial.objects.all()
 
             if workerType != 'dynamic':
