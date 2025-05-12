@@ -231,6 +231,14 @@ class SessionViewSet(viewsets.ModelViewSet):
             calibration_trials = session.trial_set.filter(name="calibration")
             last_calibration_trial_num_videos = 0
 
+            # Nothing in calibration - assume mono
+            # In future, we want to set a metadata parameter for isMono - this is a hack to allow us to collect data
+            if 'sessionWithCalibration' not in session.meta and session.trial_set.filter(name="calibration").count() == 0:
+                return Response({
+                'error_message': error_message,
+                'data': 1
+                })
+
             # Check if there is a calibration trial. If not, it must be in a parent session.
             loop_counter = 0
             while not calibration_trials and session.meta.get('sessionWithCalibration') and loop_counter < 100:
