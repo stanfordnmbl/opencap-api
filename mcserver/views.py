@@ -1460,19 +1460,22 @@ class TrialViewSet(viewsets.ModelViewSet):
         try:
             ip = get_client_ip(request)
 
-            workerType = self.request.query_params.get('workerType')
+            workerType = self.request.query_params.get('workerType', 'all')
+            isMono = self.request.query_params.get('isMono', 'false')
 
             # find trials with some videos not uploaded
             not_uploaded = Video.objects.filter(video='',
                                                 updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
             
             # Trials that have only one video
-            only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("id", flat=True)
+            only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("trial__id", flat=True)
 
             # Exclude both: trials with not-uploaded videos and trials with only one video
-            uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(id__in=only_one_video)
-
-    #       uploaded_trials = Trial.objects.all()
+            if isMono == 'true':
+                uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).filter(id__in=only_one_video)
+            else:
+                # Exclude trials with not-uploaded videos and only 1 video
+                uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(id__in=only_one_video)
 
             if workerType != 'dynamic':
                 # Priority for 'calibration' and 'neutral'
@@ -1504,7 +1507,10 @@ class TrialViewSet(viewsets.ModelViewSet):
                 raise Http404
 
             # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
-            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
+            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin"])
+            # if no admin trials, go to priority group trials
+            if trialsPrioritized.count() == 0:
+                trialsPrioritized = trials.filter(session__user__groups__name__in=["priority"])
             # if not priority trials, go to normal trials
             if trialsPrioritized.count() == 0:
                 trialsPrioritized = trials
