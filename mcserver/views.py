@@ -1469,17 +1469,17 @@ class TrialViewSet(viewsets.ModelViewSet):
             ip = get_client_ip(request)
 
             workerType = self.request.query_params.get('workerType', 'all')
-            isMono = self.request.query_params.get('isMono', 'false')
+            isMono = self.request.query_params.get('isMono', 'False')
 
             # find trials with some videos not uploaded
             not_uploaded = Video.objects.filter(video='',
                                                 updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
             
             # Trials that have only one video
-            only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("trial__id", flat=True)
+            only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("id", flat=True)
 
             # Exclude both: trials with not-uploaded videos and trials with only one video
-            if isMono == 'true':
+            if isMono == 'True':
                 uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).filter(id__in=only_one_video)
             else:
                 # Exclude trials with not-uploaded videos and only 1 video

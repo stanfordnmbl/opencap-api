@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'iw8ctf3)6e-6e#$&eoou-sqawdm4p(1+*#8tsdqy+6+tx=nlt$'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default=False, cast=bool)
+DEBUG = config("DEBUG", default=True, cast=bool)
 
 HOST = config("HOST", "127.0.0.1")
 PROTOCOL = config("PROTOCOL", "http")
