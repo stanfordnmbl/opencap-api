@@ -233,7 +233,7 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             # Nothing in calibration - assume mono
             # In future, we want to set a metadata parameter for isMono - this is a hack to allow us to collect data
-            if 'sessionWithCalibration' not in session.meta and session.trial_set.filter(name="calibration").count() == 0:
+            if 'sessionWithCalibration' not in (session.meta or {}) and session.trial_set.filter(name="calibration").count() == 0:
                 return Response({
                 'error_message': error_message,
                 'data': 1
