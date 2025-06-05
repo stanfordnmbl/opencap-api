@@ -1475,6 +1475,8 @@ class TrialViewSet(viewsets.ModelViewSet):
             not_uploaded = Video.objects.filter(video='',
                                                 updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
             
+            # Mono automatic check: comment out for now for performance
+            '''
             # Trials that have only one video
             only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("id", flat=True)
 
@@ -1484,6 +1486,9 @@ class TrialViewSet(viewsets.ModelViewSet):
             else:
                 # Exclude trials with not-uploaded videos and only 1 video
                 uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(id__in=only_one_video)
+            '''
+
+            uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
 
             if workerType != 'dynamic':
                 # Priority for 'calibration' and 'neutral'
