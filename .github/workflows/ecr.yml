@@ -29,6 +29,8 @@ on:
     branches:
       - main
   workflow_dispatch:
+    branches:
+      - main
 
 name: PRODUCTION ECS build & deployment
 
