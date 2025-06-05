@@ -233,11 +233,11 @@ class SessionViewSet(viewsets.ModelViewSet):
 
             # Nothing in calibration - assume mono
             # In future, we want to set a metadata parameter for isMono - this is a hack to allow us to collect data
-            # if 'sessionWithCalibration' not in (session.meta or {}) and session.trial_set.filter(name="calibration").count() == 0:
-            #     return Response({
-            #     'error_message': error_message,
-            #     'data': 1
-            #     })
+            #if 'sessionWithCalibration' not in (session.meta or {}) and session.trial_set.filter(name="calibration").count() == 0:
+            #    return Response({
+            #    'error_message': error_message,
+            #    'data': 1
+            #    })
 
             # Check if there is a calibration trial. If not, it must be in a parent session.
             loop_counter = 0
@@ -1475,6 +1475,8 @@ class TrialViewSet(viewsets.ModelViewSet):
             not_uploaded = Video.objects.filter(video='',
                                                 updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
             
+            # Mono automatic check: comment out for now for performance
+            '''
             # Trials that have only one video
             only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("id", flat=True)
 
@@ -1484,6 +1486,9 @@ class TrialViewSet(viewsets.ModelViewSet):
             else:
                 # Exclude trials with not-uploaded videos and only 1 video
                 uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(id__in=only_one_video)
+            '''
+
+            uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
 
             if workerType != 'dynamic':
                 # Priority for 'calibration' and 'neutral'
