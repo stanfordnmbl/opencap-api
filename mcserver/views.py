@@ -1031,6 +1031,9 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "posemodel": request.GET.get("subject_pose_model",""),
                 }
 
+            if "isMono" in request.GET:
+                session.meta["isMono"] = request.GET.get("isMono", "").lower() == 'true'
+
             if "settings_framerate" in request.GET:
                 session.meta["settings"] = {
                     "framerate": request.GET.get("settings_framerate",""),
