@@ -201,7 +201,9 @@ class SessionSerializer(serializers.ModelSerializer):
         return str(session.id).split("-")[0]
 
     def get_sessionName(self, session):
-        return session.meta.get("sessionName", "") if session.meta else ""
+        if hasattr(session, 'meta') and session.meta:
+            return session.meta.get("sessionName", "")
+        return ""
 
     class Meta:
         model = Session
@@ -254,7 +256,9 @@ class ValidSessionLightSerializer(serializers.ModelSerializer):
         return str(session.id).split("-")[0]
 
     def get_sessionName(self, session):
-        return session.meta.get("sessionName", "")
+        if hasattr(session, 'meta') and session.meta:
+            return session.meta.get("sessionName", "")
+        return ""
 
 
 class SessionStatusSerializer(serializers.ModelSerializer):
