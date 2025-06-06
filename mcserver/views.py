@@ -239,6 +239,13 @@ class SessionViewSet(viewsets.ModelViewSet):
             #    'data': 1
             #    })
 
+            # TODO uncomment this
+            # if "isMono" in session.meta and session.meta["isMono"] == True:
+            #     return Response({
+            #         'error_message': error_message,
+            #         'data': 1
+            #     })
+
             # Check if there is a calibration trial. If not, it must be in a parent session.
             loop_counter = 0
             while not calibration_trials and session.meta.get('sessionWithCalibration') and loop_counter < 100:
