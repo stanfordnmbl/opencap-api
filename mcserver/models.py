@@ -109,7 +109,7 @@ class Trial(models.Model):
     name = models.CharField(max_length=64, null=True)
     meta = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
     server = models.GenericIPAddressField(null=True, blank=True)
     is_docker = models.BooleanField(null=True, blank=True)
     hostname = models.CharField(max_length=64, null=True, blank=True)

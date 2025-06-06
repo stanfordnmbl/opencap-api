@@ -1482,9 +1482,11 @@ class TrialViewSet(viewsets.ModelViewSet):
             
 
             if isMonoQuery == 'False':
-                uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(session__isMono=True)
+                uploaded_trials = Trial.objects.filter(updated_at__gte=datetime.now() + timedelta(days=-7)).exclude(
+                                                        id__in=not_uploaded).exclude(session__isMono=True)
             else:
-                uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).filter(session__isMono=True)
+                uploaded_trials = Trial.objects.filter(updated_at__gte=datetime.now() + timedelta(days=-7)).exclude(
+                                                        id__in=not_uploaded).filter(session__isMono=True)
 
             if workerType != 'dynamic':
                 # Priority for 'calibration' and 'neutral'
