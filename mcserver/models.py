@@ -78,6 +78,8 @@ class Session(models.Model):
 
     trashed = models.BooleanField(default=False)
     trashed_at = models.DateTimeField(blank=True, null=True)
+    
+    isMono = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']
