@@ -231,6 +231,12 @@ class SessionViewSet(viewsets.ModelViewSet):
             calibration_trials = session.trial_set.filter(name="calibration")
             last_calibration_trial_num_videos = 0
 
+            if session.isMono:
+                return Response({
+                    'error_message': error_message,
+                    'data': 1
+                })
+
             # Check if there is a calibration trial. If not, it must be in a parent session.
             loop_counter = 0
             while not calibration_trials and session.meta.get('sessionWithCalibration') and loop_counter < 100:
@@ -1016,6 +1022,10 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "posemodel": request.GET.get("subject_pose_model",""),
                 }
 
+            if "isMono" in request.GET:
+                session.isMono = request.GET.get("isMono", "").lower() == 'true'
+
+
             if "settings_framerate" in request.GET:
                 session.meta["settings"] = {
                     "framerate": request.GET.get("settings_framerate",""),
@@ -1460,16 +1470,20 @@ class TrialViewSet(viewsets.ModelViewSet):
         try:
             ip = get_client_ip(request)
 
-            workerType = self.request.query_params.get('workerType')
+            workerType = self.request.query_params.get('workerType', 'all')
+            isMonoQuery = self.request.query_params.get('isMono', 'False')
+
+
 
             # find trials with some videos not uploaded
             not_uploaded = Video.objects.filter(video='',
                                                 updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
+            
 
-            print(not_uploaded)
-
-            uploaded_trials = Trial.objects.exclude(id__in=not_uploaded)
-    #       uploaded_trials = Trial.objects.all()
+            if isMonoQuery == 'False':
+                uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(session__isMono=False)
+            else:
+                uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).filter(session__isMono=True)
 
             if workerType != 'dynamic':
                 # Priority for 'calibration' and 'neutral'
@@ -1501,7 +1515,10 @@ class TrialViewSet(viewsets.ModelViewSet):
                 raise Http404
 
             # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
-            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
+            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin"])
+            # if no admin trials, go to priority group trials
+            if trialsPrioritized.count() == 0:
+                trialsPrioritized = trials.filter(session__user__groups__name__in=["priority"])
             # if not priority trials, go to normal trials
             if trialsPrioritized.count() == 0:
                 trialsPrioritized = trials
@@ -1532,7 +1549,7 @@ class TrialViewSet(viewsets.ModelViewSet):
             raise APIException(_('trial_dequeue_error'))
 
         return Response(serializer.data)
-    
+
     @action(detail=False, permission_classes=[((IsAdmin | IsBackend))])
     def get_trials_with_status(self, request):
         """
