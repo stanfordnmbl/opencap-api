@@ -239,6 +239,13 @@ class SessionViewSet(viewsets.ModelViewSet):
             #    'data': 1
             #    })
 
+            # TODO uncomment this
+            # if "isMono" in session.meta and session.meta["isMono"] == True:
+            #     return Response({
+            #         'error_message': error_message,
+            #         'data': 1
+            #     })
+
             # Check if there is a calibration trial. If not, it must be in a parent session.
             loop_counter = 0
             while not calibration_trials and session.meta.get('sessionWithCalibration') and loop_counter < 100:
@@ -1024,6 +1031,9 @@ class SessionViewSet(viewsets.ModelViewSet):
                     "posemodel": request.GET.get("subject_pose_model",""),
                 }
 
+            if "isMono" in request.GET:
+                session.meta["isMono"] = request.GET.get("isMono", "").lower() == 'true'
+
             if "settings_framerate" in request.GET:
                 session.meta["settings"] = {
                     "framerate": request.GET.get("settings_framerate",""),
@@ -1474,7 +1484,8 @@ class TrialViewSet(viewsets.ModelViewSet):
             # find trials with some videos not uploaded
             not_uploaded = Video.objects.filter(video='',
                                                 updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
-            
+
+            # TODO change this logic with isMono
             # Trials that have only one video
             only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("id", flat=True)
 
