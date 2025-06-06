@@ -1481,7 +1481,7 @@ class TrialViewSet(viewsets.ModelViewSet):
             
 
             if isMonoQuery == 'False':
-                uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(session__isMono=False)
+                uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(session__isMono=True)
             else:
                 uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).filter(session__isMono=True)
 
