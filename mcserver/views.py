@@ -1500,8 +1500,11 @@ class TrialViewSet(viewsets.ModelViewSet):
             if trials.count() == 0 and trialsReprocess.count() == 0:
                 raise Http404
 
-            # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
-            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin","priority"])
+            # prioritize admin group trials first
+            trialsPrioritized = trials.filter(session__user__groups__name__in=["admin"])
+            # if no admin trials, go to priority group trials
+            if trialsPrioritized.count() == 0:
+                trialsPrioritized = trials.filter(session__user__groups__name__in=["priority"])
             # if not priority trials, go to normal trials
             if trialsPrioritized.count() == 0:
                 trialsPrioritized = trials
