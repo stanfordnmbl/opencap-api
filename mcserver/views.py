@@ -1474,7 +1474,8 @@ class TrialViewSet(viewsets.ModelViewSet):
             # find trials with some videos not uploaded
             not_uploaded = Video.objects.filter(video='',
                                                 updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
-            
+
+            # TODO change this logic with isMono
             # Trials that have only one video
             only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("id", flat=True)
 
