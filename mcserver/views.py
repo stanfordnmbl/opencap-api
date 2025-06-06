@@ -395,9 +395,10 @@ class SessionViewSet(viewsets.ModelViewSet):
                 sessions = sessions.filter(subject=subject)
 
             # A session is valid only if at least one trial is the "neutral" trial and its status is "done".
+            # OR if it is a monocular session, which doesn't require a neutral trial.
             for session in sessions:
                 trials = Trial.objects.filter(session__exact=session, name__exact="neutral")
-                if trials.count() < 1:
+                if trials.count() < 1 and not session.isMono:
                     sessions = sessions.exclude(id__exact=session.id)
 
             # Sort by
