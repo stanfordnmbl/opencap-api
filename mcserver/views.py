@@ -1480,10 +1480,6 @@ class TrialViewSet(viewsets.ModelViewSet):
                                                 updated_at__gte=datetime.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
             
 
-            # TODO CHANGE THIS LOGIC. 
-            # Trials that have only one video
-            # only_one_video = Trial.objects.annotate(video_count=Count('video')).filter(video_count=1).values_list("id", flat=True)
-
             if isMonoQuery == 'False':
                 uploaded_trials = Trial.objects.exclude(id__in=not_uploaded).exclude(session__isMono=False)
             else:
