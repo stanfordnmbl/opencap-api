@@ -21,7 +21,7 @@ from django.db.models import Q
 from django.utils.translation import gettext as _
 from django.http import FileResponse
 from django.db.models import Count
-from django.db.models import F
+from django.db.models import F, Func
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.core.mail import EmailMessage
@@ -168,6 +168,28 @@ def zipdir(path, ziph):
 class SessionViewSet(viewsets.ModelViewSet):
     serializer_class = SessionSerializer
     permission_classes = [IsPublic | ((IsOwner | IsAdmin | IsBackend))]
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAdmin | IsBackend | IsAuthenticated])
+    def search_sessions(self, request):
+        """
+        Returns trials where the provided text is part of the session ID or meta.sessionName.
+        Usage: session/search_sessions/?text=somevalue
+        """
+        text = request.query_params.get('text', '').strip()
+        if not text:
+            return Response({'error': 'Missing `text` query parameter.'}, status=400)
+
+        # Match partial ID (UUIDs are strings) or name
+        sessions = Session.objects.annotate(
+            id_text=Func(F('id'), function='TEXT')
+        ).filter(
+            (Q(id_text__icontains=text) | Q(meta__sessionName__icontains=text))
+             &
+             Q(user=request.user)
+        ).order_by("-created_at")
+
+        serializer = SessionSerializer(sessions, many=True)
+        return Response(serializer.data)
 
     @setup_eager_loading
     def get_queryset(self):
@@ -1722,7 +1744,6 @@ class TrialViewSet(viewsets.ModelViewSet):
         return Response({
             'data': serializer.data
         })
-
 
 
 
