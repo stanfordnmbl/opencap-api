@@ -2001,7 +2001,19 @@ class SubjectViewSet(viewsets.ModelViewSet):
         return Subject.objects.filter(user=user).prefetch_related('subjecttags_set')
 
     def list(self, request):
+        """
+        Default to the user's own subjects. 
+        
+        admin/backend can pass ?all_subjects=true to list across all users;
+        no-op for other users.
+        """
         queryset = self.get_queryset()
+        all_subjects = request.query_params.get('all_subjects', 'false') == 'true'
+        if not all_subjects:
+            queryset = queryset.filter(user=request.user)
+        # snapshot before search/trashed/paging narrow queryset below (see total)
+        base_queryset = queryset
+
         # Get quantity from post request. If it does exist, use it. If not, set -1 as default (e.g., return all)
         # print(request.query_params)
         is_simple = request.query_params.get('simple', 'false') == 'true'
@@ -2036,7 +2048,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
             queryset = queryset[:quantity]
 
         serializer = (SimpleSubjectSerializer if is_simple else SubjectSerializer)(queryset, many=True)
-        return Response({'subjects': serializer.data, 'total': self.get_queryset().count()})
+        return Response({'subjects': serializer.data, 'total': base_queryset.count()})
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
