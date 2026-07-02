@@ -934,11 +934,13 @@ class SessionViewSet(viewsets.ModelViewSet):
         else:
             newSessionURL = None
             
-        if session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
+        if session.useLidar:
+            frameRate = 60
+        elif session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
             frameRate = int(session.meta['settings']['framerate'])
         else:
             frameRate = 60
-        if trial and (trial.name in {'calibration','neutral'}):
+        if not session.useLidar and trial and (trial.name in {'calibration','neutral'}):
             frameRate = 30
 
 
