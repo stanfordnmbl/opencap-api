@@ -299,6 +299,52 @@ class SessionViewSet(viewsets.ModelViewSet):
                 raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
             raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
 
+    @action(detail=True, methods=['get', 'patch'], permission_classes=[AllowAny])
+    def useLidar(self, request, pk):
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            session = get_object_or_404(Session, pk=pk)
+
+            if request.method == 'GET':
+                return Response({"useLidar": session.useLidar})
+
+            if not request.user.is_authenticated:
+                raise NotAuthenticated(_('login_needed'))
+
+            has_permission = (
+                IsOwner().has_permission(request, self) and
+                IsOwner().has_object_permission(request, self, session)
+            ) or IsAdmin().has_object_permission(request, self, session) or \
+                IsBackend().has_object_permission(request, self, session)
+
+            if not has_permission:
+                raise PermissionDenied(_('permission_denied'))
+
+            useLidar = request.data.get('useLidar', request.query_params.get('useLidar'))
+            if isinstance(useLidar, bool):
+                session.useLidar = useLidar
+            elif isinstance(useLidar, str) and useLidar.lower() in ['true', 'false']:
+                session.useLidar = useLidar.lower() == 'true'
+            else:
+                return Response(
+                    {'useLidar': ['Expected true or false.']},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            session.save(update_fields=['useLidar', 'updated_at'])
+            return Response({"useLidar": session.useLidar})
+
+        except Http404:
+            if settings.DEBUG:
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+
     @action(
         detail=True,
         methods=["get", "post"],
@@ -758,6 +804,7 @@ class SessionViewSet(viewsets.ModelViewSet):
                 user = User.objects.get(id=1)
             sessionNew.user = user
             sessionNew.save_local = sessionOld.save_local
+            sessionNew.useLidar = sessionOld.useLidar
 
         except Http404:
             if settings.DEBUG:
@@ -856,6 +903,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             if trial.video_set.filter(device_id=request.GET["device_id"]).count() == 0:
                 video = Video()
                 video.device_id = request.GET["device_id"]
+                video.isLidar = str(request.GET.get("usingLidar", "")).lower() == "true"
                 video.trial = trial
                 video.save()
             status = "recording"
@@ -870,6 +918,8 @@ class SessionViewSet(viewsets.ModelViewSet):
                 video_uploaded = video.video and video.video.url
             if video_uploaded:
                 n_videos_uploaded = n_videos_uploaded + 1
+        if "device_id" not in request.GET:
+            n_cameras_using_lidar = trial.video_set.filter(isLidar=True).count() if trial else 0
 
         video_url = None
         if trial and trial.status == "recording" and "device_id" in request.GET:
@@ -884,11 +934,13 @@ class SessionViewSet(viewsets.ModelViewSet):
         else:
             newSessionURL = None
             
-        if session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
+        if session.useLidar:
+            frameRate = 60
+        elif session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
             frameRate = int(session.meta['settings']['framerate'])
         else:
             frameRate = 60
-        if trial and (trial.name in {'calibration','neutral'}):
+        if not session.useLidar and trial and (trial.name in {'calibration','neutral'}):
             frameRate = 30
 
 
@@ -898,10 +950,14 @@ class SessionViewSet(viewsets.ModelViewSet):
             "trialname": trial.name if trial else None,
             "video": video_url,
             "framerate": frameRate,
+            "useLidar": session.useLidar,
             "newSessionURL": newSessionURL,
             "n_cameras_connected": n_cameras_connected,
             "n_videos_uploaded": n_videos_uploaded
         }
+
+        if "device_id" not in request.GET:
+            res["n_cameras_using_lidar"] = n_cameras_using_lidar
 
         if "ret_session" in request.GET:
             res["session"] = SessionSerializer(session, many=False).data
@@ -983,6 +1039,10 @@ class SessionViewSet(viewsets.ModelViewSet):
                 name = "{}_{}".format(name, highest_count + 1)
 
             trial.name = name
+            session.trial_set.filter(status="recording").update(
+                status="error",
+                updated_at=timezone.now()
+            )
             trial.save()
 
             if name == "calibration" or name == "neutral":
@@ -2654,6 +2714,16 @@ class UserInstitutionalUseView(APIView):
             raise APIException(_('user_institutional_use_error'))
 
         return Response(serializer.data)
+
+
+class UserGroupsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, format='json'):
+        group_names = list(request.user.groups.values_list('name', flat=True))
+        return Response({
+            'groups': group_names,
+        })
 
 
 class AnalysisFunctionsListAPIView(ListAPIView):
