@@ -253,6 +253,98 @@ class SessionViewSet(viewsets.ModelViewSet):
     def api_health_check(self, request):
         return Response({"status": "True"})
 
+    @action(detail=True, methods=['get', 'patch'], permission_classes=[AllowAny])
+    def save_local(self, request, pk):
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            session = get_object_or_404(Session, pk=pk)
+
+            if request.method == 'GET':
+                return Response({"save_local": session.save_local})
+
+            if not request.user.is_authenticated:
+                raise NotAuthenticated(_('login_needed'))
+
+            has_permission = (
+                IsOwner().has_permission(request, self) and
+                IsOwner().has_object_permission(request, self, session)
+            ) or IsAdmin().has_object_permission(request, self, session) or \
+                IsBackend().has_object_permission(request, self, session)
+
+            if not has_permission:
+                raise PermissionDenied(_('permission_denied'))
+
+            save_local = request.data.get('save_local', request.query_params.get('save_local'))
+            if isinstance(save_local, bool):
+                session.save_local = save_local
+            elif isinstance(save_local, str) and save_local.lower() in ['true', 'false']:
+                session.save_local = save_local.lower() == 'true'
+            else:
+                return Response(
+                    {'save_local': ['Expected true or false.']},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            session.save(update_fields=['save_local', 'updated_at'])
+            return Response({"save_local": session.save_local})
+
+        except Http404:
+            if settings.DEBUG:
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+
+    @action(detail=True, methods=['get', 'patch'], permission_classes=[AllowAny])
+    def useLidar(self, request, pk):
+        try:
+            if pk == 'undefined':
+                raise ValueError(_("undefined_uuid"))
+
+            session = get_object_or_404(Session, pk=pk)
+
+            if request.method == 'GET':
+                return Response({"useLidar": session.useLidar})
+
+            if not request.user.is_authenticated:
+                raise NotAuthenticated(_('login_needed'))
+
+            has_permission = (
+                IsOwner().has_permission(request, self) and
+                IsOwner().has_object_permission(request, self, session)
+            ) or IsAdmin().has_object_permission(request, self, session) or \
+                IsBackend().has_object_permission(request, self, session)
+
+            if not has_permission:
+                raise PermissionDenied(_('permission_denied'))
+
+            useLidar = request.data.get('useLidar', request.query_params.get('useLidar'))
+            if isinstance(useLidar, bool):
+                session.useLidar = useLidar
+            elif isinstance(useLidar, str) and useLidar.lower() in ['true', 'false']:
+                session.useLidar = useLidar.lower() == 'true'
+            else:
+                return Response(
+                    {'useLidar': ['Expected true or false.']},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            session.save(update_fields=['useLidar', 'updated_at'])
+            return Response({"useLidar": session.useLidar})
+
+        except Http404:
+            if settings.DEBUG:
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_found") % {"uuid": str(pk)})
+        except ValueError:
+            if settings.DEBUG:
+                raise APIException(_("error") % {"error_message": str(traceback.format_exc())})
+            raise NotFound(_("session_uuid_not_valid") % {"uuid": str(pk)})
+
     @action(
         detail=True,
         methods=["get", "post"],
@@ -711,6 +803,8 @@ class SessionViewSet(viewsets.ModelViewSet):
             if not user.is_authenticated:
                 user = User.objects.get(id=1)
             sessionNew.user = user
+            sessionNew.save_local = sessionOld.save_local
+            sessionNew.useLidar = sessionOld.useLidar
 
         except Http404:
             if settings.DEBUG:
@@ -788,7 +882,16 @@ class SessionViewSet(viewsets.ModelViewSet):
             # if not all videos uploaded then the status is 'uploading'
             # if results are not ready then processing
             # otherwise it's ready again
-            if any([(not v.video) for v in trial.video_set.all()]):
+            if session.save_local:
+                is_waiting_for_videos = any([
+                    (not v.video and not v.saved_local) for v in trial.video_set.all()
+                ])
+            else:
+                is_waiting_for_videos = any([
+                    (not v.video) for v in trial.video_set.all()
+                ])
+
+            if is_waiting_for_videos:
                 status = 'uploading'
             elif trial.result_set.count() == 0:
                 status = 'processing'
@@ -800,6 +903,7 @@ class SessionViewSet(viewsets.ModelViewSet):
             if trial.video_set.filter(device_id=request.GET["device_id"]).count() == 0:
                 video = Video()
                 video.device_id = request.GET["device_id"]
+                video.isLidar = str(request.GET.get("usingLidar", "")).lower() == "true"
                 video.trial = trial
                 video.save()
             status = "recording"
@@ -808,8 +912,14 @@ class SessionViewSet(viewsets.ModelViewSet):
         n_videos_uploaded = 0
         n_cameras_connected = Video.objects.filter(trial=trial).count()
         for video in Video.objects.filter(trial=trial).all():
-            if video.video and video.video.url:
+            if session.save_local:
+                video_uploaded = video.video or video.saved_local
+            else:
+                video_uploaded = video.video and video.video.url
+            if video_uploaded:
                 n_videos_uploaded = n_videos_uploaded + 1
+        if "device_id" not in request.GET:
+            n_cameras_using_lidar = trial.video_set.filter(isLidar=True).count() if trial else 0
 
         video_url = None
         if trial and trial.status == "recording" and "device_id" in request.GET:
@@ -824,23 +934,30 @@ class SessionViewSet(viewsets.ModelViewSet):
         else:
             newSessionURL = None
             
-        if session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
+        if session.useLidar:
+            frameRate = 60
+        elif session.meta and "settings" in session.meta and "framerate" in session.meta['settings']:
             frameRate = int(session.meta['settings']['framerate'])
         else:
             frameRate = 60
-        if trial and (trial.name in {'calibration','neutral'}):
+        if not session.useLidar and trial and (trial.name in {'calibration','neutral'}):
             frameRate = 30
 
 
         res = {
             "status": status,
             "trial": trial_url,
+            "trialname": trial.name if trial else None,
             "video": video_url,
             "framerate": frameRate,
+            "useLidar": session.useLidar,
             "newSessionURL": newSessionURL,
             "n_cameras_connected": n_cameras_connected,
             "n_videos_uploaded": n_videos_uploaded
         }
+
+        if "device_id" not in request.GET:
+            res["n_cameras_using_lidar"] = n_cameras_using_lidar
 
         if "ret_session" in request.GET:
             res["session"] = SessionSerializer(session, many=False).data
@@ -922,6 +1039,10 @@ class SessionViewSet(viewsets.ModelViewSet):
                 name = "{}_{}".format(name, highest_count + 1)
 
             trial.name = name
+            session.trial_set.filter(status="recording").update(
+                status="error",
+                updated_at=timezone.now()
+            )
             trial.save()
 
             if name == "calibration" or name == "neutral":
@@ -1604,16 +1725,26 @@ class TrialViewSet(viewsets.ModelViewSet):
 
 
 
-            # find trials with some videos not uploaded
-            not_uploaded = Video.objects.filter(video='',
-                                                updated_at__gte=timezone.now() + timedelta(minutes=-15)).values_list("trial__id", flat=True)
+            # Trials are waiting-for-upload when a missing video was updated
+            # recently. Do not dequeue trials with non-uploaded videos
+            # or saved-local videos, within the 7 day updated-at window.
+            active_trial_cutoff = timezone.now() + timedelta(days=-4)
+            recent_video_cutoff = timezone.now() + timedelta(minutes=-15)
+            missing_video_q = Q(video='')
+            not_uploaded = Video.objects.filter(
+                missing_video_q,
+                trial__updated_at__gte=active_trial_cutoff,
+            ).filter(
+                Q(updated_at__gte=recent_video_cutoff) |
+                Q(saved_local=True)
+            ).values_list("trial__id", flat=True)
             
 
             if isMonoQuery == 'False':
-                uploaded_trials = Trial.objects.filter(updated_at__gte=timezone.now() + timedelta(days=-7)).exclude(
+                uploaded_trials = Trial.objects.filter(updated_at__gte=active_trial_cutoff).exclude(
                                                         id__in=not_uploaded).exclude(session__isMono=True)
             else:
-                uploaded_trials = Trial.objects.filter(updated_at__gte=timezone.now() + timedelta(days=-7)).exclude(
+                uploaded_trials = Trial.objects.filter(updated_at__gte=active_trial_cutoff).exclude(
                                                         id__in=not_uploaded).filter(session__isMono=True)
 
             if workerType != 'dynamic':
@@ -1883,6 +2014,9 @@ class VideoViewSet(viewsets.ModelViewSet):
 
         if "isLidar" in self.request.data:
             serializer.validated_data["isLidar"] = str(self.request.data.get("isLidar", "")).lower() == "true"
+
+        if "saved_local" in self.request.data:
+            serializer.validated_data["saved_local"] = str(self.request.data.get("saved_local", "")).lower() == "true"
 
         super().perform_update(serializer)
 
@@ -2580,6 +2714,16 @@ class UserInstitutionalUseView(APIView):
             raise APIException(_('user_institutional_use_error'))
 
         return Response(serializer.data)
+
+
+class UserGroupsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, format='json'):
+        group_names = list(request.user.groups.values_list('name', flat=True))
+        return Response({
+            'groups': group_names,
+        })
 
 
 class AnalysisFunctionsListAPIView(ListAPIView):
