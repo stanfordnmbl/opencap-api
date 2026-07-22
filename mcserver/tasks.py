@@ -24,7 +24,8 @@ from mcserver.models import (
 from mcserver.zipsession_v2 import (
     SessionDirectoryConstructor,
     SubjectDirectoryConstructor,
-    zipdir
+    zipdir,
+    rmtree_with_retry
 )
 
 
@@ -51,57 +52,46 @@ def download_session_archive(self, session_id, user_id=None):
     """ This task is responsible for asynchronous session archive download.
         If user_id is None, the public session download occurred.
     """
-    import shutil
-
-    session_dir_path = None
+    # Known up front so the build dir is cleaned up even if build() raises.
+    session_dir_path = os.path.join(
+        settings.MEDIA_ROOT, f"OpenCapData_{session_id}")
     session_zip_path = None
 
     try:
         session_dir_path = SessionDirectoryConstructor().build(session_id)
         session_zip_path = zipdir(session_dir_path)
-
         create_download_log(session_zip_path, self.request.id, user_id)
-        os_remove_with_retry(session_zip_path)
-
     except Exception as e:
-        # Delete files and send the traceback to Sentry if something went wrong
-        if session_dir_path and os.path.isfile(session_dir_path):
-            shutil.rmtree(session_dir_path)
-        if session_zip_path and os.path.isfile(session_zip_path):
-            os.remove(session_zip_path)
         if settings.SENTRY_DSN:
             import sentry_sdk
             sentry_sdk.capture_exception(e)
         else:
             print(e)
+    finally:
+        cleanup_download_tmp_files(session_dir_path, session_zip_path)
+
 
 @shared_task(bind=True)
 def download_subject_archive(self, subject_id, user_id):
     """ This task is responsible for asynchronous subject archive download
     """
-    import shutil
-
-    subject_dir_path = None
+    # Known up front so the build dir is cleaned up even if build() raises.
+    subject_dir_path = os.path.join(
+        settings.MEDIA_ROOT, f"OpenCapData_Subject_{subject_id}")
     subject_zip_path = None
 
     try:
         subject_dir_path = SubjectDirectoryConstructor().build(subject_id)
         subject_zip_path = zipdir(subject_dir_path)
-        with open(subject_zip_path, "rb") as archive:
-            log = DownloadLog.objects.create(task_id=str(self.request.id), user_id=user_id)
-            log.media.save(os.path.basename(subject_zip_path), archive)
-            os.remove(subject_zip_path)
+        create_download_log(subject_zip_path, self.request.id, user_id)
     except Exception as e:
-        # Delete files and send the traceback to Sentry if something went wrong
-        if subject_dir_path and os.path.isfile(subject_dir_path):
-            shutil.rmtree(subject_dir_path)
-        if subject_zip_path and os.path.isfile(subject_zip_path):
-            os.remove(subject_zip_path)
         if settings.SENTRY_DSN:
             import sentry_sdk
             sentry_sdk.capture_exception(e)
         else:
             print(e)
+    finally:
+        cleanup_download_tmp_files(subject_dir_path, subject_zip_path)
 
 
 @shared_task
@@ -199,7 +189,15 @@ def submit_cloudwatch_metrics():
     submit_number_of_pending_trials_to_cloudwatch()
 
 # Helper functions
-def create_download_log(zip_path, task_id, user_id, 
+def cleanup_download_tmp_files(dir_path, zip_path):
+    """Remove the local build dir and zip archive for a download, if present."""
+    if dir_path and os.path.isdir(dir_path):
+        rmtree_with_retry(dir_path)
+    if zip_path and os.path.isfile(zip_path):
+        os_remove_with_retry(zip_path)
+
+
+def create_download_log(zip_path, task_id, user_id,
                         max_retries=5, backoff=0.1):
     archive = None
     for attempt in range(max_retries):
