@@ -165,13 +165,12 @@ python manage.py migrate
 
 ## 🧪 Testing
 
-### Test Coverage
+### Test
 
-Run tests with coverage:
+Run tests with:
 
 ```bash
-coverage run manage.py test ./tests/
-coverage report -m
+run manage.py test ./tests/
 ```
 
 ### API Testing
