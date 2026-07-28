@@ -55,7 +55,7 @@ Inside of mcserver folder:
 
 ## Tests
 
-To run tests on the API< run the following command:
+To run tests on the API run the following command:
 
    `python manage.py test .\tests\`
 
