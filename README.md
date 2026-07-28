@@ -53,6 +53,14 @@ Inside of mcserver folder:
 
    `django-admin compilemessages`
 
+## Tests
+
+To run tests on the API run the following command:
+
+   `python manage.py test .\tests\`
+
+Note: Some tests are not up to date and may fail.
+Note: test_permissions.SessionsPermissionsTests may result in errors on Windows, but should work in Ubuntu and macOS.
 
 ## Current routes (not up to date, there are more):
 
