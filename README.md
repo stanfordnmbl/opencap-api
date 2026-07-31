@@ -1,28 +1,14 @@
 # 🎯 OpenCap API
 
-[![Python Version](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
-[![Django Version](https://img.shields.io/badge/django-3.1.14+-green.svg)](https://www.djangoproject.com/)
+[![Python Version](https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/)
+[![Django Version](https://img.shields.io/badge/django-3.1.14-green.svg)](https://www.djangoproject.com/)
 [![License](https://img.shields.io/badge/license-APACHE_2.0-blue.svg)](LICENSE.md)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/opencap-org/opencap-api/pulls)
 
-> Backend API for OpenCap - The open-source platform for biomechanical motion capture and gait analysis using mobile devices.
-
-## 📖 Table of Contents
-
-- [Overview](#overview)
-- [Workflow](#workflow)
-- [Getting Started](#getting-started)
-- [API Documentation](#api-documentation)
-- [Development](#development)
-- [Testing](#testing)
-- [Internationalization](#internationalization)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
-- [License](#license)
+> Django backend for [OpenCap](https://app.opencap.ai).
 
 ## 🔭 Overview
 
-OpenCap is an open source biomechanical motion capture platform that leverages iOS devices to capture and analyze human movement. This repository contains the Django-based backend API that orchestrates the entire workflow, from session management to video processing and biomechanical analysis.
+The API serves both the webapp and the iOS app. It stores sessions, subjects, trials, and videos, and queues recordings for the processing pipeline. Background work (archive builds, session downloads, scheduled cleanup) runs in Celery workers backed by Redis, not in the web process.
 
 ## 🔄 Workflow
 
@@ -42,163 +28,109 @@ OpenCap is an open source biomechanical motion capture platform that leverages i
 
 ### Prerequisites
 
-- Python 3.7+
-- [gettext](https://www.gnu.org/software/gettext/) (for internationalization)
+Beyond `requirements.txt`, which covers pip packages only:
+
+- **Python 3.7** — the pinned dependencies do not install on newer versions
+- **PostgreSQL** — `mcserver/settings.py` always uses the `postgresql` backend
+
+Depending on the work:
+
+- **Redis** — to run Celery. The API serves requests without it, but asynchronous work (session downloads, cleanup jobs) never runs
+- **[gettext](https://www.gnu.org/software/gettext/)** — to compile translations
 
 ### Installation
 
-1. Clone the repository:
 ```bash
 git clone https://github.com/opencap-org/opencap-api.git
 cd opencap-api
-```
-
-2. Create and activate a conda environment:
-```bash
 conda create -n opencap python=3.7
 conda activate opencap
-```
-
-3. Install dependencies:
-```bash
 pip install -r requirements.txt
 ```
 
-4. Create environment variables file:
-```bash
-touch .env
-# Edit .env with your credentials
-```
+### Configuration
 
-5. Start the development server:
+Create a `.env` file in the repository root. The required variables are the `config(...)` calls in `mcserver/settings.py` that have no default; ask a maintainer for development values.
+
+### Running locally
+
 ```bash
+python manage.py migrate
 python manage.py runserver
 ```
 
-The API will be available at `http://localhost:8000/` by default.
+The API is served at `http://localhost:8000/`.
+
+Asynchronous work needs Celery processes running alongside the server:
+
+```bash
+celery -A mcserver worker -l info  # session downloads, archive builds
+celery -A mcserver beat -l info    # scheduled jobs
+```
 
 ## 📚 API Documentation
 
-### Interactive Docs
-
-Once the server is running, access the auto-generated documentation:
+With the server running:
 
 - **Swagger UI**: `http://localhost:8000/docs/`
 - **ReDoc**: `http://localhost:8000/redocs/`
 
+Routes are registered in `mcserver/urls.py`. Most come from the viewsets in `mcserver/views.py`, which also add a number of custom actions on top of the standard REST routes. Requests authenticate with a DRF token, or a session cookie for the browsable API.
+
 ## 💻 Development
 
-### Adding New Fields to the Data Model
+### Adding new fields to the data model
 
-1. Update models in `mcserver/models.py`:
-```python
-class YourModel(models.Model):
-    new_field = models.CharField(max_length=255)
-```
+1. Add the field to the model in `mcserver/models.py`
+2. Run `python manage.py makemigrations`
+3. Run `python manage.py migrate` — careful, this modifies the database
+4. Add the field to `mcserver/serializers.py` if the API should expose it
+5. Update `mcserver/admin.py` if it should appear in the admin
 
-2. Create migration:
-```bash
-python manage.py makemigrations
-```
+### Running tests
 
-3. Apply migration:
-```bash
-python manage.py migrate  # Careful: modifies database!
-```
-
-4. Update serializers in `mcserver/serializers.py`:
-```python
-class YourModelSerializer(serializers.ModelSerializer):
-    class Meta:
-        fields = [... 'new_field']
-```
-
-5. Potentially update `mcserver/admin.py`
-
-### Running Tests
+Tests need a valid `.env` and a database they are allowed to create.
 
 ```bash
-python manage.py test ./tests/
+python manage.py test tests                   # whole suite
+python manage.py test tests.test_permissions  # one module
 ```
 
 > **Note**: Some tests may be outdated and fail. Test `test_permissions.SessionsPermissionsTests` may fail on Windows but works on Ubuntu and macOS.
 
 ## 🌍 Internationalization
 
-### Adding New Languages
+See the [Django translation docs](https://docs.djangoproject.com/en/3.1/topics/i18n/translation/). This requires [gettext](https://www.gnu.org/software/gettext/) — restart your terminal or IDE after installing it.
 
-Navigate to the `mcserver` folder:
+From the `mcserver` folder:
 
-1. Create translation files for a language:
 ```bash
-django-admin makemessages -l <language-code>
-# Example: django-admin makemessages -l es
+django-admin makemessages -l es   # create or refresh files for a language
+django-admin compilemessages      # compile them
 ```
-
-2. Compile translation messages:
-```bash
-django-admin compilemessages
-```
-
-> **Note**: Make sure gettext is installed and your IDE/Terminal is restarted after installation.
 
 ## 🚢 Deployment
 
-### Production Deployment Steps
+Deployment is automated with GitHub Actions. Each push builds `Dockerfile`, pushes the image to ECR, and forces a new ECS deployment.
 
-1. Pull the latest code:
-```bash
-git pull origin main
-```
+| Branch | Workflow | Effect |
+| --- | --- | --- |
+| `dev` | `.github/workflows/ecr-dev.yml` | Builds `opencap/api-dev`; redeploys `api-server-dev`, `api-server-celery-dev`, `api-server-celery-beat-dev` in `opencap-api-cluster-dev` |
+| `main` | `.github/workflows/ecr.yml` | Builds `opencap/api`; redeploys `api-server`, `api-server-celery`, `api-server-celery-beat` in `opencap-api-cluster` |
 
-2. Update dependencies:
-```bash
-pip install -r requirements.txt
-```
+Two things are not automated:
 
-3. Run migrations:
-```bash
-python manage.py migrate
-```
-
-4. Restart the application server (Gunicorn/uWSGI/etc.)
-
-## 🧪 Testing
-
-### Test
-
-Run tests with:
-
-```bash
-run manage.py test ./tests/
-```
-
-### API Testing
-
-Use the Swagger UI at `/docs/` or use tools like curl:
-
-```bash
-# Create a session
-curl -X POST http://localhost:8000/sessions/ \
-  -H "Authorization: Token your_token" \
-  -H "Content-Type: application/json" \
-  -d '{"subject": "subject_uuid"}'
-```
+- **Migrations.** If your change adds one, run `python manage.py migrate` against that environment's database after the deploy.
+- **Environment variables.** New settings have to be added to the ECS task definitions; they are not read from this repository.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please submit an [Issue](https://github.com/opencap-org/opencap-api/issues) or create a [PR](https://github.com/opencap-org/opencap-api/pulls).
+1. Open an [issue](https://github.com/opencap-org/opencap-api/issues) describing the change first
+2. Branch off `dev`
+3. Open a pull request against `dev`, referencing the issue
 
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
+`dev` is the integration branch. Changes reach production through a `dev` → `main` pull request. Since a push to `main` deploys production immediately, work should not target it directly.
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE.md) file for details.
-
+Apache License 2.0 — see [LICENSE.md](LICENSE.md) for details.
