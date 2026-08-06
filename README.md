@@ -1,5 +1,17 @@
-# OpenCap API 
-## Workflow for app.opencap.ai
+# 🎯 OpenCap API
+
+[![Python Version](https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/)
+[![Django Version](https://img.shields.io/badge/django-3.1.14-green.svg)](https://www.djangoproject.com/)
+[![License](https://img.shields.io/badge/license-APACHE_2.0-blue.svg)](LICENSE.md)
+
+> Django backend for [OpenCap](https://app.opencap.ai).
+
+## 🔭 Overview
+
+The API serves both the webapp and the iOS app. It stores sessions, subjects, trials, and videos, and queues recordings for the processing pipeline. Background work (archive builds, session downloads, scheduled cleanup) runs in Celery workers backed by Redis, not in the web process.
+
+## 🔄 Workflow
+
 1. User enters the website (app.opencap.ai)
 2. The website calls the backend and creates a session
 3. The session generates a QR code displayed in the webapp
@@ -12,64 +24,113 @@
 10. Video processing pipeline pools sessions in 'processing' state and processes them
 11. After processing, results are sent to the backend and the backend changes its state to 'done'
 
-## Installation
+## 🚀 Getting Started
 
-Clone this repo, then:
-```
-conda create -n opencap python=3.7 
+### Prerequisites
+
+Beyond `requirements.txt`, which covers pip packages only:
+
+- **Python 3.7** — the pinned dependencies do not install on newer versions
+- **PostgreSQL** — `mcserver/settings.py` always uses the `postgresql` backend
+
+Depending on the work:
+
+- **Redis** — to run Celery. The API serves requests without it, but asynchronous work (session downloads, cleanup jobs) never runs
+- **[gettext](https://www.gnu.org/software/gettext/)** — to compile translations
+
+### Installation
+
+```bash
+git clone https://github.com/opencap-org/opencap-api.git
+cd opencap-api
+conda create -n opencap python=3.7
 conda activate opencap
 pip install -r requirements.txt
 ```
-Create the `.env` file with all env variables and credentials
 
-## Running the server locally 
+### Configuration
 
-```
+Create a `.env` file in the repository root. The required variables are the `config(...)` calls in `mcserver/settings.py` that have no default; ask a maintainer for development values.
+
+### Running locally
+
+```bash
+python manage.py migrate
 python manage.py runserver
 ```
 
-## Adding new fields to the data model
+The API is served at `http://localhost:8000/`.
 
-1. Add fields to `mcserver/models.py`
+Asynchronous work needs Celery processes running alongside the server:
+
+```bash
+celery -A mcserver worker -l info  # session downloads, archive builds
+celery -A mcserver beat -l info    # scheduled jobs
+```
+
+## 📚 API Documentation
+
+With the server running:
+
+- **Swagger UI**: `http://localhost:8000/docs/`
+- **ReDoc**: `http://localhost:8000/redocs/`
+
+Routes are registered in `mcserver/urls.py`. Most come from the viewsets in `mcserver/views.py`, which also add a number of custom actions on top of the standard REST routes. Requests authenticate with a DRF token, or a session cookie for the browsable API.
+
+## 💻 Development
+
+### Adding new fields to the data model
+
+1. Add the field to the model in `mcserver/models.py`
 2. Run `python manage.py makemigrations`
-3. Run `python manage.py migrate` (be careful, this modifies the database)
-4. Add fields we want to expose in the api to the `mcserver/serializers.py` file 
+3. Run `python manage.py migrate` — careful, this modifies the database
+4. Add the field to `mcserver/serializers.py` if the API should expose it
+5. Update `mcserver/admin.py` if it should appear in the admin
 
-Then for deploying to production we pull all the updated code and run the step 3. (with the production `.env` file)
+### Running tests
 
-## Internationalization/Localization
+Tests need a valid `.env` and a database they are allowed to create.
 
-Instructions in this [Link](https://docs.djangoproject.com/en/4.2/topics/i18n/translation/).
+```bash
+python manage.py test tests                   # whole suite
+python manage.py test tests.test_permissions  # one module
+```
 
-**Note:** You must also install [gettext](https://www.gnu.org/software/gettext/). After install, restart your IDE/Terminal).
+> **Note**: Some tests may be outdated and fail. Test `test_permissions.SessionsPermissionsTests` may fail on Windows but works on Ubuntu and macOS.
 
-Inside of mcserver folder:
+## 🌍 Internationalization
 
-1. Create files for a language:
+See the [Django translation docs](https://docs.djangoproject.com/en/3.1/topics/i18n/translation/). This requires [gettext](https://www.gnu.org/software/gettext/) — restart your terminal or IDE after installing it.
 
-   `django-admin makemessages -l <language-code>`
+From the `mcserver` folder:
 
-2. Compile messages:
+```bash
+django-admin makemessages -l es   # create or refresh files for a language
+django-admin compilemessages      # compile them
+```
 
-   `django-admin compilemessages`
+## 🚢 Deployment
 
-## Tests
+Deployment is automated with GitHub Actions. Each push builds `Dockerfile`, pushes the image to ECR, and forces a new ECS deployment.
 
-To run tests on the API run the following command:
+| Branch | Workflow | Effect |
+| --- | --- | --- |
+| `dev` | `.github/workflows/ecr-dev.yml` | Builds `opencap/api-dev`; redeploys `api-server-dev`, `api-server-celery-dev`, `api-server-celery-beat-dev` in `opencap-api-cluster-dev` |
+| `main` | `.github/workflows/ecr.yml` | Builds `opencap/api`; redeploys `api-server`, `api-server-celery`, `api-server-celery-beat` in `opencap-api-cluster` |
 
-   `python manage.py test .\tests\`
+Two things are not automated:
 
-Note: Some tests are not up to date and may fail.
-Note: test_permissions.SessionsPermissionsTests may result in errors on Windows, but should work in Ubuntu and macOS.
+- **Migrations.** If your change adds one, run `python manage.py migrate` against that environment's database after the deploy.
+- **Environment variables.** New settings have to be added to the ECS task definitions; they are not read from this repository.
 
-## Current routes (not up to date, there are more):
+## 🤝 Contributing
 
-/sessions/new/ -> returns session_id and the QR code
+1. Open an [issue](https://github.com/opencap-org/opencap-api/issues) describing the change first
+2. Branch off `dev`
+3. Open a pull request against `dev`, referencing the issue
 
-/sessions/<session_id>/status/?device_id=<device_id> <- devices use this link to register and get video_id
+`dev` is the integration branch. Changes reach production through a `dev` → `main` pull request. Since a push to `main` deploys production immediately, work should not target it directly.
 
-/sessions/<session_id>/record/ -> server uses this link to start recording
+## 📄 License
 
-/sessions/<session_id>/stop/ -> server uses this link to stop recording
- 
-/video/<video_id>/ <- devices use this link to upload the recorded video and parameters  
+Apache License 2.0 — see [LICENSE.md](LICENSE.md) for details.
