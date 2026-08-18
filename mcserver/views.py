@@ -1664,53 +1664,30 @@ class TrialViewSet(viewsets.ModelViewSet):
             workerType = self.request.query_params.get('workerType', 'all')
             isMonoQuery = self.request.query_params.get('isMono', 'False')
 
-            # Use a transaction to ensure atomicity
             with transaction.atomic():
-                # find trials with some videos not uploaded
-                not_uploaded = Video.objects.filter(video='',
-                                                    updated_at__gte=timezone.now() + timedelta(
-                                                        minutes=-15)).values_list("trial__id", flat=True)
+                # Trials are waiting-for-upload when a missing video was updated
+                # recently. Do not dequeue trials with non-uploaded videos
+                # or saved-local videos, within the 7 day updated-at window.
+                active_trial_cutoff = timezone.now() + timedelta(days=-4)
+                recent_video_cutoff = timezone.now() + timedelta(minutes=-15)
+                missing_video_q = Q(video='')
+                not_uploaded = Video.objects.filter(
+                    missing_video_q,
+                    trial__updated_at__gte=active_trial_cutoff,
+                ).filter(
+                    Q(updated_at__gte=recent_video_cutoff) |
+                    Q(saved_local=True)
+                ).values_list("trial__id", flat=True)
 
                 if isMonoQuery == 'False':
-                    uploaded_trials = Trial.objects.filter(updated_at__gte=timezone.now() + timedelta(days=-7)).exclude(
+                    uploaded_trials = Trial.objects.filter(updated_at__gte=active_trial_cutoff).exclude(
                         id__in=not_uploaded).exclude(session__isMono=True).select_for_update(skip_locked=True)
                 else:
-                    uploaded_trials = Trial.objects.filter(updated_at__gte=timezone.now() + timedelta(days=-7)).exclude(
+                    uploaded_trials = Trial.objects.filter(updated_at__gte=active_trial_cutoff).exclude(
                         id__in=not_uploaded).filter(session__isMono=True).select_for_update(skip_locked=True)
 
-            # Trials are waiting-for-upload when a missing video was updated
-            # recently. Do not dequeue trials with non-uploaded videos
-            # or saved-local videos, within the 7 day updated-at window.
-            active_trial_cutoff = timezone.now() + timedelta(days=-4)
-            recent_video_cutoff = timezone.now() + timedelta(minutes=-15)
-            missing_video_q = Q(video='')
-            not_uploaded = Video.objects.filter(
-                missing_video_q,
-                trial__updated_at__gte=active_trial_cutoff,
-            ).filter(
-                Q(updated_at__gte=recent_video_cutoff) |
-                Q(saved_local=True)
-            ).values_list("trial__id", flat=True)
-            
-
-            if isMonoQuery == 'False':
-                uploaded_trials = Trial.objects.filter(updated_at__gte=active_trial_cutoff).exclude(
-                                                        id__in=not_uploaded).exclude(session__isMono=True)
-            else:
-                uploaded_trials = Trial.objects.filter(updated_at__gte=active_trial_cutoff).exclude(
-                                                        id__in=not_uploaded).filter(session__isMono=True)
-
-            if workerType != 'dynamic':
-                # Priority for 'calibration' and 'neutral'
-                trials = uploaded_trials.filter(status="stopped",
-                                          name__in=["calibration","neutral"],
-                                          result=None)
-
-                trialsReprocess = uploaded_trials.filter(status="reprocess",
-                                          name__in=["calibration","neutral"],
-                                          result=None)
-
-                if trials.count() == 0 and workerType != 'calibration':
+                if workerType != 'dynamic':
+                    # Priority for 'calibration' and 'neutral'
                     trials = uploaded_trials.filter(status="stopped",
                                                     name__in=["calibration", "neutral"],
                                                     result=None)
@@ -1750,12 +1727,6 @@ class TrialViewSet(viewsets.ModelViewSet):
                     trialsPrioritized = trialsReprocess
 
                 trial = trialsPrioritized[0]
-
-                # Double-check that the trial is still in a claimable state
-                # This prevents race conditions where another worker might have claimed it
-                if trial.status not in ["stopped", "reprocess"]:
-                    raise Http404
-
                 trial.status = "processing"
                 trial.server = ip
                 trial.processed_count += 1
