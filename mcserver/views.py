@@ -1681,10 +1681,10 @@ class TrialViewSet(viewsets.ModelViewSet):
 
                 if isMonoQuery == 'False':
                     uploaded_trials = Trial.objects.filter(updated_at__gte=active_trial_cutoff).exclude(
-                        id__in=not_uploaded).exclude(session__isMono=True).select_for_update(skip_locked=True)
+                        id__in=not_uploaded).exclude(session__isMono=True)
                 else:
                     uploaded_trials = Trial.objects.filter(updated_at__gte=active_trial_cutoff).exclude(
-                        id__in=not_uploaded).filter(session__isMono=True).select_for_update(skip_locked=True)
+                        id__in=not_uploaded).filter(session__isMono=True)
 
                 if workerType != 'dynamic':
                     # Priority for 'calibration' and 'neutral'
@@ -1696,11 +1696,11 @@ class TrialViewSet(viewsets.ModelViewSet):
                                                              name__in=["calibration", "neutral"],
                                                              result=None)
 
-                    if trials.count() == 0 and workerType != 'calibration':
+                    if not trials.exists() and workerType != 'calibration':
                         trials = uploaded_trials.filter(status="stopped",
                                                         result=None)
 
-                    if trials.count() == 0 and trialsReprocess.count() == 0 and workerType != 'calibration':
+                    if not trials.exists() and not trialsReprocess.exists() and workerType != 'calibration':
                         trialsReprocess = uploaded_trials.filter(status="reprocess",
                                                                  result=None)
 
@@ -1711,31 +1711,36 @@ class TrialViewSet(viewsets.ModelViewSet):
                     trialsReprocess = uploaded_trials.filter(status="reprocess",
                                                              result=None).exclude(name__in=["calibration", "neutral"])
 
-                if trials.count() == 0 and trialsReprocess.count() == 0:
+                if not trials.exists() and not trialsReprocess.exists():
                     raise Http404
 
                 # prioritize admin and priority group trials (priority group doesn't exist yet, but should have same priv. as user)
                 trialsPrioritized = trials.filter(session__user__groups__name__in=["admin"])
                 # if no admin trials, go to priority group trials
-                if trialsPrioritized.count() == 0:
+                if not trialsPrioritized.exists():
                     trialsPrioritized = trials.filter(session__user__groups__name__in=["priority"])
                 # if not priority trials, go to normal trials
-                if trialsPrioritized.count() == 0:
+                if not trialsPrioritized.exists():
                     trialsPrioritized = trials
                 # if no normal trials, go to reprocess trials
-                if trials.count() == 0:
+                if not trials.exists():
                     trialsPrioritized = trialsReprocess
 
-                trial = trialsPrioritized[0]
-                trial.status = "processing"
-                trial.server = ip
-                trial.processed_count += 1
-                trial.save()
+                trial = trialsPrioritized.select_for_update(
+                    skip_locked=True,
+                    of=("self",)
+                ).first()
 
-                if (not trial.session.server) or len(trial.session.server) < 1:
-                    session = Session.objects.get(id=trial.session.id)
-                    session.server = ip
-                    session.save()
+                if trial:
+                    trial.status = "processing"
+                    trial.server = ip
+                    trial.processed_count += 1
+                    trial.save()
+
+                    if (not trial.session.server) or len(trial.session.server) < 1:
+                        session = Session.objects.get(id=trial.session.id)
+                        session.server = ip
+                        session.save()
 
                 serializer = TrialSerializer(trial, many=False)
 
